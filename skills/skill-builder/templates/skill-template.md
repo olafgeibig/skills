@@ -178,7 +178,7 @@ another-diagnostic-command
 
 # Supporting Files
 
-Create a `reference/` directory for detailed documentation:
+If SKILL.md becomes too long or has multiple detailed sections, create a `reference/` directory:
 
 ```bash
 mkdir -p reference

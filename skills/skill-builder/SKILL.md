@@ -138,17 +138,15 @@ const execAsync = promisify(exec);
 
 - Create the skill directory in the appropriate location
 - Write the SKILL.md with YAML frontmatter
-- Create `reference/` directory for detailed documentation:
-  ```bash
-  mkdir -p skill-name/reference
-  ```
-- Move detailed content to reference/ directory with intention-revealing names:
-  - Detailed methodology → `reference/methodology.md`
-  - Extensive examples → `reference/examples.md`
-  - Command references → `reference/command-reference.md`
-- Reference files in SKILL.md with `./reference/filename.md` paths
+- If SKILL.md is approaching 500 lines or has multiple detailed sections:
+  - Create `reference/` directory: `mkdir -p skill-name/reference`
+  - Move detailed content to reference/ with intention-revealing names:
+    - Detailed methodology → `reference/methodology.md`
+    - Extensive examples → `reference/examples.md`
+    - Command references → `reference/command-reference.md`
+  - Reference files in SKILL.md with `./reference/filename.md` paths
 - If scripts are needed, use Node.js with modern ESM syntax in `scripts/` directory
-- Organize instructions for clarity and progressive disclosure (keep SKILL.md under 500 lines)
+- Keep SKILL.md focused on core workflow (under 500 lines)
 
 ## 5. Validate
 
@@ -174,10 +172,11 @@ When refining existing skills:
    - Test if description matches typical user queries
 
 2. **Improve Organization**: Use progressive disclosure
-   - Create `reference/` directory: `mkdir -p reference`
-   - Move detailed content to `reference/` with intention-revealing names
+   - If SKILL.md is too long or has multiple detailed sections:
+     - Create `reference/` directory: `mkdir -p reference`
+     - Move detailed content to `reference/` with intention-revealing names
+     - Reference files with relative paths (e.g., `./reference/processing-details.md`)
    - Keep SKILL.md focused on core instructions (under 500 lines)
-   - Reference files with relative paths (e.g., `./reference/processing-details.md`)
 
 3. **Add Supporting Files**:
    - Templates for common patterns
