@@ -9,6 +9,10 @@ triggers:
   - linux on mac
   - container run
 license: Apache-2.0
+compatibility: Requires Apple Container tool installed and macOS 26+ (Apple Silicon)
+metadata:
+  source: https://github.com/olafgeibig/skills
+  version: "0.1.0"
 ---
 
 # Apple Container Usage

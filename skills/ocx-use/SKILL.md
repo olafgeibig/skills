@@ -1,6 +1,10 @@
 ---
 name: ocx-use
 description: Use this skill when managing OpenCode extensions with OCX (OpenCode eXtensions). This includes installing components from registries, using Ghost Mode for cross-repository development, auditing changes with SHA-256 verification, managing dependencies, configuring registries, or performing component updates and version management. Invoke for tasks involving ocx init, ocx add, ocx update, ocx diff, ocx ghost, or OCX registry operations.
+compatibility: Requires OCX installed and internet access for registry operations
+metadata:
+  source: https://github.com/olafgeibig/skills
+  version: "0.1.0"
 ---
 
 # OCX Manager

@@ -75,6 +75,12 @@ Since SKILL.md files are executable code (not documentation), changes should be 
 - **chore**: Maintenance tasks (updating tool versions, cleaning up examples)
 - **docs**: Only for changes to reference/ directory or AGENTS.md itself
 
+**Version Updates:**
+Update `metadata.version` in SKILL.md when making changes:
+- **feat**: Increment minor version (0.1.0 → 0.2.0)
+- **fix**: Increment patch version (0.1.0 → 0.1.1)
+- **refactor**/`chore`/`docs**: No version change needed
+
 **Examples:**
 ```
 feat(csv-processor): add xsv integration for filtering
@@ -107,8 +113,13 @@ When working on skills:
 1. Create feature branch: `git checkout -b feat/add-new-skill`
 2. Use skill-builder skill to create/edit the skill
 3. Validate skill conventions
-4. Commit with conventional commit message
-5. Push and create PR if needed
+4. Update `metadata.version` in SKILL.md according to semantic versioning:
+   - `feat`: Increment minor version (0.1.0 → 0.2.0)
+   - `fix`: Increment patch version (0.1.0 → 0.1.1)
+   - `refactor`/`chore`: No version change needed
+   - `docs`: No version change needed
+5. Commit with conventional commit message
+6. Push and create PR if needed
 
 ## Core Conventions
 
@@ -235,6 +246,7 @@ After creating/editing a skill:
 - [ ] Scripts are Node.js (not Python)
 - [ ] Examples complete and runnable
 - [ ] Commit message follows conventional commits format
+- [ ] Metadata includes `source` (git repository URL) and `version` (e.g., "0.1.0")
 
 ## Documentation Resources
 

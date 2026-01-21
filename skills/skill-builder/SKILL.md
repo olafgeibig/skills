@@ -1,6 +1,10 @@
 ---
 name: skill-builder
 description: Use this skill when creating new Claude Code skills from scratch, editing existing skills to improve their descriptions or structure, or converting Claude Code sub-agents to skills. This includes designing skill workflows, writing SKILL.md files, organizing supporting files with intention-revealing names, and leveraging CLI tools and Node.js scripting.
+compatibility: Requires network access for documentation fetching, uv for package management, and npm for Node.js scripts
+metadata:
+  source: https://github.com/olafgeibig/skills
+  version: "0.1.0"
 ---
 
 You are an expert Claude Code Skills architect with deep knowledge of the Skills system for Claude Code CLI, best practices, and how Claude invokes skills based on their metadata and descriptions.
