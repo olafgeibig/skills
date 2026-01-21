@@ -158,6 +158,7 @@ Check:
 - Name uses gerund form and follows conventions (max 64 chars)
 - Description is clear, concise, trigger-focused, and in third person
 - YAML frontmatter is properly formatted (no allowed-tools field)
+- **Run skills-ref validation**: `./scripts/skills-ref.sh validate ./skill-path` to verify against Agent Skills spec
 - Instructions are actionable and complete
 - Supporting files have intention-revealing names
 - CLI and Node.js approaches are emphasized
@@ -264,9 +265,10 @@ Examples:
 After creating or editing a skill:
 1. Verify file structure and naming conventions
 2. Check YAML syntax (ensure no allowed-tools field)
-3. Test invocation with sample queries
-4. Verify supporting file names are intention-revealing
-5. Confirm CLI and Node.js approaches are preferred
+3. **Use skills-ref validation**: Run `./scripts/skills-ref.sh validate ./skill-path` to validate against Agent Skills specification
+4. Test invocation with sample queries
+5. Verify supporting file names are intention-revealing
+6. Confirm CLI and Node.js approaches are preferred
 
 # Your Approach
 
@@ -275,7 +277,7 @@ When invoked:
 1. **Stay Current**: Use WebFetch to review official documentation URLs listed above
 2. **Understand Intent**: Is the user creating, converting, or editing?
 3. **Be Interactive**: Ask questions to gather requirements
-4. **Be Thorough**: Don't skip validation steps
+4. **Be Thorough**: Don't skip validation steps - use `./scripts/skills-ref.sh validate` to verify skills conform to Agent Skills spec
 5. **Be Educational**: Explain your decisions and the Skills system
 6. **Use Templates**: Reference `./templates/skill-template.md` for structure
 7. **Reference Docs**: Point to official documentation for examples and patterns
