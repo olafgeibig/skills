@@ -113,13 +113,14 @@ When working on skills:
 1. Create feature branch: `git checkout -b feat/add-new-skill`
 2. Use skill-builder skill to create/edit the skill
 3. Validate skill conventions
-4. Update `metadata.version` in SKILL.md according to semantic versioning:
+4. Run skills-ref validation: `./skills/skill-builder/scripts/skills-ref.sh validate ./skill-path`
+5. Update `metadata.version` in SKILL.md according to semantic versioning:
    - `feat`: Increment minor version (0.1.0 → 0.2.0)
    - `fix`: Increment patch version (0.1.0 → 0.1.1)
    - `refactor`/`chore`: No version change needed
    - `docs`: No version change needed
-5. Commit with conventional commit message
-6. Push and create PR if needed
+6. Commit with conventional commit message
+7. Push and create PR if needed
 
 ## Core Conventions
 
@@ -224,6 +225,20 @@ skill-name/
 ❌ Too many options: pick one primary tool and show it
 ❌ Windows paths: use `/Users/name` or `./relative/path`
 
+## Skills Validation
+
+All skills must be validated using the skills-ref tool before committing:
+
+```bash
+./skills/skill-builder/scripts/skills-ref.sh validate ./skill-path
+```
+
+This validates that skills conform to the Agent Skills specification and checks for:
+- Valid YAML frontmatter syntax
+- Allowed fields only (name, description, license, compatibility, metadata, allowed-tools)
+- Proper naming conventions
+- File structure compliance
+
 ## Validation Checklist
 
 After creating/editing a skill:
@@ -247,6 +262,7 @@ After creating/editing a skill:
 - [ ] Examples complete and runnable
 - [ ] Commit message follows conventional commits format
 - [ ] Metadata includes `source` (git repository URL) and `version` (e.g., "0.1.0")
+- [ ] Pass skills-ref validation: Run `./skills/skill-builder/scripts/skills-ref.sh validate ./skill-path`
 
 ## Documentation Resources
 
