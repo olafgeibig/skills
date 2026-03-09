@@ -169,25 +169,9 @@ gh pr create [with flags]
 
 **Emphasis:**
 - Use CLI tools liberally: `gh`, `aws`, `npm`, `git`, `jq`, domain tools
-- Use Node.js v24+ with ESM for scripts (`.js` files, not TypeScript)
-- Prefer global NPM packages: `npm install -g csv-parse`
 - Show how to chain CLI operations
 
-**Node.js Script Template:**
-```javascript
-#!/usr/bin/env node
-import { readFile } from 'fs/promises';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
-
-// Implementation
-```
-
 **Avoid:**
-- Python scripts (use Node.js)
-- TypeScript in scripts (use .js)
 - Ad-hoc approaches without leveraging existing CLI tools
 
 ### File Organization
