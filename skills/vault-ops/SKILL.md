@@ -1,32 +1,53 @@
 ---
 name: vault-ops
-description: "Use this skill when working with vaults of makdown notes like Obsidian vaults: searching, creating, moving, or deleting notes. Triggers: vault, obsidian, note, markdown note"
+description: "Use this skill when working with a markdown notes vault such as Obsidian. It defines a default workflow for selecting a vault, reading vault-local instructions, navigating notes, writing regular notes, and maintaining Maps of Content (MoCs). Triggers: vault, obsidian, notes vault, moc, map of content, markdown notes."
 metadata:
   version: "0.1.0"
   source: https://github.com/olafgeibig/skills
 ---
 
-## Vault Ops
+# Vault Ops
 
-Vault Ops is an opinionated approach for managing a vault of notes. It assumes certain concepts like MOCs and using topic links.
+Use this skill as the default workflow for working with a vault of markdown notes.
 
-## Contents of a vault
+## Workflow
 
-A notes vault is a normal folder on disk that contains markdown files with an extended syntax. A typical note is basically a markdown file that has a yaml section at the top with document properties. Notes can be linked by using a wiki-link notation [[page-name]]. Effectively this is building a knowledge-graph consisting of notes.
+1. Read `./.vault-ops.json` from the current workspace to discover known vaults. If it does not exist, follow `./reference/managing-vaults.md`.
+2. Select the vault:
+   - If the user names a vault, use it.
+   - If exactly one vault exists, use it.
+   - If multiple vaults exist and the user did not name one, ask which vault to use.
+3. Read the selected vault's root `AGENTS.md` if it exists.
+4. Read any vault-local files referenced by that `AGENTS.md` before doing work.
+5. Follow vault-local instructions first. Use this skill's reference files only as defaults.
+6. Route the task:
+   - navigation, search, discovery -> `./reference/navigating-vaults.md`
+   - regular note creation or editing -> `./reference/note-writing.md`
+   - MoC creation or editing -> `./reference/moc-writing.md`
 
-Typical vault structure:
-- Notes: `*.md` (plain text Markdown; edit with any editor)
-- Config: `.obsidian/` (workspace + plugin settings; usually don’t touch from scripts)
-- Folders: to structure the vault
-- AGENTS.md: instructions how to work with the vault - MUST READ (if exists in vault root)
+## Instruction Precedence
 
-Read the config file `<your-workspce-dir>/.vault-ops.json` to know the vaults and their properties. If the file does not exist, follow the instructions in `<skill-dir>/references/managing-vaults.md`.
+- The selected vault's root `AGENTS.md` overrides this skill.
+- Files referenced by that vault `AGENTS.md` also override this skill.
+- `./reference/*.md` contains default conventions to use only when the vault does not define a more specific rule.
 
-## Working with a vault
+## Vault Basics
 
-If there is more than one vault, the user must name the vault in the request. If the user didn't name it, you assume the default vault. First read the AGENTS.md. It explains the setup of the vault and the specifics how to use it. It often also contains a README.md that explains the context of the vault, contains definitions and a glossary.
+A notes vault is a normal folder on disk that contains markdown files. Notes typically use frontmatter plus wiki links such as `[[page-name]]` to create a navigable graph.
 
-When navigating the vault, follow the instructions in `<skill-dir>/references/navigating-vaults.md`.
+Typical vault contents:
+- `*.md` notes
+- `.obsidian/` configuration for Obsidian-based vaults
+- folders for structure
+- `AGENTS.md` for vault-specific operating rules
 
-## Working with notes
-When writing, editing or updating notes, follow the instructions in `<skill-dir>/references/note-writing.md`.
+Do not modify `.obsidian/` unless the user explicitly asks.
+
+## References
+
+- Vault discovery and setup: `./reference/managing-vaults.md`
+- Vault navigation defaults: `./reference/navigating-vaults.md`
+- Regular note defaults: `./reference/note-writing.md`
+- MoC defaults: `./reference/moc-writing.md`
+- Default note template: `./reference/note-template.md`
+- Default MoC template: `./reference/moc-template.md`
