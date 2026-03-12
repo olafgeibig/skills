@@ -1,11 +1,11 @@
 ---
-name: lossless-claw-skill
+name: lossless-claw-use
 description: "Use this skill when installing, configuring, tuning, or troubleshooting the lossless-claw plugin in OpenClaw. It covers context engine setup, LCM compaction tuning, agent memory tools (`lcm_grep`, `lcm_describe`, `lcm_expand_query`), database operations, TUI maintenance workflows, and optional FTS5 runtime enablement. Triggers: lossless-claw, LCM, OpenClaw context engine, summary DAG, lcm-tui, lcm_expand_query."
 license: Apache-2.0
 compatibility: Requires OpenClaw with plugin slots support, Node.js 22+, and an LLM provider configured for summarization
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.1.0"
+  version: "0.1.4"
 ---
 
 # Lossless Claw Helper

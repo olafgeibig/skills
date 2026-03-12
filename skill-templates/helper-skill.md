@@ -8,7 +8,7 @@
 ## File Structure
 {The structure of the skill and it references with explanations, see example}
 
-memory-lancedb-pro-skill/
+memory-lancedb-pro-use/
 ├── SKILL.md                                  # Main skill file (architecture, workflows, design decisions)
 ├── references/
 │   ├── retrieval_pipeline.md                 # Retrieval pipeline deep dive
