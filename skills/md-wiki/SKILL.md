@@ -25,7 +25,7 @@ metadata:
         default: "~/wiki"
         prompt: Wiki directory path
   source: https://github.com/olafgeibig/skills
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # Multi-Domain LLM Wiki
@@ -497,12 +497,12 @@ When the user asks to lint, health-check, or audit the wiki:
 
 **Scripted lint** (preferred — runs all checks in one pass):
 ```bash
-python3 ~/.hermes/skills/md-wiki/scripts/lint_wiki.py \
-  --wiki /home/olaf/vaults/akademeia/wiki \
+python3 ./scripts/lint_wiki.py \
+  --wiki /path/to/wiki/root/directory \
   [--domain rlm]
 ```
 Output: broken links, low-outbound pages (with targets), orphans.
-The script is a **scanner only** — the agent interprets the output and fixes each issue manually. A script cannot judge whether a link replacement is semantically correct; only the agent can pick the right substitute page.
+The script is a **scanner only** — the agent interprets the output and fixes each issue manually. A script cannot judge whether a link replacement is semantically correct; only the agent can pick the right substitute page. Usually lint only the domain wiki where changes were applied. Link without domainj if cross-domain updates had been made.
 
 **Per-wiki lint** — same checks as the original skill, scoped to one domain wiki:
 
