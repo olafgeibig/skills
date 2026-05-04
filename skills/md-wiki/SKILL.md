@@ -25,7 +25,7 @@ metadata:
         default: "~/wiki"
         prompt: Wiki directory path
   source: https://github.com/olafgeibig/skills
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Multi-Domain LLM Wiki
@@ -445,7 +445,22 @@ using the rules above (explicit → abstract match → ask).
      Check that existing pages link back.
    - **Tags:** Only use tags from the taxonomy in the target wiki's `SCHEMA.md`
 
-⑥ **Update navigation** in the target wiki:
+⑥ **Propagate cross-links to related pages in other wikis:**
+   When a new or updated page in wiki A relates to an existing concept in wiki B,
+   add a wikilink from that existing wiki B page to the new wiki A page — don't
+   wait to be asked. Example: adding `recursive-mode` (file-based solution) to RLM
+   wiki triggered adding `context-rot` concept to RLM and linking it from the
+   existing `repl-based-inference` page. This keeps the federation coherent and
+   ensures cross-wiki relationships surface in Obsidian's graph view.
+
+   Steps:
+   a. After creating the new page, scan it for topics that likely exist elsewhere
+      (e.g., shared problem: "context rot", shared technique: "reflection")
+   b. `search_files` across the entire wiki root for those topics
+   c. If found in another wiki, add a wikilink from that existing page to the
+      new page, with a brief note in the link text
+
+⑦ **Update navigation** in the target wiki:
    - Add new pages to the target wiki's `index.md` under the correct section, alphabetically
    - Update the "Total pages" count and "Last updated" date in the target wiki's index header
    - Append to the target wiki's `log.md`: `## [YYYY-MM-DD] ingest | Source Title`
@@ -480,48 +495,89 @@ When the user asks a question about the wiki's domain:
 
 When the user asks to lint, health-check, or audit the wiki:
 
+**Scripted lint** (preferred — runs all checks in one pass):
+```bash
+python3 ~/.hermes/skills/md-wiki/scripts/lint_wiki.py \
+  --wiki /home/olaf/vaults/akademeia/wiki \
+  [--domain rlm]
+```
+Output: broken links, low-outbound pages (with targets), orphans.
+The script is a **scanner only** — the agent interprets the output and fixes each issue manually. A script cannot judge whether a link replacement is semantically correct; only the agent can pick the right substitute page.
+
 **Per-wiki lint** — same checks as the original skill, scoped to one domain wiki:
 
-① **Orphan pages:** Find pages with no inbound `[[wikilinks]]` from other pages.
-Use `execute_code` for a programmatic scan: iterate all `.md` files in the
-domain wiki's `entities/`, `concepts/`, `comparisons/`, and `queries/` directories, extract every `[[wikilink]]` to build
-an inbound-link map. Pages with zero inbound links are orphans.
+① **Broken wikilinks:** Find `[[links]]` that point to pages that don't exist.
+   ```
+   Scan all .md files in entities/, concepts/, comparisons/, queries/ (NOT raw/).
+   Build set of all valid page targets (without .md extension).
+   For each [[wikilink]] found, check if target resolves.
+   Broken links: [[wikilinks]] pointing to non-existent pages.
+   Expected: only SCHEMA.md template examples are broken — those are fine.
+   ```
 
-② **Broken wikilinks:** Find `[[links]]` that point to pages that don't exist.
+② **Outbound link count (wiki pages only):** Every wiki page in entities/,
+   concepts/, comparisons/, queries/ must have at least 2 outbound wikilinks
+   to OTHER wiki pages (not raw/ sources). Raw sources are exempt.
+   ```
+   For each wiki .md file (skip raw/):
+     Extract all [[wikilinks]] → outbound count
+     Filter out raw/ links
+     If count < 2 → flag as issue
+   ```
+   **This is the most common failure mode.** Add missing "Verwandte Konzepte"
+   or "Verwandte Seiten" sections to fix.
 
-③ **Index completeness:** Every wiki page should appear in the domain wiki's
+③ **Frontmatter validation:** Every wiki page (entities/, concepts/,
+   comparisons/, queries/) must have all required fields:
+   title, created, type. Tags must be in the taxonomy.
+   ```
+   Note: index.md, log.md, SCHEMA.md are meta-files — skip them.
+   Raw sources: check if they have frontmatter (Olaf's wiki expects it).
+   ```
+
+④ **Index completeness:** Every wiki page should appear in the domain wiki's
    `index.md`. Compare the filesystem against index entries.
 
-④ **Frontmatter validation:** Every wiki page must have all required fields
-   (title, created, updated, type, tags, sources). Tags must be in the taxonomy.
+⑤ **Orphan pages:** Pages with no inbound links from other wiki pages.
+   ```
+   Build inbound-link map from all wikilinks.
+   Pages in entities/, concepts/, comparisons/, queries/ with 0 inbound = orphan.
+   Raw/ pages are always orphans by design — skip them.
+   Meta files (index, log, SCHEMA) are always orphans — skip them.
+   ```
 
-⑤ **Stale content:** Pages whose `updated` date is >90 days older than the most
-   recent source that mentions the same entities.
+⑥ **Tag taxonomy:** List all tags on wiki pages, flag any not in the domain
+   wiki's `SCHEMA.md` taxonomy. Raw sources use their own tag conventions — skip.
 
-⑥ **Contradictions:** Pages on the same topic with conflicting claims. Look for
-   pages that share tags/entities but state different facts.
+⑦ **Stale content:** Pages whose `updated` date is >90 days older than the
+   most recent source that mentions the same entities.
 
-⑦ **Page size:** Flag pages over 200 lines — candidates for splitting.
-
-⑧ **Tag audit:** List all tags in use, flag any not in the domain wiki's
-   `SCHEMA.md` taxonomy.
+⑧ **Page size:** Flag pages over 200 lines — candidates for splitting.
 
 ⑨ **Log rotation:** If the domain wiki's `log.md` exceeds 500 entries, rotate it.
 
 ⑩ **Report findings** with specific file paths and suggested actions, grouped by
-   severity (broken links > orphans > stale content > style issues).
+   severity (broken links > missing outbound links > orphans > stale > style).
 
-⑪ **Append to the domain wiki's `log.md`:** `## [YYYY-MM-DD] lint | N issues found`
+⑪ **Fix issues iteratively:** After fixing, re-run the relevant checks.
+   The typical pattern is: fix page A → discover page B now has outbound links
+   → fix page B → discover page C is now orphan → fix page C.
+   Do NOT fix all pages in one pass without re-checking.
+
+⑫ **Append to the domain wiki's `log.md`:** `## [YYYY-MM-DD] lint | N issues found`
 
 **Cross-wiki lint** — new checks that span the entire federation:
-
-⑫ **Broken cross-wiki links:** Find `[[wiki-name/<type>/...]]` links that point
-    to pages that don't exist in the target wiki. Scan all domain wikis for
-    these path-based links and verify the target path resolves.
 
 ⑬ **Hub drift:** Check that root `index.md` hub sections match what's on disk.
     Flag domain directories on disk not listed in the hub, and hub sections
     with no matching domain directory.
+    ```bash
+    # Hub sections (from index.md):
+    grep "^## " "$WIKI/index.md" | sed 's/^## //'
+    # Disk wikis (with SCHEMA.md):
+    for d in "$WIKI"/*/; do [ -f "$d/SCHEMA.md" ] && basename "$d"; done
+    ```
+    A wiki must have a SCHEMA.md to count as a real domain wiki.
 
 ## Working with the Wiki
 
@@ -596,16 +652,33 @@ For best results:
 If using the Obsidian skill alongside this one, set `OBSIDIAN_VAULT_PATH` to the
 same directory as the wiki root path.
 
-## Pitfalls
+## Wiki Area Setup
+
+The wiki is structured as an **internal knowledge base** — wiki pages link only to other wiki pages via `[[wikilinks]]`. Cross-linking from the vault (area/ notes, MoCs) into the wiki is one-directional: vault notes reference the wiki, but wiki pages do **not** back-link to vault area notes or MoCs.
+
+This means:
+- **MoC linking**: Area MoCs may contain a `## Wiki` section with links like `[[wiki/hermes-agent/index|Wiki]]` to point users from the vault into the wiki for a domain
+- **No wiki backlinks**: Wiki pages should never contain `[[area/...]]` links or back-link to vault MoCs or area notes
+- **Cross-wiki only**: Wiki pages link to other wiki pages (`[[other-wiki/concepts/page]]`) or external URLs
 
 - **Never modify files in `raw/`** — sources are immutable. Corrections go in wiki pages.
 - **Always orient first** — read root `index.md` (hub) then the target wiki's
   SCHEMA + index + recent log before any operation in a new session. Skipping
   this causes duplicates and missed cross-references.
+- **Always read index.md before patching it** — when adding entries via `patch`,
+  read the file first to see what already exists. Targeted patches can easily
+  create duplicate headers or duplicate entries. Use `write_file` for index.md
+  if unsure, or read-before-patch to avoid duplication.
 - **Always read the hub first** — before any operation, read root `index.md` (the hub).
   Never skip orientation.
 - **Always update index.md and log.md** — skipping this makes the wiki degrade.
   These are the navigational backbone. Update them in the correct domain wiki.
+- **Don't create a "summary page" instead of wiki pages** — when ingesting sources,
+  the output is N individual wiki pages (one per entity/concept), NOT a single
+  summary document. A source about "Wohnwagen-Kauf" should produce:
+  `feuchtigkeitsschaden.md` + `gasanlage.md` + `wohnwagen-marken.md` + etc.
+  If you find yourself writing one long file that summarizes everything, STOP —
+  you are making a summary, not a wiki. The schema demands one topic = one page.
 - **Don't create pages for passing mentions** — follow the Page Thresholds in
   the domain wiki's SCHEMA.md. A name appearing once in a footnote doesn't
   warrant an entity page.
@@ -630,3 +703,9 @@ same directory as the wiki root path.
   claims with dates, mark in frontmatter, flag for user review.
 - **Keep hub abstracts current** — when a domain wiki's scope changes, update
   the abstract in root `index.md`. Stale abstracts cause routing failures.
+- **Lint fixes cascade — always re-check.** The outbound-link check is the
+  most common failure. Fixing one page often reveals the next. Run lint
+  iteratively until clean.
+- **Raw sources may need frontmatter.** In Olaf's camp wiki, raw sources have
+  title/created/type frontmatter. In other wikis, they may not. Check the
+  domain SCHEMA and user preferences. If in doubt, add it — it enables linting.
