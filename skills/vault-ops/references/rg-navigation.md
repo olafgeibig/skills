@@ -2,6 +2,8 @@
 
 Use this when TurboVault MCP tools are not available. This workflow emulates MoC-based graph navigation using ripgrep + filesystem reads.
 
+Scope note: by default, exclude `wiki/` and `system/` from navigation/search unless the user explicitly asks for them.
+
 ## 1) Navigate via MoCs (best-effort graph traversal)
 
 Goal: follow the vault’s intended navigation path (MoCs -> notes) before running broad keyword search.

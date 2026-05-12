@@ -5,7 +5,7 @@ The graph starts at the `+Index.md` root MoC. It links to all area and project r
 
 ## Rules
 
-- All notes and MoCs must integrate into the vault graph, except files in directories `inbox`, `wiki` and `system`
+- All notes and MoCs must integrate into the vault graph, except files in directories `inbox`, `wiki`, and `system`.
 - The `description` field in the frontmatter functions as a retrieval filter, not a content summary. Optimize it for search discoverability and progressive disclosure.
 - A note should be linked to and from at least one MoC (topic).
 - Two related notes there should always be bi-directionally linked.

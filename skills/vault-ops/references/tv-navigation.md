@@ -1,6 +1,8 @@
 # TurboVault navigation
 
-## 1) Navigate via MoC graph traversal (primary)
+Use this when TurboVault MCP tools are available. Prefer graph- and metadata-aware queries over filesystem scanning.
+
+Scope note: by default, exclude `wiki/` and `system/` from navigation/search unless the user explicitly asks for them.
 
 Goal: follow the vault’s intended navigation path (MoCs -> notes) instead of doing global keyword search first.
 
