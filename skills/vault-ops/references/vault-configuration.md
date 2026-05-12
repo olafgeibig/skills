@@ -49,10 +49,10 @@ Check if rg is installed, e.g. do `rg --version`. Set the flag. If it is not ins
 
 ### turbovault
 For turbovault we need a two stage check
-1. Check if it is installed. Do `turbovault --version`. if yes, move on to stage 2. If it is not installed, tell the user and warn the user that without turbovault the skill will fall back to ripgrep and will miss safety and search features. Point to turbovault at `https://github.com/Epistates/turbovault`, explain that mcp server should run with with `--profile production` option.
-2. Check if the turbovault MCP server is available. Try to use `mcp_turbovault_list_vaults`. If it can be called, even if result is empty, turbovault is available.
+1. Check if TurboVault CLI is installed. Run `turbovault --version`. If it is not installed, tell the user and warn that without TurboVault the skill will fall back to ripgrep and will miss safety and search features. Point to `https://github.com/Epistates/turbovault`.
+2. Check if the TurboVault MCP server is available (this is what the agent actually uses). Try to call `mcp_turbovault_list_vaults`. If the tool call succeeds (even with an empty list), TurboVault MCP is available.
 
-If both checks are successful, set the turbovault flag to true, otherwise, false.
+If stage (2) succeeds, set the turbovault flag to true. Otherwise set it to false.
 
 
 ## Detect vaults

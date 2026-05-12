@@ -1,12 +1,28 @@
 Vault Ops
 
-vault-ops is an opinionated workflow for working with a markdown notes vault (e.g. Obsidian) as a navigable notes-graph.
+Concept (refactor towards TurboVault)
 
-Core idea:
-- Use MoCs (Maps of Content) as curated navigation notes (index pages) that form the spine of the graph.
-- Use consistent frontmatter (description/type/updated/tags/topics) so notes are machine-queryable and can be traversed reliably.
-- Enforce topological linking: every note belongs to one or more MoCs via frontmatter topics and an explicit inline wikilink, so the graph remains connected for both search and navigation.
+vault-ops used to be a workflow that primarily operated on a markdown notes vault (e.g. Obsidian) via ripgrep and standard filesystem file tools.
 
-How it adapts:
-- The selected vault’s root AGENTS.md is authoritative and can override this skill’s defaults (structure, templates, tags, language).
-- If TurboVault is available, prefer its MCP tools for safe reads/edits and vault health checks; otherwise fall back to ripgrep and filesystem operations.
+Now vault-ops is being reoriented around TurboVault (an MCP server): TurboVault is installed, the MCP tools are available, and the agent can use them to work in the vault both more safely and more powerfully.
+
+Why TurboVault:
+- Safer edits: notes can be moved/renamed with less risk of breaking vault consistency.
+- Advanced navigation and search:
+  - Traversing the notes graph (links/backlinks)
+  - SQL queries over frontmatter
+  - Fast keyword search (BM25) and additional analysis tools
+
+Graph navigation as the core principle
+- MoCs (Maps of Content) are curated navigation nodes (index pages), typically as +*.md.
+- Notes attach to one or more MoCs via frontmatter (topics) and explicit wikilinks.
+- The goal is a connected, traversable graph: entry via +Index, from there via MoCs to notes and back.
+
+First concrete task (rework navigation)
+1) Search the vault via graph traversal along MoCs and linked notes.
+2) Search frontmatter (e.g. via SQL / metadata queries).
+3) Search notes by keywords (BM25 / full-text).
+
+Note
+- Vault-local rules in the selected vault’s AGENTS.md are authoritative and may override these defaults.
+- If TurboVault is not available, vault-ops falls back to ripgrep and filesystem operations.

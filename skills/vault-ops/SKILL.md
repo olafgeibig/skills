@@ -124,6 +124,8 @@ topics: [array of links to MoCs]
 - Writing new notes: `./references/note-writing.md`
 - Writing new MoCs: `./references/moc-writing.md`
 - Understanding the vault graph: `./references/vault-graph.md`
+- Navigating the vault with rg: `./references/rg-navigation.md`
+- Navigating the vault with turbovault: `./references/tv-navigation.md`
 
 ## Workflows 
 

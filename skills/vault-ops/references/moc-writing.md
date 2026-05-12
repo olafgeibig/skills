@@ -26,6 +26,14 @@ An MoC must integrate into the vault graph, see `./references/vault-graph.md`
 - If a topic becomes too broad, create sub-MoCs and link them from the parent MoC.
 - Keep the parent MoC as the entry point and push detailed navigation into nested MoCs.
 
+## Required linking for sub-MoCs
+
+When you introduce a sub-MoC:
+- The parent MoC must explicitly link to the sub-MoC in its curated link list.
+- The sub-MoC must link back to the parent MoC via `topics` and an explicit inline wikilink.
+
+Rationale: nested MoCs are only useful if they are discoverable through the graph.
+
 ## Maintenance
 
 - Update continuously.
