@@ -9,6 +9,8 @@ metadata:
 
 # Vault Ops
 
+Use this skill to manage a navigable notes-graph built from MoCs (Maps of Content) and frontmatter metadata that stays queryable and traversable.
+
 Use this skill as the default workflow for working with a vault of markdown notes. Vault-ops has an opinionated approach how to manage a vault following Obsidian vault best-practices regarding the top level directory structure and note types. Vault specifics can be defined in the vault's AGENTS.md. The skill works best with turbovault to interact with the vault safely. 
 
 ## Responsibility Split
@@ -21,16 +23,16 @@ Always read
 - Main directory structure
 - Decide if references needs to be read
 
-### Vault (AGENTS.md)
-Always read
+### Vault instructions
+Always read AGENTS.md
 - Sync method and handling
 - Note types and templates
 - Directory structure details
 - Language preferences
 - Tagging 
 
-### Vault Context (VAULT.md)
-Read if deeper understanding of the vault is needed.
+### Vault Context (optional)
+Read VAULT.md if deeper understanding of the vault is needed.
 Contains context to understand the vault content, e.g. a glossary of vault specific terms. More detailed context to understand the vault structure.
 
 ## Before starting to work on a vault
@@ -46,13 +48,13 @@ Follow instructions in `./references/vault-configuration.md`
 - If no active vault `list_vaults` and choose vault. Ask user if unclear. Then `set_active_vault`.
 - If the user asks to use a vault that is not known to turbovault, but is present in `~/.vault-ops.json` then just register it in turbovault.
 - If the user gives a full path to a vault and the vault is not registered, register it (`add_vault`) and add it to `~/.vault-ops.json` before proceeding.
-- refer to `./refrences/turbovault-*.md` 
+- refer to `./references/vault-configuration.md`
 
 **If turbovault is false**
 - Fallback to rg: Read `~/.vault-ops.json`  
 - If the user asks to use a vault you can not match to vaults in `~/.vault-ops.json` then ask the user.
 - If the user gives a full path to a vault and the vault is not in `~/.vault-ops.json` the add it.
-- refer to `./refrences/rg-*.md` 
+- refer to `./references/vault-configuration.md`
 
 If the user asks to check or validate the vault-ops configuration, then perform the instructions in `./references/vault-configuration.md` 
 
@@ -74,7 +76,7 @@ Read additionally `VAULT.md`
 
 - The selected vault's root `AGENTS.md` overrides this skill.
 - Files referenced by that vault `AGENTS.md` also override this skill.
-- `./reference/*.md` contains default conventions to use only when the vault does not define a more specific rule.
+- `./references/*.md` contains default conventions to use only when the vault does not define a more specific rule.
 
 ### Directory Structure
 Default structure that can be overridden and  extended in AGENTS.md
@@ -88,8 +90,8 @@ Default structure that can be overridden and  extended in AGENTS.md
 
 ### Note Types
 Use default templates unless defined different in AGENTS.md
-- ./references/note-template.md for notes
-- ./references/mpc-template.md for MoCs
+- ./assets/note-template.md for notes
+- ./assets/moc-template.md for MoCs
 
 ### Tags
 Default tags that can be overridden and extended in AGENTS.md
@@ -121,8 +123,7 @@ topics: [array of links to MoCs]
 
 - Writing new notes: `./references/note-writing.md`
 - Writing new MoCs: `./references/moc-writing.md`
-- Navigating the vault with rg: `./references/rg-navigation.md`
-- Navigating the vault with turbovault: `./references/turbovault-navigation.md`
+- Understanding the vault graph: `./references/vault-graph.md`
 
 ## Workflows 
 

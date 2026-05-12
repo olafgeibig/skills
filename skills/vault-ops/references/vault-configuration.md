@@ -1,22 +1,18 @@
 # Vault Configuration
 
-The vault-ops configuration file `~/.vault-ops.json` is in the user's home directory. It sets some flags and contains a lit of availabale vaults.
+The vault-ops configuration file `~/.vault-ops.json` is in the user's home directory. It sets some flags and contains a list of available vaults.
 
 File Format:
 
 ```json
 {
-  "version": 2
+  "version": 2,
   "rg": true,
   "turbovault": true,
-  "vaults": [
-    "personal": {
-      "path": "/home/user/Documents/personal"
-    },
-    "work-notes": {
-      "path": "/home/user/work/work-notes"
-    }
-  ]
+  "vaults": {
+    "personal": { "path": "/home/user/Documents/personal" },
+    "work-notes": { "path": "/home/user/work/work-notes" }
+  }
 }
 ```
 
@@ -27,8 +23,8 @@ if jq is not installed
   exit
 endif
 
-if .vault-ops.json is missing
-  create `~/.vault-ops.json`
+if ~/.vault-ops.json is missing
+  propose a `~/.vault-ops.json` content for the user to create
   detect tools
   detect vaults
   show results
@@ -56,7 +52,7 @@ For turbovault we need a two stage check
 1. Check if it is installed. Do `turbovault --version`. if yes, move on to stage 2. If it is not installed, tell the user and warn the user that without turbovault the skill will fall back to ripgrep and will miss safety and search features. Point to turbovault at `https://github.com/Epistates/turbovault`, explain that mcp server should run with with `--profile production` option.
 2. Check if the turbovault MCP server is available. Try to use `mcp_turbovault_list_vaults`. If it can be called, even if result is empty, turbovault is available.
 
-If both checks are successful, set the trubovaul flag to true, otherwise, false. 
+If both checks are successful, set the turbovault flag to true, otherwise, false.
 
 
 ## Detect vaults

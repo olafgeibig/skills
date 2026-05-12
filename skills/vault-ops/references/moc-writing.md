@@ -5,7 +5,7 @@ MoCs are navigation notes that emphasize relationships between notes through cur
 ## Naming
 
 - Unlike regular notes, MoCs must use a plain topic label as the title.
-- Prefix MoC filenames with a '+' sign and L1 titles to make them visually distinct in navigation and backlinks.
+- Prefix MoC filenames with a '+' sign to make them visually distinct in navigation and backlinks.
 - Examples: `+AI.md` with `# AI`, `+Personal Agents.md` with `# Personal Agents`
 
 ## Structure And Content

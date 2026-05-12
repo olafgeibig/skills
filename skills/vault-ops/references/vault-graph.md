@@ -1,13 +1,13 @@
 ## Vault Graph
-The vault graph is a way to navigate the vault. MoCs
+The vault graph is a way to navigate the vault with MoCs.
 
-The graph starts at the `+Index.md` root MoC. It links to all area and project root MoCs and they link back to the root MoC. MoCs can have sub-MoCs. The description propert of a note or MoC should always be like a short abstract, enough that an agent querying the frontmatter can decide if the note contains interesting information or links.
+The graph starts at the `+Index.md` root MoC. It links to all area and project root MoCs and they link back to the root MoC. MoCs can have sub-MoCs. The `description` property of a note or MoC must follow the SKILL.md definition and be good enough that an agent querying the frontmatter can decide if the note contains interesting information or links.
 
 ## Rules
 
 - All notes and MoCs must integrate into the vault graph, except files in directories `inbox`, `wiki` and `system`
 - The `description` field in the frontmatter functions as a retrieval filter, not a content summary. Optimize it for search discoverability and progressive disclosure.
-- A note should be linked to and from at lease one MoC (topic). 
+- A note should be linked to and from at least one MoC (topic).
 - Two related notes there should always be bi-directionally linked.
 
 ## Topological Linking
