@@ -1,7 +1,7 @@
 ---
-description: Brief description of what the MoC covers
+description: One sentence adding context beyond the title that provides context for navigation (~150 chars, no period)
 type: moc
-created: YYYY-MM-DD
+updated: YYYY-MM-DD
 tags: []
 topics: ["[[parent-moc]]"]
 ---
@@ -10,17 +10,9 @@ topics: ["[[parent-moc]]"]
 
 Brief orientation: what this topic covers, where to start.
 
-## Core Ideas
+## theme
 
 - [[note]] — context explaining why this matters here
-
-## Tensions
-
-Unresolved conflicts within this topic.
-
-## Open Questions
-
-What's unexplored, gaps that need investigation.
 
 ---
 

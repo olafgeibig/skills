@@ -48,9 +48,15 @@ show results.
 
 Check if tools are installed and set the flag in `~/.vault-ops.json` accordingly
 
-1. Check if rg is installed, e.g. do `rg --version`. Set the flag. If it is not installed, tell the user to install it: ripgrep (rg) at `https://github.com/burntsushi/ripgrep`
+### ripgrep
+Check if rg is installed, e.g. do `rg --version`. Set the flag. If it is not installed, tell the user to install it: ripgrep (rg) at `https://github.com/burntsushi/ripgrep`
 
-2. Check if turbovault is installed, e.g. do `turbovault --version`. Set the flag. If it is not installed, war the user that without turbovault the skill will fall back to ripgrep and will miss safety and search features. Point to turbovault at `https://github.com/Epistates/turbovault`, explain that mcp server should run with with `--profile production` option.
+### turbovault
+For turbovault we need a two stage check
+1. Check if it is installed. Do `turbovault --version`. if yes, move on to stage 2. If it is not installed, tell the user and warn the user that without turbovault the skill will fall back to ripgrep and will miss safety and search features. Point to turbovault at `https://github.com/Epistates/turbovault`, explain that mcp server should run with with `--profile production` option.
+2. Check if the turbovault MCP server is available. Try to use `mcp_turbovault_list_vaults`. If it can be called, even if result is empty, turbovault is available.
+
+If both checks are successful, set the trubovaul flag to true, otherwise, false. 
 
 
 ## Detect vaults

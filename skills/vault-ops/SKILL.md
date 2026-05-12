@@ -37,9 +37,9 @@ Contains context to understand the vault content, e.g. a glossary of vault speci
 
 ### Check config
 Run `jq 'to_entries | .[0:3] | from_entries' ~/.vault-ops.json`
-If file does not exist or version is not `2` then follow instructions in `./references/vault-configuration.md`
+If file does not exist or property `version` is not `2` then follow instructions in `./references/vault-configuration.md` 
 
-**If rg is not true**
+**If property `rg` is not true**
 Follow instructions in `./references/vault-configuration.md`
 
 **If turbovault is true use its tools**
@@ -53,6 +53,8 @@ Follow instructions in `./references/vault-configuration.md`
 - If the user asks to use a vault you can not match to vaults in `~/.vault-ops.json` then ask the user.
 - If the user gives a full path to a vault and the vault is not in `~/.vault-ops.json` the add it.
 - refer to `./refrences/rg-*.md` 
+
+If the user asks to check or validate the vault-ops configuration, then perform the instructions in `./references/vault-configuration.md` 
 
 ### Vault selection
 - If the user names a vault, use it.
@@ -101,31 +103,32 @@ Mandatory, but can be extended in AGENTS.md
 - Notes and MoCs in `projects/<dir>/` must include the matching `project/*` tag for that project
 - Notes and MoCs in `area/<dir>/` must include the matching `area/*` tag for that area
 
-### Required frontmatter properties
+### Frontmatter properties
 Mandatory, but can be extended in AGENTS.md
 ```
-description: One sentence adding context beyond the title (~150 chars, no period)
+description: One sentence adding context beyond the title that provides context for navigation (~150 chars, no period)
 type: Type of note according to the definition in AGENTS.md
 updated: YYYY-MM-DD
 tags: [array of tags]
 topics: [array of links to MoCs]
 ```
+- The topics property always contains links to MoCs, not tags
+- The `description` property functions as a retrieval filter, not a content summary. Optimize it for search discoverability and progressive disclosure.
+
+## References
+
+### Basic vault operations
+
+- Writing new notes: `./references/note-writing.md`
+- Writing new MoCs: `./references/moc-writing.md`
+- Navigating the vault with rg: `./references/rg-navigation.md`
+- Navigating the vault with turbovault: `./references/turbovault-navigation.md`
 
 ## Workflows 
 
 - Create a new area: `./references/wf-new-area.md`
-- MoC creation or editing: `./references/moc-writing.md`
 
-## References
-- Regular note defaults: `./references/note-writing.md`
-- MoC defaults: `./references/moc-writing.md`
-- Default note template: `./references/note-template.md`
-- Default MoC template: `./references/moc-template.md`
-- Navigation, search, discovery -> `./references/navigating-vaults.md`
-- Regular note creation or editing -> `./references/note-writing.md`
+## Templates
 
-- TurboVault MCP integration: `./references/turbovault.md` — Rust MCP server with automatic link updates on move/rename, BM25 search, health checks
-- TurboVault MCP usage notes: `./references/turbovault-integration.md`
-- TurboVault MCP workflow: `./references/turbovault-workflow.md`
-- External knowledge-base integration options (OpenViking, gbrain): `./references/knowledge-base-options.md`
-- Vault navigation defaults: `./references/navigating-vaults.md`
+- Default note template: `./assets/note-template.md`
+- Default MoC template: `./assets/moc-template.md`

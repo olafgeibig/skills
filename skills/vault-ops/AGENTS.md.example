@@ -2,7 +2,10 @@
 - Local-first and security-sensitive. Do not upload content to external services without explicit approval.
 - Proactivity: Suggest next steps; ask before executing changes that have side effects.
 - Always read this file before operating in the vault.
-- Agents using `vault-ops` must NOT edit files under ./wiki. This is exclusively maintained by an agent using `md-wiki`
+- Agents using `vault-ops` must NOT edit files under ./wiki. This is exclusively maintained by an agent using `md-wiki`.
+- The vault uses Obsidian sync. Sync happens automatically. Do not sync manually.
+- Record content type and status as front‑matter properties, not tags.
+- The topics property always contains links to MoCs, not tags.
 
 ## Language Policy
 TODO
@@ -22,6 +25,6 @@ TODO
 Reuse templates from skill/references: note-template, moc-template
 | Type    | Usage | Maintainer | Template |
 | ------- | ------------------------------------------------------------------------------------------ | -------------------------- | ------------------- |
-| zettel  | Atomic note from external source — thread extraction, research summary, resource digestion | Agent                      | note                |
-| moc     | Map of Content hub page                                                                    | Agent or User              | moc                 |
+| zettel  | Atomic note from external source — thread extraction, research summary, resource digestion | Agent                      | note-template       |
+| moc     | Map of Content hub page                                                                    | Agent                      | moc                 |
 | article | Distilled synthesis, analysis, or narrative — the user's own thinking                      | User with agent assistance | article             |

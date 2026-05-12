@@ -8,10 +8,10 @@ This repository contains OpenCode/Claude Code skills - reusable capabilities def
 skills/
 ├── skill-name/
 │   ├── SKILL.md (required - skill definition)
-│   ├── reference/ (optional - detailed docs, lowercase names)
-│   ├── scripts/ (optional - Node.js helpers)
-│   └── templates/ (optional - output templates)
-.claude/skills/ (personal skills - available globally)
+│   ├── references/ (optional - documentation and supplementary instruction files)
+│   ├── scripts/ (optional -executable code)
+│   └── assets/ (optional - templates and static resources)
+.agents/skills/ (skills for skill development)
 ```
 
 ## SKILL.md is Executable Code
@@ -73,7 +73,7 @@ Since SKILL.md files are executable code (not documentation), changes should be 
 - **fix**: Fixing broken commands, incorrect workflows, or agent failures
 - **refactor**: Restructuring SKILL.md without changing behavior (e.g., reordering, organizing)
 - **chore**: Maintenance tasks (updating tool versions, cleaning up examples)
-- **docs**: Only for changes to reference/ directory or AGENTS.md itself
+- **docs**: Only for changes to README.md
 
 **Version Updates:**
 Update `metadata.version` in SKILL.md when making changes:
@@ -127,7 +127,7 @@ When working on skills:
 ### File Naming
 
 **Skills:**
-- **Preferred in this repository**: Noun phrases (e.g., `container-use`, `ocx-use`)
+- **Preferred in this repository**: Noun phrases (e.g., `container-use`, `vault-ops`)
 - Per agentskills.io spec: Max 64 characters, lowercase letters/numbers/hyphens only, cannot start/end with hyphen
 - Acceptable formats from Anthropic's conventions:
   - Noun phrases (preferred here): `container-use`, `ocx-manager`, `pdf-processing`
@@ -137,7 +137,7 @@ When working on skills:
 
 **Supporting Files:**
 - Lowercase, intention-revealing names
-- Good: `./reference/aws-lambda-patterns.md`, `./scripts/transform-data.js`
+- Good: `./references/aws-lambda-patterns.md`, `./scripts/transform-data.js`
 - Bad: `./reference.md`, `./scripts/utils.js`, `./Reference.md`
 
 ### Content Style
@@ -178,34 +178,27 @@ gh pr create [with flags]
 
 **Progressive Disclosure Pattern:**
 - SKILL.md: Executable core workflow, ideally ~150-200 lines (max 500)
-- reference/: Comprehensive details, 200-500+ lines acceptable
-- Use skinny pointers: "See `./reference/csv-processing-methodology.md` for comprehensive approach"
+- references/: Comprehensive details, 200-500+ lines acceptable
+- Use skinny pointers: "See `./references/csv-processing-methodology.md` for comprehensive approach"
 - Reference with relative paths: `./filename.md` (not absolute paths)
 
 **Recommended Structure (from official spec):**
 ```
 skill-name/
-├── SKILL.md (required - main instructions)
-├── reference/ (optional - detailed documentation)
-│   ├── domain-specific.md
-│   └── api-reference.md
-├── scripts/ (optional - Node.js helpers)
-└── templates/ (optional - output templates)
+├── SKILL.md (required - skill definition)
+├── references/ (optional - documentation and supplementary instruction files)
+├── scripts/ (optional -executable code)
+└── assets/ (optional - templates and static resources)
 ```
 
-**Executable vs Documentation:**
-- SKILL.md = Executable agent instructions (treat as code)
-- reference/ = Static documentation (treat as docs)
-- scripts/ = Actual code (Node.js executable scripts)
-
-**Important:** The skill-builder's SKILL.md shows an older pattern with files in the root directory, but this contradicts the official best practices. Always use the `reference/` directory structure shown above.
+**Important:** The skill-builder's SKILL.md shows an older pattern with files in the root directory, but this contradicts the official best practices. Always use the `references/` directory structure shown above.
 
 ### Common Anti-Patterns
 
 ❌ Over-explaining obvious concepts
 ❌ Vague language: "process appropriately" → use exact commands
 ❌ Python scripts → use Node.js
-❌ Generic file names: `./reference.md` → use `./reference/csv-patterns.md`
+❌ Generic file names: `./reference.md` → use `./references/csv-patterns.md`
 ❌ Too many options: pick one primary tool and show it
 ❌ Windows paths: use `/Users/name` or `./relative/path`
 
@@ -253,4 +246,4 @@ After creating/editing a skill:
 - Use the `skill-builder` skill for comprehensive skill creation guidance
 - https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview.md
 - https://docs.claude.com/en/docs/agents-and-tools/agent-skills/best-practices.md
-- See `.claude/skills/skill-builder/reference/` for detailed patterns
+- See `.claude/skills/skill-builder/references/` for detailed patterns
