@@ -6,8 +6,8 @@ Use `rg` for navigation and discovery. If `rg` is not installed, tell the user a
 
 Use this order unless the vault's `AGENTS.md` defines something more specific:
 
-1. Start from the vault root `AGENTS.md`.
-2. Look for entry points such as `index.md`, `INDEX.md`, or top-level MoCs.
+1. Start from the vault root `AGENTS.md` and `README.md`
+2. Look for entry points such as `index.md`, `+index.md`, or top-level MoCs with a leading '+' sign in the filename.
 3. Follow wiki links to move through related notes.
 4. Use `rg` against filenames, frontmatter, and backlinks when you need targeted discovery.
 

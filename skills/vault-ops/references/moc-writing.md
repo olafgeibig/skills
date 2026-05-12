@@ -13,8 +13,8 @@ If the selected vault's root `AGENTS.md` or files referenced by it define differ
 ## Naming
 
 - Unlike regular notes, MoCs must use a plain topic label as the title and H1.
-- Use ALL CAPS for MoC filenames and H1 titles to make them visually distinct in navigation and backlinks.
-- Examples: `HR.md` with `# HR`, `BOSCH APPS.md` with `# BOSCH APPS`, `INDEX.md` with `# INDEX`
+- Prefix MoC filenames with a '+' sign and H1 titles to make them visually distinct in navigation and backlinks.
+- Examples: `+AI.md` with `# AI`, `+Personal Agents.md` with `# Personal Agents`, `INDEX.md` with `# INDEX`
 
 ## Structure And Content
 

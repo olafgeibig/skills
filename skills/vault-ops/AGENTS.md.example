@@ -1,0 +1,27 @@
+## Operating Principles
+- Local-first and security-sensitive. Do not upload content to external services without explicit approval.
+- Proactivity: Suggest next steps; ask before executing changes that have side effects.
+- Always read this file before operating in the vault.
+- Agents using `vault-ops` must NOT edit files under ./wiki. This is exclusively maintained by an agent using `md-wiki`
+
+## Language Policy
+TODO
+
+## Area Map
+| Area | Scope | Language |
+|------|-------|----------|
+| agents | Agent frameworks, architectures, orchestration | EN |
+| AI | Artificial intelligence, ML, LLMs | EN |
+| business | Business automation, monetization, online income | DE |
+| cybersecurity | Security tools, vulnerability detection, AI auditing | EN |
+| devops | CI/CD, deployment, edge computing, micro-frontends, AI-native SDLC | EN |
+| essen | Food, cooking, nutrition | DE |
+| gesundheit | Health, sleep, supplements, wellbeing | DE |
+
+## Note Types
+Reuse templates from skill/references: note-template, moc-template
+| Type    | Usage | Maintainer | Template |
+| ------- | ------------------------------------------------------------------------------------------ | -------------------------- | ------------------- |
+| zettel  | Atomic note from external source — thread extraction, research summary, resource digestion | Agent                      | note                |
+| moc     | Map of Content hub page                                                                    | Agent or User              | moc                 |
+| article | Distilled synthesis, analysis, or narrative — the user's own thinking                      | User with agent assistance | article             |
