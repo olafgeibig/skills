@@ -25,4 +25,4 @@ First concrete task (rework navigation)
 
 Note
 - Vault-local rules in the selected vault’s AGENTS.md are authoritative and may override these defaults.
-- If TurboVault is not available, vault-ops falls back to ripgrep and filesystem operations.
+- TurboVault MCP is required for vault-ops. If it is not available, instruct the user to enable/configure the TurboVault MCP server.

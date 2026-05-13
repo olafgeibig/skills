@@ -1,80 +1,35 @@
 # Vault Configuration
 
-The vault-ops configuration file `~/.vault-ops.json` is in the user's home directory. It sets some flags and contains a list of available vaults.
+vault-ops is TurboVault-first and requires TurboVault MCP tools.
 
-File Format:
+## Detect TurboVault
 
-```json
-{
-  "version": 2,
-  "rg": true,
-  "turbovault": true,
-  "vaults": {
-    "personal": { "path": "/home/user/Documents/personal" },
-    "work-notes": { "path": "/home/user/work/work-notes" }
-  }
-}
-```
+We use a two-stage check:
 
-Logic in pseudocode
-```
-if jq is not installed
-  Tell the user that it is required. Ask user if you shall install it and retry.
-  exit
-endif
+1. Stage 1 (informational): check that the TurboVault CLI is installed.
+   - Run: `turbovault --version`
+   - If missing: tell the user to install it (https://github.com/Epistates/turbovault)
 
-if ~/.vault-ops.json is missing
-  propose a `~/.vault-ops.json` content for the user to create
-  detect tools
-  detect vaults
-  show results
-else
-  if the version is smaller that in the file format
-    migrate the existing file to the new format.
-    detect tools
-  endif
-  if vaults are missing
-    detect vaults
-  endif
-endif
-show results.
-```
+2. Stage 2 (decisive): check that the TurboVault MCP server is available (this is what the agent actually uses).
+   - Try: `mcp_turbovault_list_vaults`
+   - If it succeeds (even with an empty list): TurboVault MCP is available.
+   - If it fails: stop and instruct the user to enable/configure TurboVault MCP.
 
-## Detect tools
+## Detect vaults and register them in TurboVault
 
-Check if tools are installed and set the flag in `~/.vault-ops.json` accordingly
+Goal: if vaults are discoverable locally (e.g. via Obsidian), register them in TurboVault so the agent can select them via MCP.
 
-### ripgrep
-Check if rg is installed, e.g. do `rg --version`. Set the flag. If it is not installed, tell the user to install it: ripgrep (rg) at `https://github.com/burntsushi/ripgrep`
+1. Discover Obsidian vaults via `obsidian.json`.
+   Common locations:
+   - macOS: `/Users/<username>/Library/Application Support/obsidian/obsidian.json`
+   - Windows: `%APPDATA%\\obsidian\\obsidian.json`
+   - Linux: `~/.config/obsidian/obsidian.json`
+   - Flatpak: `~/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json`
 
-### turbovault
-For turbovault we need a two stage check
-1. Check if TurboVault CLI is installed. Run `turbovault --version`. If it is not installed, tell the user and warn that without TurboVault the skill will fall back to ripgrep and will miss safety and search features. Point to `https://github.com/Epistates/turbovault`.
-2. Check if the TurboVault MCP server is available (this is what the agent actually uses). Try to call `mcp_turbovault_list_vaults`. If the tool call succeeds (even with an empty list), TurboVault MCP is available.
+2. For each discovered vault path, register it with TurboVault:
+   - `mcp_turbovault_add_vault` (use a stable name, preferably the vault folder name)
 
-If stage (2) succeeds, set the turbovault flag to true. Otherwise set it to false.
+3. If no vaults are discoverable, ask the user for vault paths and register those with TurboVault.
 
-
-## Detect vaults
-
-1. Look for existing Obsidian vaults.
-2. If you find them, tell the user what you found and propose a `~/.vault-ops.json` file.
-3. If you do not find any vaults, ask the user for vault paths and create the file from the provided paths.
-
-Obsidian desktop tracks vaults in `obsidian.json`. Common locations:
-
-- macOS: `/Users/<username>/Library/Application Support/obsidian/obsidian.json`
-- Windows: `%APPDATA%\obsidian\obsidian.json`
-- Linux: `~/.config/obsidian/obsidian.json`
-
-If the user runs the Flatpak version of Obsidian, also check `~/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json`.
-
-Use a short, stable vault name as the key, ideally the name of the vault. The `path` must point to the vault root directory.
-
-### If No Vaults Are Discoverable
-
-If there are no traces of Obsidian or no discoverable vaults, tell the user to configure `~/.vault-ops.json` manually or provide vault paths. Show the example format.
-
-When the user gives you a path, use the directory name as the default vault name unless the user wants a different name.
-
-Do not assume a default vault from this skill alone. If multiple vaults are configured and the user does not specify one, ask.
+Notes:
+- If the user provides a vault path directly and it is not registered yet, register it with TurboVault before proceeding.

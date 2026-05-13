@@ -17,7 +17,7 @@ Use this skill as the default workflow for working with a vault of markdown note
 ### Skill
 Always read
 - vault-ops configuration
-- How to interact with the vault (turbovault, rg)
+- How to interact with the vault (turbovault)
 - Navigation of the vault with MoCs
 - Mandatory frontmatter
 - Main directory structure
@@ -38,25 +38,8 @@ Contains context to understand the vault content, e.g. a glossary of vault speci
 ## Before starting to work on a vault
 
 ### Check config
-Run `jq 'to_entries | .[0:3] | from_entries' ~/.vault-ops.json`
-If file does not exist or property `version` is not `2` then follow instructions in `./references/vault-configuration.md` 
 
-**If property `rg` is not true**
-Follow instructions in `./references/vault-configuration.md`
-
-**If turbovault is true use its tools**
-- If no active vault `list_vaults` and choose vault. Ask user if unclear. Then `set_active_vault`.
-- If the user asks to use a vault that is not known to turbovault, but is present in `~/.vault-ops.json` then just register it in turbovault.
-- If the user gives a full path to a vault and the vault is not registered, register it (`add_vault`) and add it to `~/.vault-ops.json` before proceeding.
-- refer to `./references/vault-configuration.md`
-
-**If turbovault is false**
-- Fallback to rg: Read `~/.vault-ops.json`  
-- If the user asks to use a vault you can not match to vaults in `~/.vault-ops.json` then ask the user.
-- If the user gives a full path to a vault and the vault is not in `~/.vault-ops.json` the add it.
-- refer to `./references/vault-configuration.md`
-
-If the user asks to check or validate the vault-ops configuration, then perform the instructions in `./references/vault-configuration.md` 
+The skill is TurboVault-first, attempt a TurboVault MCP call to validate (e.g. `mcp_turbovault_list_vaults`). If it succeeds, proceed. Otherwise follow `./references/vault-configuration.md`
 
 ### Vault selection
 - If the user names a vault, use it.
@@ -124,8 +107,7 @@ topics: [array of links to MoCs]
 - Writing new notes: `./references/note-writing.md`
 - Writing new MoCs: `./references/moc-writing.md`
 - Understanding the vault graph: `./references/vault-graph.md`
-- Navigating the vault with rg: `./references/rg-navigation.md`
-- Navigating the vault with turbovault: `./references/tv-navigation.md`
+- Navigating the vault: `./references/vault-navigation.md`
 
 ## Workflows 
 
