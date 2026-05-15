@@ -5,6 +5,9 @@ metadata:
   version: "0.3.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
+  hermes:
+    tags: [obsidian, vault]
+    related_skills: [ob-headless-sync, md-wiki]
 ---
 
 # Vault Ops
@@ -69,7 +72,7 @@ Default structure that can be overridden and  extended in AGENTS.md
 - `projects/`: note clearly related to a project
 - `sources/`: Raw sources from external, web, documents
 - `system/`: Internal files, templates, state, helper scripts
-- `wiki/`: the root of a wiki maintained by a wiki skill defined in AGENTS.md
+- `wiki/`: the root of a wiki maintained by the md-wiki skill
 
 ### Note Types
 Use default templates unless defined different in AGENTS.md

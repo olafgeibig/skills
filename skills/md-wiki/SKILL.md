@@ -15,13 +15,10 @@ metadata:
       - federation
     category: research
     related_skills:
-      - llm-wiki
-      - obsidian
       - arxiv
       - vault-ops
-    # config removed — wiki lives at wiki/ in active TurboVault vault
   source: https://github.com/olafgeibig/skills
-  version: "0.3.0"
+  version: "0.3.2"
 ---
 
 # Multi-Domain LLM Wiki (TurboVault)
@@ -215,7 +212,11 @@ before creating anything new.
 
 ## Linking
 
-**ALL wikilinks use the full path format:** `[[<wiki-name>/<type>/<page-name>]]`
+**ALL wikilinks use the full vault path:** `[[wiki/<wiki-name>/<type>/<page-name>]]`
+
+The `wiki/` prefix is mandatory — wikilinks resolve relative to the vault root,
+not relative to the `wiki/` directory. Without it, TurboVault's broken-link
+detection (and Obsidian's link resolution) will flag every link as broken.
 
 This is the universal convention — within-wiki and cross-wiki links use the
 same format. Bare `[[pagename]]` links resolve relative to the current file's
@@ -223,13 +224,15 @@ directory and will **always be flagged as broken**.
 
 Examples:
 
-- `[[ai-research/concepts/llm-infrastructure]]` — same-wiki link (from any page in ai-research)
-- `[[llm-wiki/concepts/three-layer-architecture]]` — cross-wiki link
-- `[[ai/entities/andrei-karpathy|Andrej Karpathy]]` — with display text
+- `[[wiki/ai-research/concepts/llm-infrastructure]]` — same-wiki link (from any page in ai-research)
+- `[[wiki/llm-wiki/concepts/three-layer-architecture]]` — cross-wiki link
+- `[[wiki/ai/entities/andrei-karpathy|Andrej Karpathy]]` — with display text
 
-**Pitfall — bare wikilinks:** Never use `[[embeddings]]` or `[[reinforcement-learning]]`
-within a wiki page. Instead, write `[[ai/concepts/embeddings]]` — the full path
-with wiki name prefix. This is the #1 cause of initial lint failures on new wikis.
+**Pitfall — missing wiki/ prefix:** Never write `[[ai-research/concepts/foo]]`
+or `[[test/concepts/bar]]`. These look for `ai-research/concepts/foo.md` at the
+vault root, which doesn't exist. Always write `[[wiki/ai-research/concepts/foo]]`.
+This is the #1 cause of initial lint failures on new wikis.
+This is the #1 cause of initial lint failures on new wikis.
 
 **Rules:**
 
@@ -239,179 +242,15 @@ with wiki name prefix. This is the #1 cause of initial lint failures on new wiki
 
 ## Initializing a New Wiki
 
-Two scenarios — first wiki ever vs. adding a new domain to an existing hub:
+Full setup instructions for both scenarios — see
+[`references/initialize-wiki.md`](references/initialize-wiki.md).
 
-Before choosing a scenario, check whether `wiki/index.md` already exists in the
-active vault:
+- **Scenario A (First-Time Setup):** No hub exists yet — create the first
+  domain wiki under a new root hub.
+- **Scenario B (New Domain Wiki):** Hub already exists — add a new domain
+  wiki to the federation.
 
-- If not, treat it as a greenfield root and proceed with **Scenario A**.
-- If yes, treat it as an initialized federation hub and use **Scenario B** for additional domain wikis.
-
-### A. First-Time Setup (no hub exists)
-
-When the user asks to create or start a wiki and nothing exists yet, the first
-wiki is always created as a domain wiki under a new hub:
-
-1. Ask the user what domain the first wiki covers — be specific
-2. Choose a directory name for the first domain wiki (lowercase, hyphens, no spaces)
-3. Scaffold the domain wiki by writing its files via `mcp_turbovault_write_note`:
-   - `wiki/<domain-name>/SCHEMA.md`
-   - `wiki/<domain-name>/index.md`
-   - `wiki/<domain-name>/log.md`
-   - `wiki/<domain-name>/raw/.gitkeep` (placeholder — directories are implicit in note paths)
-   - `wiki/<domain-name>/entities/.gitkeep`
-   - `wiki/<domain-name>/concepts/.gitkeep`
-   - `wiki/<domain-name>/comparisons/.gitkeep`
-   - `wiki/<domain-name>/queries/.gitkeep`
-4. Write the root `wiki/index.md` as a hub with the first domain's section and abstract
-5. Confirm the wiki is ready and suggest first sources to ingest
-
-Root `wiki/index.md` for first-time setup:
-
-```markdown
-# Wiki Hub
-
-## <domain-name>
-<One-paragraph abstract describing the domain and scope.>
-```
-
-### B. New Domain Wiki (hub already exists)
-
-When the user asks to add a new domain wiki to an existing federation:
-
-1. Determine wiki name from the user (lowercase, hyphens, no spaces)
-2. Write the scaffolding files via `mcp_turbovault_write_note`:
-   - `wiki/<name>/SCHEMA.md` — customize to the domain
-   - `wiki/<name>/index.md` — sectioned header
-   - `wiki/<name>/log.md` — creation entry
-   - `wiki/<name>/raw/.gitkeep`
-   - `wiki/<name>/entities/.gitkeep`
-   - `wiki/<name>/concepts/.gitkeep`
-   - `wiki/<name>/comparisons/.gitkeep`
-   - `wiki/<name>/queries/.gitkeep`
-3. Add section to root `wiki/index.md` hub with the wiki's abstract
-   (use `mcp_turbovault_edit_note` or read-full/write-full on `wiki/index.md`)
-
-#### SCHEMA.md Template
-
-Write this file completely — do not reference an external template. Adapt to
-the user's domain:
-
-```markdown
-# Wiki Schema
-
-## Domain
-[What this wiki covers — e.g., "AI/ML research", "personal health", "startup intelligence"]
-
-## Conventions
-- File names: lowercase, hyphens, no spaces (e.g., `transformer-architecture.md`)
-- Every wiki page starts with YAML frontmatter (see below)
-- All wikilinks use the full path format: `[[wiki-name/<type>/<page-name>]]` (minimum 2 outbound links per page). Never use bare `[[pagename]]`.
-- When updating a page, always bump the `updated` date
-- Every new page must be added to `index.md` under the correct section
-- Every action must be appended to `log.md`
-
-## Frontmatter
-  ```yaml
-  ---
-  title: Page Title
-  created: YYYY-MM-DD
-  updated: YYYY-MM-DD
-  type: entity | concept | comparison | query | summary
-  tags: [from taxonomy below]
-  sources: [raw/articles/source-name.md]
-  ---
-  ```
-
-## Tag Taxonomy
-[Define 10-20 top-level tags for the domain. Add new tags here BEFORE using them.]
-
-Example for AI/ML:
-- Models: model, architecture, benchmark, training
-- People/Orgs: person, company, lab, open-source
-- Techniques: optimization, fine-tuning, inference, alignment, data
-- Meta: comparison, timeline, controversy, prediction
-
-Rule: every tag on a page must appear in this taxonomy. If a new tag is needed,
-add it here first, then use it. This prevents tag sprawl.
-
-## Page Thresholds
-- **Create a page** when an entity/concept appears in 2+ sources OR is central to one source
-- **Add to existing page** when a source mentions something already covered
-- **DON'T create a page** for passing mentions, minor details, or things outside the domain
-- **Split a page** when it exceeds ~200 lines — break into sub-topics with cross-links
-- **Archive a page** when its content is fully superseded — move to `_archive/`, remove from index
-
-## Entity Pages
-One page per notable entity. Include:
-- Overview / what it is
-- Key facts and dates
-- Relationships to other entities ([[wikilinks]])
-- Source references
-
-## Concept Pages
-One page per concept or topic. Include:
-- Definition / explanation
-- Current state of knowledge
-- Open questions or debates
-- Related concepts ([[wikilinks]])
-
-## Comparison Pages
-Side-by-side analyses. Include:
-- What is being compared and why
-- Dimensions of comparison (table format preferred)
-- Verdict or synthesis
-- Sources
-
-## Update Policy
-When new information conflicts with existing content:
-1. Check the dates — newer sources generally supersede older ones
-2. If genuinely contradictory, note both positions with dates and sources
-3. Mark the contradiction in frontmatter: `contradictions: [page-name]`
-4. Flag for user review in the lint report
-```
-
-#### index.md Template
-
-Write this file completely:
-
-```markdown
-# Wiki Index
-
-> Content catalog. Every wiki page listed under its type with a one-line summary.
-> Read this first to find relevant pages for any query.
-> Last updated: YYYY-MM-DD | Total pages: 0
-
-## Entities
-<!-- Alphabetical within section -->
-
-## Concepts
-
-## Comparisons
-
-## Queries
-```
-
-**Scaling rule:** When any section exceeds 50 entries, split it into sub-sections
-by first letter or sub-domain. When the index exceeds 200 entries total, create
-a `_meta/topic-map.md` that groups pages by theme for faster navigation.
-
-#### log.md Template
-
-Write this file completely:
-
-```markdown
-# Wiki Log
-
-> Chronological record of all wiki actions. Append-only.
-> Format: `## [YYYY-MM-DD] action | subject`
-> Actions: ingest, update, query, lint, create, archive, delete
-> When this file exceeds 500 entries, rotate: rename to log-YYYY.md, start fresh.
-
-## [YYYY-MM-DD] create | Wiki initialized
-- Domain: [domain]
-- Structure created with SCHEMA.md, index.md, log.md
-```
+Includes complete SCHEMA.md, index.md, and log.md templates.
 
 ## Core Operations
 
@@ -446,7 +285,7 @@ the target wiki. Route using the rules above (explicit → abstract match → as
      When new info contradicts existing content, follow the Update Policy.
    - **Cross-reference:** Every new or updated page must link to at least 2 other
      pages via `[[wikilinks]]`. For references to other domain wikis, use direct
-     path-based links like `[[other-wiki/concepts/topic-name]]`.
+     path-based links like `[[wiki/other-wiki/concepts/topic-name]]`.
      Check that existing pages link back.
    - **Tags:** Only use tags from the taxonomy in the target wiki's `SCHEMA.md`
 
@@ -472,8 +311,8 @@ When the user asks a question about the wiki's domain:
    across the wiki prefix — the index alone may miss relevant content.
 ④ **Read the relevant pages** using `mcp_turbovault_read_note(path="wiki/...")`.
 ⑤ **Synthesize an answer** from the compiled knowledge. Cite pages with their
-   vault path: "Based on `[[ai-research/concepts/transformer-architecture]]`
-   and `[[llm-wiki/concepts/three-layer-architecture]]`..."
+   vault path: "Based on `[[wiki/ai-research/concepts/transformer-architecture]]`
+   and `[[wiki/llm-wiki/concepts/three-layer-architecture]]`..."
 ⑥ **File valuable answers back** — if the answer is a substantial comparison,
    deep dive, or novel synthesis, create a page in the explicit target wiki or
    the clearest primary wiki's `queries/` or `comparisons/`. If no primary wiki
@@ -483,105 +322,30 @@ When the user asks a question about the wiki's domain:
 
 ### 3. Lint
 
-When the user asks to lint, health-check, or audit the wiki, use TurboVault's
-built-in analysis tools and manual scoped checks:
+When the user asks to lint, health-check, or audit the wiki, **load the
+reference file first** — it contains the complete step-by-step workflow:
 
-**① Quick health overview:**
-```
+```bash
+# Load the lint workflow
 mcp_turbovault_full_health_analysis()
-```
-Returns broken links, orphan analysis, link density, cluster analysis, and
-recommendations. Filter results for `wiki/`-prefixed paths.
-
-**② Broken wikilinks:**
-```
 mcp_turbovault_get_broken_links()
-```
-Returns all broken links in the vault. Filter to `wiki/`-prefixed source paths.
-Expected: only SCHEMA.md template examples should be broken — those are fine.
-
-**③ Outbound link count (wiki pages only):**
-Every wiki page in entities/, concepts/, comparisons/, queries/ must have at
-least 2 outbound wikilinks to OTHER wiki pages (not raw/ sources). Raw sources
-are exempt.
-
-Use `mcp_turbovault_get_dead_end_notes()` to find pages with 0 outbound links.
-For pages with 1 outbound link, manually check forward links:
-```
+mcp_turbovault_get_dead_end_notes()
 mcp_turbovault_get_forward_links(path="wiki/<target>/entities/<page>")
-```
-**This is the most common failure mode.** Add missing "Verwandte Konzepte"
-or "Verwandte Seiten" sections to fix.
-
-**④ Frontmatter validation:**
-```
 mcp_turbovault_inspect_frontmatter()
-```
-Check that every wiki page (entities/, concepts/, comparisons/, queries/) has
-all required fields: title, created, type. Tags must be in the taxonomy.
-Note: index.md, log.md, SCHEMA.md are meta-files — skip them.
-Raw sources: check if they have frontmatter (Olaf's wiki expects it).
-
-**⑤ Index completeness:**
-Compare the filesystem (pages with `wiki/<target>/entities/`, `concepts/`, etc.
-paths) against entries in the target wiki's `index.md`. Use
-`mcp_turbovault_search(query="")` with path prefix to discover all pages.
-
-**⑥ Orphan pages:**
-Pages with no inbound links from other wiki pages. For each wiki page, check:
-```
 mcp_turbovault_get_backlinks(path="wiki/<target>/entities/<page>")
-```
-Pages in entities/, concepts/, comparisons/, queries/ with 0 backlinks from
-other wiki pages = orphan. Raw/ pages are always orphans by design — skip them.
-Meta files (index, log, SCHEMA) are always orphans — skip them.
-
-**⑦ Tag taxonomy:**
-List all tags on wiki pages, flag any not in the domain wiki's `SCHEMA.md`
-taxonomy. Raw sources use their own tag conventions — skip.
-
-**⑧ Stale content:**
-```
 mcp_turbovault_find_stale_notes(threshold_days=90)
 ```
-Filter to `wiki/`-prefixed paths. Pages whose `updated` date is older than
-90 days from the most recent source that mentions the same entities.
 
-**⑨ Page size:**
-Flag pages over 200 lines — candidates for splitting. Use
-`mcp_turbovault_read_note` and check content length per note.
-
-**⑩ Log rotation:**
-If the domain wiki's `log.md` exceeds 500 entries, rotate it: read the log,
-write to `log-YYYY.md` via write_note, start fresh log.
-
-**⑪ Report findings** with specific file paths and suggested actions, grouped by
-   severity (broken links > missing outbound links > orphans > stale > style).
-
-**⑫ Fix issues iteratively:** After fixing, re-run the relevant checks.
-   The typical pattern is: fix page A → discover page B now has outbound links
-   → fix page B → discover page C is now orphan → fix page C.
-   Do NOT fix all pages in one pass without re-checking.
-
-**⑬ Append to the domain wiki's `log.md`:**
-   `## [YYYY-MM-DD] lint | N issues found`
-
-**Cross-wiki lint:**
-
-**⑭ Broken cross-wiki links:**
-`mcp_turbovault_get_broken_links()` catches all broken wikilinks across the
-entire vault, including `[[other-wiki/...]]` links pointing to non-existent pages.
-
-**⑮ Hub drift:**
-Check that root `wiki/index.md` hub sections match what's on disk (directory
-names under `wiki/`). Flag domain directories on disk not listed in the hub,
-and hub sections with no matching domain directory.
+See [`references/lint-workflow.md`](references/lint-workflow.md) for details on
+all 15 checks: broken links, outbound link count, frontmatter validation, index
+completeness, orphans, tag taxonomy, stale content, page size, log rotation,
+reporting, iterative fixing, cross-wiki links, and hub drift.
 
 ## Working with the Wiki
 
 ### Searching
 
-```
+```bash
 # Find pages by content across the whole wiki
 mcp_turbovault_search(query="transformer")
 # Filter results to wiki/<target>/ prefix for domain-scoped search
@@ -602,6 +366,12 @@ mcp_turbovault_query_frontmatter_sql(sql="SELECT path FROM files WHERE path LIKE
 # Recent activity in a specific domain wiki
 mcp_turbovault_read_note(path="wiki/ai-research/log.md")
 ```
+
+**Scope warning:** TurboVault search (`mcp_turbovault_search`) searches the
+**entire vault**, not just the `wiki/` directory. Always scope results by
+checking the `path` prefix or use `exclude_paths` in advanced search to
+exclude non-wiki directories (area/, projects/, inbox/, resources/, own/,
+archive/).
 
 ### Bulk Ingest
 
@@ -644,12 +414,14 @@ New replacement text
 ```
 
 **Best practices:**
+
 - Include enough context around the SEARCH text to ensure uniqueness
-- When adding a new entry to log.md, read the file fully first, prepend the
-  new entry in your response content, use `mcp_turbovault_write_note` with
-  full overwrite. This is safer than edit_note for log.md.
-- For index.md, also prefer read-full/write-full over edit_note to avoid
-  duplicate headers from partial matches.
+- **DON'T use `edit_note` for `log.md`** — the SEARCH block that matches the
+  previous entry's header **replaces** that header, leaving its detail lines
+  orphaned. Always use read-full/write-full instead.
+- **DON'T use `edit_note` for `index.md`** — matching a section header like
+  `## Entities` deletes the header. Always use read-full/write-full instead.
+- For other files, `edit_note` is fine with enough context for uniqueness.
 
 ### Archiving
 
@@ -663,27 +435,6 @@ When content is fully superseded or the domain scope changes:
 4. Update any pages that linked to it — replace wikilink with plain text +
    "(archived)"
 5. Log the archive action in the domain wiki's `log.md`
-
-### Obsidian Integration
-
-Since the wiki lives within an Obsidian vault managed by TurboVault, all
-Obsidian features work natively:
-
-- `[[wikilinks]]` render as clickable links
-- Cross-wiki links like `[[ai-research/concepts/llm-infrastructure]]`
-  resolve natively in Obsidian's graph view and backlinks
-- Graph View visualizes the full multi-domain knowledge network — cross-wiki
-  links appear as edges between domain clusters
-- YAML frontmatter powers Dataview queries
-- The `raw/assets/` folders in each domain wiki hold images referenced via
-  `![[image.png]]`
-
-For best results:
-
-- Set Obsidian's attachment folder to `raw/assets/`
-- Enable "Wikilinks" in Obsidian settings (usually on by default)
-- Install Dataview plugin for queries like
-  `TABLE tags FROM "wiki/ai-research/entities" WHERE contains(tags, "company")`
 
 ## Do's and Don'ts
 
@@ -717,7 +468,7 @@ For best results:
   Every page must link to at least 2 other pages.
 - **Don't create adapter pages** — when referencing content in another domain
   wiki, use direct path-based wikilinks like
-  `[[other-wiki/concepts/topic]]`. No adapter pages, no duplication.
+  `[[wiki/other-wiki/concepts/topic]]`. No adapter pages, no duplication.
 - **Don't guess the target wiki** — if routing is ambiguous, ask the user.
   Putting content in the wrong wiki is worse than asking.
 - **Frontmatter is required** — it enables search, filtering, and staleness
@@ -767,42 +518,3 @@ For best results:
   header line. Read the full file, modify in your context, write the complete
   result back. This is always safer.
 
-## Pitfalls
-
-### edit_note on log.md can destroy the previous entry's header
-
-When you use `edit_note` to prepend a new entry to `log.md`, the SEARCH block
-that matches the top of the previous entry will **replace** that header text —
-leaving the previous entry's detail lines orphaned with no header.
-
-**Example of what goes wrong:**
-```
-edits: "<<<<<<< SEARCH\n## [2026-05-03] ingest | Previous Entry\n=======\n## [2026-05-05] ingest | New Entry\n- details...\n>>>>>>>"
-```
-After this edit, `## [2026-05-03] ingest | Previous Entry` is gone but its
-detail lines remain, now incorrectly under the new entry.
-
-**Safer approach for log.md:** Use read-full/write-full instead:
-1. `mcp_turbovault_read_note(path="wiki/<target>/log.md")` — get full content
-2. Prepend the new entry in your response context
-3. `mcp_turbovault_write_note(path="wiki/<target>/log.md", content="...")` — write it all back
-
-This avoids fragile SEARCH matching on multi-line blocks entirely.
-
-### edit_note on index.md creates duplicate headers
-
-When adding entries via `edit_note`, the SEARCH block must be specific enough
-to match exactly one location. If you match `## Entities` as the SEARCH target,
-the REPLACE will delete that header. Instead, match on a line **inside** the
-section (like a specific existing entry) and include the surrounding markers in
-your replacement.
-
-Better: read the full index.md, modify it, write it back.
-
-### Searching across vault finds non-wiki content
-
-TurboVault search (`mcp_turbovault_search`) searches the entire vault, not just
-the `wiki/` directory. When scoping results to the wiki, filter client-side by
-checking the `path` prefix: only results where `path` starts with `wiki/` are
-relevant. For `mcp_turbovault_advanced_search`, use `exclude_paths` to exclude
-known non-wiki directories (area/, projects/, inbox/, resources/, own/, archive/).
