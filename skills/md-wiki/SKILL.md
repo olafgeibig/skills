@@ -1,6 +1,6 @@
 ---
 name: md-wiki
-description: "Multi-domain LLM Wiki — build and maintain a federation of interlinked markdown knowledge bases via TurboVault. Each domain wiki has its own schema, index, and log, linked across boundaries via path-based wikilinks. Extends Karpathy's single-wiki pattern for multiple domains under one root."
+description: "Multi-domain LLM Wiki — build and maintain a federation of interlinked markdown wiki knowledge bases. Each domain wiki has its own schema, index, and log, linked across boundaries via path-based wikilinks. Use when user wants to use a wiki (create, ingest into, query, lint)
 license: MIT
 metadata:
   hermes:
@@ -8,9 +8,6 @@ metadata:
       - wiki
       - knowledge-base
       - research
-      - notes
-      - markdown
-      - rag-alternative
       - multi-domain
       - federation
     category: research
@@ -18,7 +15,7 @@ metadata:
       - arxiv
       - vault-ops
   source: https://github.com/olafgeibig/skills
-  version: "0.3.2"
+  version: "0.4.0"
 ---
 
 # Multi-Domain LLM Wiki (TurboVault)
@@ -45,7 +42,7 @@ Paths are relative to the vault root with a `wiki/` prefix.
 
 Use this skill when the user:
 
-- Asks to create, build, or start a wiki or knowledge base
+- Asks to create, build, or start a wiki
 - Asks to ingest, add, or process a source into their wiki
 - Asks a question and an existing wiki exists in the active vault's `wiki/` directory
 - Asks to lint, audit, or health-check their wiki
@@ -269,6 +266,7 @@ the target wiki. Route using the rules above (explicit → abstract match → as
    - Local file → use `web_extract` with file:// URL or copy content, save to `raw/articles/`
    - Pasted text → save to appropriate `raw/` subdirectory in the target wiki
    - Name the file descriptively: `raw/articles/karpathy-llm-wiki-2026.md`
+   - **Add raw frontmatter** with `source_url` and `ingested` date for provenance.
 
 ③ **Discuss takeaways** with the user — what's interesting, what matters for
    the domain. (Skip this in automated/cron contexts — proceed directly.)
@@ -295,7 +293,7 @@ the target wiki. Route using the rules above (explicit → abstract match → as
    - Append to the target wiki's `log.md`: `## [YYYY-MM-DD] ingest | Source Title`
    - List every file created or updated in the log entry
 
-⑧ **Report what changed** — list every file created or updated to the user.
+⑦ **Report what changed** — list every file created or updated to the user.
 
 A single source can trigger updates across 5-15 wiki pages. This is normal
 and desired — it's the compounding effect.
@@ -323,21 +321,10 @@ When the user asks a question about the wiki's domain:
 ### 3. Lint
 
 When the user asks to lint, health-check, or audit the wiki, **load the
-reference file first** — it contains the complete step-by-step workflow:
-
-```bash
-# Load the lint workflow
-mcp_turbovault_full_health_analysis()
-mcp_turbovault_get_broken_links()
-mcp_turbovault_get_dead_end_notes()
-mcp_turbovault_get_forward_links(path="wiki/<target>/entities/<page>")
-mcp_turbovault_inspect_frontmatter()
-mcp_turbovault_get_backlinks(path="wiki/<target>/entities/<page>")
-mcp_turbovault_find_stale_notes(threshold_days=90)
-```
+reference file first** — it contains the complete step-by-step workflow.
 
 See [`references/lint-workflow.md`](references/lint-workflow.md) for details on
-all 15 checks: broken links, outbound link count, frontmatter validation, index
+all 17 checks: broken links, outbound link count, frontmatter validation, index
 completeness, orphans, tag taxonomy, stale content, page size, log rotation,
 reporting, iterative fixing, cross-wiki links, and hub drift.
 
@@ -360,8 +347,8 @@ mcp_turbovault_search_by_frontmatter(key="type", value="entity")
 # Semantic search (conceptual matches beyond keywords)
 mcp_turbovault_semantic_search(query="reinforcement learning safety")
 
-# SQL queries on frontmatter
-mcp_turbovault_query_frontmatter_sql(sql="SELECT path FROM files WHERE path LIKE 'wiki/ai-research/%' AND tags LIKE '%model%'")
+# Find pages by frontmatter value
+mcp_turbovault_search_by_frontmatter(key="tags", value="model")
 
 # Recent activity in a specific domain wiki
 mcp_turbovault_read_note(path="wiki/ai-research/log.md")

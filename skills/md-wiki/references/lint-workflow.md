@@ -54,7 +54,35 @@ Compare the filesystem (pages with `wiki/<target>/entities/`, `concepts/`, etc.
 paths) against entries in the target wiki's `index.md`. Use
 `mcp_turbovault_search(query="")` with path prefix to discover all pages.
 
-## ⑥ Orphan Pages
+## ⑥ Contradictions
+
+Find pages with `contested: true` or `contradictions:` in frontmatter:
+
+```bash
+# Pages explicitly marked as contested
+mcp_turbovault_search_by_frontmatter(key="contested", value="true")
+
+# Pages with contradictions field set (existence check)
+mcp_turbovault_query_metadata(pattern="contradictions: *")
+```
+
+Also scan pages that share tags but state conflicting claims — these are
+candidates for explicit contradiction frontmatter. Report all found pages
+for user review.
+
+## ⑦ Quality Signals
+
+Find pages with `confidence: low`:
+
+```bash
+mcp_turbovault_search_by_frontmatter(key="confidence", value="low")
+```
+
+These are candidates for either finding corroboration or demoting to
+`confidence: medium`. Also flag wiki pages with no `confidence` field at
+all — consider whether they should have one.
+
+## ⑧ Orphan Pages
 
 Pages with no inbound links from other wiki pages. For each wiki page, check:
 
@@ -66,12 +94,12 @@ Pages in entities/, concepts/, comparisons/, queries/ with 0 backlinks from
 other wiki pages = orphan. Raw/ pages are always orphans by design — skip them.
 Meta files (index, log, SCHEMA) are always orphans — skip them.
 
-## ⑦ Tag Taxonomy
+## ⑨ Tag Taxonomy
 
 List all tags on wiki pages, flag any not in the domain wiki's `SCHEMA.md`
 taxonomy. Raw sources use their own tag conventions — skip.
 
-## ⑧ Stale Content
+## ⑩ Stale Content
 
 ```bash
 mcp_turbovault_find_stale_notes(threshold_days=90)
@@ -80,29 +108,29 @@ mcp_turbovault_find_stale_notes(threshold_days=90)
 Filter to `wiki/`-prefixed paths. Pages whose `updated` date is older than
 90 days from the most recent source that mentions the same entities.
 
-## ⑨ Page Size
+## ⑪ Page Size
 
 Flag pages over 200 lines — candidates for splitting. Use
 `mcp_turbovault_read_note` and check content length per note.
 
-## ⑩ Log Rotation
+## ⑫ Log Rotation
 
 If the domain wiki's `log.md` exceeds 500 entries, rotate it: read the log,
 rename to `log-YYYY.md` via write_note, start fresh log.
 
-## ⑪ Report Findings
+## ⑬ Report Findings
 
 With specific file paths and suggested actions, grouped by severity
-(broken links > missing outbound links > orphans > stale > style).
+(broken links > missing outbound links > contradictions > orphans > stale > style).
 
-## ⑫ Fix Issues Iteratively
+## ⑭ Fix Issues Iteratively
 
 After fixing, re-run the relevant checks. The typical pattern is:
 fix page A → discover page B now has outbound links → fix page B →
 discover page C is now orphan → fix page C.
 Do NOT fix all pages in one pass without re-checking.
 
-## ⑬ Log the Lint
+## ⑮ Log the Lint
 
 Append to the domain wiki's `log.md`:
 
@@ -112,13 +140,13 @@ Append to the domain wiki's `log.md`:
 
 ## Cross-wiki Lint
 
-### ⑭ Broken Cross-wiki Links
+### ⑯ Broken Cross-wiki Links
 
 `mcp_turbovault_get_broken_links()` catches all broken wikilinks across the
 entire vault, including `[[wiki/other-wiki/...]]` links pointing to
 non-existent pages.
 
-### ⑮ Hub Drift
+### ⑰ Hub Drift
 
 Check that root `wiki/index.md` hub sections match what's on disk (directory
 names under `wiki/`). Flag domain directories on disk not listed in the hub,

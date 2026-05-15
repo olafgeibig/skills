@@ -27,7 +27,8 @@ The JSON response contains:
 
 ## Saving as Raw Source
 
-Use the plain_text as the body of a `raw/articles/<descriptive-name>.md` file. Include:
+Use the plain_text as the body of a `raw/articles/<descriptive-name>.md` file in the
+target wiki (`wiki/<target>/raw/articles/...`). Include:
 
 ```yaml
 ---
@@ -39,5 +40,9 @@ tags: [relevant tags]
 source: https://x.com/username/status/TWEET_ID
 ---
 ```
+
+Note: The path `raw/articles/` is relative to the target domain wiki. When saving
+via TurboVault, use the full vault path:
+`mcp_turbovault_write_note(path="wiki/<target>/raw/articles/<name>.md", content=...)`
 
 Add author, date, and platform in the header paragraph.

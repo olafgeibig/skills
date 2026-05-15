@@ -81,9 +81,30 @@ the user's domain:
   updated: YYYY-MM-DD
   type: entity | concept | comparison | query | summary
   tags: [from taxonomy below]
-  sources: [raw/articles/source-name.md]
+  sources: [wiki/<wiki-name>/raw/articles/source-name.md]
+  # Optional quality signals:
+  confidence: high | medium | low      # how well-supported the claims are
+  contested: true                      # set when the page has unresolved contradictions
+  contradictions: [other-page-slug]    # pages this one conflicts with
   ---
   ```
+
+`confidence` and `contested` are optional but recommended for opinion-heavy or
+fast-moving topics. Lint surfaces `contested: true` and `confidence: low` pages
+for review so weak claims don't silently harden into accepted wiki fact.
+
+## Raw Source Frontmatter
+
+Raw sources ALSO get a small frontmatter block:
+
+```yaml
+---
+source_url: https://example.com/article   # original URL, if applicable
+ingested: YYYY-MM-DD
+---
+
+[raw content starts here]
+```
 
 ## Tag Taxonomy
 [Define 10-20 top-level tags for the domain. Add new tags here BEFORE using them.]
