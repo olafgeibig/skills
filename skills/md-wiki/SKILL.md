@@ -1,6 +1,6 @@
 ---
 name: md-wiki
-description: "Multi-domain LLM Wiki — build and maintain a federation of interlinked markdown wiki knowledge bases. Each domain wiki has its own schema, index, and log, linked across boundaries via path-based wikilinks. Use when user wants to use a wiki (create, ingest into, query, lint)
+description: "Multi-domain LLM Wiki — build and maintain a federation of interlinked markdown wiki knowledge bases. Each domain wiki has its own schema, index, and log, linked across boundaries via path-based wikilinks. Use when user wants to use a wiki (create, ingest into, query, lint)"
 license: MIT
 metadata:
   hermes:
@@ -65,24 +65,6 @@ All paths in this skill are relative to the vault root with a `wiki/` prefix.
 - Hub: `wiki/index.md`
 - Schema: `wiki/llm-wiki/SCHEMA.md`
 - Entity page: `wiki/llm-wiki/entities/transformer-architecture.md`
-
-**Tool mapping (quick reference):**
-
-| Operation | Tool |
-|-----------|------|
-| Read a note | `mcp_turbovault_read_note(path="wiki/...")` |
-| Write/overwrite a note | `mcp_turbovault_write_note(path="wiki/...", content="...")` |
-| Targetted edits | `mcp_turbovault_edit_note(path="wiki/...", edits="SEARCH/REPLACE blocks")` |
-| Move/rename a note | `mcp_turbovault_move_note(from="wiki/...", to="wiki/...")` |
-| Search content | `mcp_turbovault_search(query="...")` |
-| Advanced search | `mcp_turbovault_advanced_search(query="...", exclude_paths=[...])` |
-| Atomic batch ops | `mcp_turbovault_batch_execute(operations=[...])` |
-| Broken links | `mcp_turbovault_get_broken_links()` |
-| Dead-end notes | `mcp_turbovault_get_dead_end_notes()` |
-| Health analysis | `mcp_turbovault_full_health_analysis()` |
-| Frontmatter schema | `mcp_turbovault_inspect_frontmatter()` |
-| Forward links | `mcp_turbovault_get_forward_links(path="wiki/...")` |
-| Backlinks | `mcp_turbovault_get_backlinks(path="wiki/...")` |
 
 ## Architecture
 
