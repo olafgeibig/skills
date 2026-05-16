@@ -194,7 +194,8 @@ const commands = [
 for (const cmd of commands) {
   try {
     const { stdout } = await execAsync(cmd);
-    console.log(`${cmd}:\n${stdout}`);
+    console.log(`${cmd}:
+${stdout}`);
   } catch (error) {
     console.error(`${cmd} failed: ${error.message}`);
   }
@@ -500,7 +501,8 @@ async function analyzePR(prNumber) {
     linesAdded: pr.additions,
     linesDeleted: pr.deletions,
     totalChanges: pr.additions + pr.deletions,
-    diffLines: diff.split('\n').length
+    diffLines: diff.split('
+').length
   };
 
   console.log('PR Analysis:');
@@ -530,7 +532,8 @@ async function analyzeLogs(functionName, minutes = 60) {
     `aws logs tail /aws/lambda/${functionName} --since ${minutes}m`
   );
 
-  const lines = stdout.split('\n').filter(Boolean);
+  const lines = stdout.split('
+').filter(Boolean);
 
   const analysis = {
     total: lines.length,
@@ -546,7 +549,8 @@ async function analyzeLogs(functionName, minutes = 60) {
   console.log(`Info: ${analysis.info}`);
 
   if (analysis.errors > 0) {
-    console.log('\nRecent errors:');
+    console.log('
+Recent errors:');
     lines
       .filter(l => l.includes('ERROR'))
       .slice(-5)

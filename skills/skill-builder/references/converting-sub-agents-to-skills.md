@@ -141,7 +141,8 @@ Skills support multi-file structures. Consider organizing:
 ```
 skill-name/
 ├── SKILL.md (core instructions, <500 lines)
-├── detailed-methodology.md (background theory)
+├── references/
+│   ├── detailed-methodology.md (background theory)
 ├── code-review-checklist.md (detailed checklists)
 ├── templates/
 │   └── review-report.md
@@ -566,9 +567,9 @@ After conversion, verify:
 **Symptoms:** Over 500 lines
 
 **Solutions:**
-- Move detailed background to separate file (e.g., `./methodology.md`)
-- Extract checklists to `./checklist.md`
-- Move examples to `./examples.md`
+- Move detailed background to separate file (e.g., `./references/methodology.md`)
+- Extract checklists to `./references/checklist.md`
+- Move examples to `./references/examples.md`
 - Keep only core instructions in SKILL.md
 - Reference files with `./filename.md` relative paths
 
@@ -590,8 +591,9 @@ For complex sub-agents, organize into multiple files:
 ```
 analyzing-data/
 ├── SKILL.md (overview and primary workflow)
-├── data-processing-patterns.md (detailed examples)
-├── sql-optimization-guide.md (query best practices)
+├── references/
+│   ├── data-processing-patterns.md (detailed examples)
+│   └── sql-optimization-guide.md (query best practices)
 ├── templates/
 │   ├── analysis-report.md
 │   └── query-template.sql

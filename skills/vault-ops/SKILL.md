@@ -2,12 +2,12 @@
 name: vault-ops
 description: "Use this skill when working with a markdown notes vault such as Obsidian. It defines a default workflow for selecting a vault, reading vault-local instructions, navigating notes, writing regular notes, and maintaining Maps of Content (MoCs). Triggers: vault, obsidian, notes vault, moc, map of content, markdown notes."
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
     tags: [obsidian, vault]
-    related_skills: [ob-headless-sync, md-wiki]
+    related_skills: [md-wiki]
 ---
 
 # Vault Ops
@@ -25,6 +25,7 @@ Always read
 - Mandatory frontmatter
 - Main directory structure
 - Decide if references needs to be read
+- Task management: `./references/task-management.md`
 
 ### Vault instructions
 Always read AGENTS.md
@@ -111,6 +112,7 @@ topics: [array of links to MoCs]
 - Writing new MoCs: `./references/moc-writing.md`
 - Understanding the vault graph: `./references/vault-graph.md`
 - Navigating the vault: `./references/vault-navigation.md`
+- Task management: `./references/task-management.md`
 
 ## Workflows 
 

@@ -34,7 +34,7 @@ Process CSV files using xsv CLI tool.
 xsv select id,name data.csv > output.csv
 ```
 
-See `./reference/csv-processing-details.md` for comprehensive methodology and 15+ examples.
+See `./references/csv-processing-details.md` for comprehensive methodology and 15+ examples.
 ```
 
 **Bad (too verbose):**
@@ -54,7 +54,7 @@ CSV stands for comma-separated values. It's a text format where each line repres
 ```
 skill-name/
 ├── SKILL.md                    # Core workflow only (~150 lines)
-├── reference/                  # Detailed documentation (lowercase names)
+├── references/                  # Detailed documentation (lowercase names)
 │   ├── methodology.md          # NOT Methodology.md
 │   ├── advanced-patterns.md    # NOT Advanced-Patterns.md
 │   └── troubleshooting.md      # NOT Troubleshooting.md
@@ -76,18 +76,18 @@ skill-name/
 [Essential actions - 3-5 bullets]
 
 ## Step 2: Processing
-See `./reference/processing-methodology.md` for detailed approach.
+See `./references/processing-methodology.md` for detailed approach.
 [Quick example only]
 
 ## Step 3: Validation
-See `./reference/validation-checklist.md` for complete checklist.
+See `./references/validation-checklist.md` for complete checklist.
 
 # Quick Reference
 [Most common commands/patterns only]
 
 # Supporting Documentation
-- `./reference/methodology.md` - Detailed processing approach
-- `./reference/advanced-patterns.md` - Complex use cases
+- `./references/methodology.md` - Detailed processing approach
+- `./references/advanced-patterns.md` - Complex use cases
 - `./templates/` - Output templates
 ```
 
@@ -101,25 +101,25 @@ See `./reference/validation-checklist.md` for complete checklist.
 
 **Skinny SKILL.md Pointers:**
 ```markdown
-See `./reference/filename.md` for [brief description of what's there].
+See `./references/filename.md` for [brief description of what's there].
 ```
 
 ### File Naming Conventions
 
 **Lowercase with hyphens:**
-- ✅ `./reference/csv-processing-patterns.md`
-- ✅ `./reference/api-authentication-guide.md`
+- ✅ `./references/csv-processing-patterns.md`
+- ✅ `./references/api-authentication-guide.md`
 - ✅ `./scripts/transform-data.js`
-- ❌ `./reference/CSV-Processing-Patterns.md`
-- ❌ `./reference/API_Authentication_Guide.md`
+- ❌ `./references/CSV-Processing-Patterns.md`
+- ❌ `./references/API_Authentication_Guide.md`
 - ❌ `./scripts/TransformData.js`
 
 **Intention-revealing names:**
-- ✅ `./reference/aws-lambda-deployment-patterns.md`
-- ✅ `./reference/github-workflow-examples.md`
-- ❌ `./reference/reference.md`
-- ❌ `./reference/helpers.md`
-- ❌ `./reference/misc.md`
+- ✅ `./references/aws-lambda-deployment-patterns.md`
+- ✅ `./references/github-workflow-examples.md`
+- ❌ `./references/reference.md`
+- ❌ `./references/helpers.md`
+- ❌ `./references/misc.md`
 
 ## Content Best Practices
 
@@ -344,9 +344,9 @@ Show how to use them in workflows.
 ### Supporting File Names
 
 **Use lowercase, intention-revealing names:**
-- ✅ `./reference/aws-lambda-patterns.md`
+- ✅ `./references/aws-lambda-patterns.md`
 - ✅ `./scripts/analyze-logs.js`
-- ❌ `./reference/Reference.md`
+- ❌ `./references/Reference.md`
 - ❌ `./scripts/utils.js`
 
 ## Testing Best Practices
@@ -436,7 +436,7 @@ console.log(records.slice(0, 5));
 - `./utils.js`
 
 ✅ **Good:**
-- `./reference/csv-methodology.md`
+- `./references/csv-methodology.md`
 - `./scripts/transform-csv.js`
 - `./templates/report-template.md`
 
@@ -466,7 +466,7 @@ C:\Users\Documents\file.txt
 ✅ **Good:**
 ```
 /Users/name/Documents/file.txt
-./reference/file.md
+./references/file.md
 ```
 
 ## Advanced Patterns
@@ -535,7 +535,7 @@ Skills don't have formal versions, but document major changes:
 ```markdown
 # Changelog
 
-**2024-01-15:** Refactored to progressive disclosure pattern, moved detailed examples to reference/examples.md
+**2024-01-15:** Refactored to progressive disclosure pattern, moved detailed examples to references/examples.md
 **2024-01-01:** Initial creation
 ```
 
@@ -545,7 +545,7 @@ Creating or editing a skill? Check these:
 
 **Structure:**
 - [ ] SKILL.md under 500 lines (ideally ~150-200)
-- [ ] Detailed content in reference/ files (lowercase names)
+- [ ] Detailed content in references/ files (lowercase names)
 - [ ] Skinny pointers in SKILL.md
 - [ ] Intention-revealing file names
 

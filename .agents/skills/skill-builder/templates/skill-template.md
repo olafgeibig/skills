@@ -178,16 +178,16 @@ another-diagnostic-command
 
 # Supporting Files
 
-If SKILL.md becomes too long or has multiple detailed sections, create a `reference/` directory:
+If SKILL.md becomes too long or has multiple detailed sections, create a `references/` directory:
 
 ```bash
-mkdir -p reference
+mkdir -p referencesss
 ```
 
 Reference other files in the skill directory using relative paths:
 
-- See `./reference/detailed-methodology.md` for [what it contains]
-- See `./reference/examples.md` for [what it contains]
+- See `./references/detailed-methodology.md` for [what it contains]
+- See `./references/examples.md` for [what it contains]
 - See `./templates/` for [what templates are available]
 - See `./scripts/` for [what helper scripts exist]
 

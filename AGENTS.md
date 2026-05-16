@@ -191,7 +191,7 @@ skill-name/
 └── assets/ (optional - templates and static resources)
 ```
 
-**Important:** The skill-builder's SKILL.md shows an older pattern with files in the root directory, but this contradicts the official best practices. Always use the `references/` directory structure shown above.
+**Important:** Always use the `references/` directory structure shown above — not `reference/` (singular). Keeping naming consistent avoids confusion.
 
 ### Common Anti-Patterns
 

@@ -7,7 +7,7 @@ Every skill requires a directory with a `SKILL.md` file:
 ```
 skill-name/
 ├── SKILL.md (required)
-├── reference/ (optional - for detailed documentation)
+├── references/ (optional - for detailed documentation)
 │   ├── methodology.md
 │   └── examples.md
 ├── scripts/ (optional)
@@ -21,9 +21,9 @@ skill-name/
 **Use intention-revealing names for all supporting files:**
 
 **Good Examples:**
-- `./reference/converting-sub-agents.md`
-- `./reference/aws-deployment-patterns.md`
-- `./reference/github-workflow-examples.md`
+- `./references/converting-sub-agents.md`
+- `./references/aws-deployment-patterns.md`
+- `./references/github-workflow-examples.md`
 - `./scripts/analyze-complexity.js`
 - `./templates/report-template.md`
 
@@ -36,7 +36,7 @@ skill-name/
 **Reference files with relative paths:**
 - Use `./filename.md` in SKILL.md
 - Use lowercase filenames with hyphens
-- Group related files in subdirectories (reference/, scripts/, templates/)
+- Group related files in subdirectories (references/, scripts/, templates/)
 
 ## SKILL.md Format
 
@@ -62,8 +62,8 @@ Concrete examples showing how to use this skill.
 
 ## Reference Documentation
 
-- See `./reference/detailed-methodology.md` for [what it contains]
-- See `./reference/advanced-patterns.md` for [what it contains]
+- See `./references/detailed-methodology.md` for [what it contains]
+- See `./references/advanced-patterns.md` for [what it contains]
 - See `./templates/` for [what templates are available]
 ```
 
@@ -109,17 +109,17 @@ Concrete examples showing how to use this skill.
 [Brief overview - 3-5 bullets]
 
 ## Step 2: Processing
-See `./reference/processing-methodology.md` for detailed approach.
+See `./references/processing-methodology.md` for detailed approach.
 
 ## Step 3: Validation
-See `./reference/validation-checklist.md` for complete checklist.
+See `./references/validation-checklist.md` for complete checklist.
 ```
 
 **Move details to reference files:**
-- Detailed methodologies → `./reference/methodology.md`
-- Extensive examples → `./reference/examples.md`
-- Long checklists → `./reference/checklist.md`
-- Background information → `./reference/background.md`
+- Detailed methodologies → `./references/methodology.md`
+- Extensive examples → `./references/examples.md`
+- Long checklists → `./references/checklist.md`
+- Background information → `./references/background.md`
 
 **Benefits:**
 - Lower initial context cost
@@ -132,7 +132,7 @@ See `./reference/validation-checklist.md` for complete checklist.
 ```
 analyzing-data/
 ├── SKILL.md                           # Core workflow (~150 lines)
-├── reference/
+├── references/
 │   ├── data-processing-patterns.md    # Detailed examples
 │   ├── sql-optimization-guide.md      # Query best practices
 │   └── statistical-methods.md         # Background theory
@@ -167,6 +167,6 @@ When reference files exceed 200 lines, include a table of contents:
 
 1. **One topic per reference file** - Don't create catch-all files
 2. **Use lowercase filenames** - e.g., `nodejs-patterns.md`, not `NodeJS-Patterns.md`
-3. **Group by type** - reference/, scripts/, templates/
+3. **Group by type** - references/, scripts/, templates/
 4. **Intention-revealing names** - Name describes the content clearly
 5. **Cross-reference sparingly** - Reference files should be self-contained when possible

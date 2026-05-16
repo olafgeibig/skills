@@ -4,7 +4,7 @@ description: Use this skill when creating new Claude Code skills from scratch, e
 compatibility: Requires network access for documentation fetching, uv for package management, and npm for Node.js scripts
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 You are an expert Claude Code Skills architect with deep knowledge of the Skills system for Claude Code CLI, best practices, and how Claude invokes skills based on their metadata and descriptions.
@@ -143,12 +143,12 @@ const execAsync = promisify(exec);
 - Create the skill directory in the appropriate location
 - Write the SKILL.md with YAML frontmatter
 - If SKILL.md is approaching 500 lines or has multiple detailed sections:
-  - Create `reference/` directory: `mkdir -p skill-name/reference`
-  - Move detailed content to reference/ with intention-revealing names:
-    - Detailed methodology → `reference/methodology.md`
-    - Extensive examples → `reference/examples.md`
-    - Command references → `reference/command-reference.md`
-  - Reference files in SKILL.md with `./reference/filename.md` paths
+  - Create `references/` directory: `mkdir -p skill-name/references`
+  - Move detailed content to `references/` with intention-revealing names:
+    - Detailed methodology → `references/methodology.md`
+    - Extensive examples → `references/examples.md`
+    - Command references → `references/command-reference.md`
+  - Reference files in SKILL.md with `./references/filename.md` paths
 - If scripts are needed, use Node.js with modern ESM syntax in `scripts/` directory
 - Keep SKILL.md focused on core workflow (under 500 lines)
 
@@ -178,9 +178,9 @@ When refining existing skills:
 
 2. **Improve Organization**: Use progressive disclosure
    - If SKILL.md is too long or has multiple detailed sections:
-     - Create `reference/` directory: `mkdir -p reference`
-     - Move detailed content to `reference/` with intention-revealing names
-     - Reference files with relative paths (e.g., `./reference/processing-details.md`)
+     - Create `references/` directory: `mkdir -p referencesss`
+     - Move detailed content to `references/` with intention-revealing names
+     - Reference files with relative paths (e.g., `./references/processing-details.md`)
    - Keep SKILL.md focused on core instructions (under 500 lines)
 
 3. **Add Supporting Files**:
@@ -195,7 +195,7 @@ When refining existing skills:
 
 # Converting Sub-Agents to Skills
 
-When converting existing Claude Code sub-agent configurations (those in `~/.claude/agents/`), see `./converting-sub-agents-to-skills.md` for comprehensive guidance.
+When converting existing Claude Code sub-agent configurations (those in `~/.claude/agents/`), see `./references/converting-sub-agents-to-skills.md` for comprehensive guidance.
 
 **Quick Overview:**
 1. Analyze the sub-agent's YAML frontmatter and instructions

@@ -20,7 +20,7 @@ Graph navigation as the core principle
 
 First concrete task (rework navigation)
 1) Search the vault via graph traversal along MoCs and linked notes.
-2) Search frontmatter (e.g. via SQL / metadata queries).
+2) Search frontmatter (e.g. via metadata queries).
 3) Search notes by keywords (BM25 / full-text).
 
 Note

@@ -59,7 +59,7 @@ description: Use this skill when working with CSV files using xsv CLI, including
    ```
    skill-name/
    ├── SKILL.md (keep core workflow)
-   ├── reference/
+   ├── references/
    │   ├── detailed-methodology.md
    │   ├── advanced-examples.md
    │   └── troubleshooting-guide.md
@@ -69,7 +69,7 @@ description: Use this skill when working with CSV files using xsv CLI, including
    ```markdown
    ## Methodology
 
-   See `./reference/detailed-methodology.md` for comprehensive background on the approach.
+   See `./references/detailed-methodology.md` for comprehensive background on the approach.
    ```
 
 4. **Keep in SKILL.md:**
@@ -100,8 +100,8 @@ Here are 15 detailed examples:
 # After (in SKILL.md, 10 lines)
 ## CSV Processing Methodology
 
-See `./reference/csv-methodology.md` for detailed CSV format information.
-See `./reference/csv-examples.md` for 15+ comprehensive examples.
+See `./references/csv-methodology.md` for detailed CSV format information.
+See `./references/csv-examples.md` for 15+ comprehensive examples.
 
 Quick example:
 ```bash
@@ -138,7 +138,7 @@ Sometimes errors happen so handle those.
    - Verify output with test commands
    - Check for data integrity issues
 
-See `./reference/detailed-workflow.md` for comprehensive steps.
+See `./references/detailed-workflow.md` for comprehensive steps.
 ```
 
 ### 4. Add CLI and Node.js Patterns
@@ -175,7 +175,7 @@ const data = JSON.parse(await readFile('data.json', 'utf-8'));
 console.log(data.filter(x => x.active));
 ```
 
-See `./reference/nodejs-and-cli-patterns.md` for more examples.
+See `./references/nodejs-and-cli-patterns.md` for more examples.
 ```
 
 ### 5. Update Outdated Content
@@ -209,7 +209,7 @@ See `./reference/nodejs-and-cli-patterns.md` for more examples.
 
 **Reference documentation:**
 ```
-reference/
+references/
 ├── methodology.md          # Detailed approach explanation
 ├── advanced-patterns.md    # Complex use cases
 ├── troubleshooting.md      # Common issues and solutions
@@ -304,7 +304,7 @@ Test with realistic user queries:
 ```markdown
 ## Examples
 
-See `./reference/comprehensive-examples.md` for 15+ detailed examples covering:
+See `./references/comprehensive-examples.md` for 15+ detailed examples covering:
 - Basic usage patterns
 - Advanced transformations
 - Edge case handling
@@ -339,7 +339,7 @@ xsv headers data.csv
 xsv select column1,column2 data.csv | xsv filter -s column1 'value' > output.csv
 ```
 
-See `./reference/cli-commands.md` for complete command reference.
+See `./references/cli-commands.md` for complete command reference.
 ```
 
 ### Pattern: Modernize Scripts
@@ -452,11 +452,11 @@ After editing:
 | Problem | Solution | Files Affected |
 |---------|----------|----------------|
 | Not being invoked | Improve description with trigger keywords | SKILL.md |
-| Too long (>500 lines) | Extract to reference files with skinny pointers | SKILL.md + new reference/ files |
-| Missing examples | Add examples or reference file | SKILL.md or reference/examples.md |
+|| Too long (>500 lines) | Extract to reference files with skinny pointers | SKILL.md + new references/ files |
+| Missing examples | Add examples or reference file | SKILL.md or references/examples.md |
 | Python scripts | Replace with Node.js | scripts/*.js |
 | Unclear structure | Reorganize with hierarchy | SKILL.md |
-| No CLI tools | Add CLI commands section | SKILL.md or reference/cli-patterns.md |
+| No CLI tools | Add CLI commands section | SKILL.md or references/cli-patterns.md |
 | Outdated commands | Update to current versions | SKILL.md + reference files |
 | Generic name | Change to gerund form | SKILL.md (name field) |
 | Verbose explanation | Challenge necessity, condense or remove | SKILL.md |
