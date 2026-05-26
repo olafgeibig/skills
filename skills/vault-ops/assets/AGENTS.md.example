@@ -8,18 +8,13 @@
 - The topics property always contains links to MoCs, not tags.
 
 ## Language Policy
-TODO
+The user may write in German but note language must follow these rules
+- Notes follow the primary language of their area, as defined in INDEX.md files. 
+- MoCs use the area's language. 
+- Rule of thumb: German for Personal/health/lifestyle areas and English for Technical/engineering area
 
-## Area Map
-| Area | Scope | Language |
-|------|-------|----------|
-| agents | Agent frameworks, architectures, orchestration | EN |
-| AI | Artificial intelligence, ML, LLMs | EN |
-| business | Business automation, monetization, online income | DE |
-| cybersecurity | Security tools, vulnerability detection, AI auditing | EN |
-| devops | CI/CD, deployment, edge computing, micro-frontends, AI-native SDLC | EN |
-| essen | Food, cooking, nutrition | DE |
-| gesundheit | Health, sleep, supplements, wellbeing | DE |
+## Sync
+The vault uses obsidian-headless-sync as defined in the skill `ob-headless-sync`. Sync happens automatically. Do not sync manually.
 
 ## Note Types
 Reuse templates from skill/references: note-template, moc-template
@@ -28,3 +23,15 @@ Reuse templates from skill/references: note-template, moc-template
 | zettel  | Atomic note from external source — thread extraction, research summary, resource digestion | Agent                      | note-template       |
 | moc     | Map of Content hub page                                                                    | Agent                      | moc                 |
 | article | Distilled synthesis, analysis, or narrative — the user's own thinking                      | User with agent assistance | article             |
+
+## Addtional frontmatter properties
+
+### article
+- status: draft, review, final
+
+### resource
+- title: original title of the resource
+- source: source URL
+- author: if available
+- published: resource date if available
+- created: date of note creation

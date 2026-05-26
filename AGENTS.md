@@ -1,6 +1,8 @@
 # Agent Guidelines for Skills Repository
 
-This repository contains OpenCode/Claude Code skills - reusable capabilities defined via SKILL.md files.
+This repository contains agent skills - reusable capabilities defined via SKILL.md files.
+
+If you work on a skill always use the skills in this project directory. DO NOT edit the same skill that is installed in a different location.
 
 ## Repository Structure
 
@@ -197,7 +199,6 @@ skill-name/
 
 ❌ Over-explaining obvious concepts
 ❌ Vague language: "process appropriately" → use exact commands
-❌ Python scripts → use Node.js
 ❌ Generic file names: `./reference.md` → use `./references/csv-patterns.md`
 ❌ Too many options: pick one primary tool and show it
 ❌ Windows paths: use `/Users/name` or `./relative/path`

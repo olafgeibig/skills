@@ -51,10 +51,14 @@ When the user asks to add a new domain wiki to an existing federation:
    - `wiki/<name>/concepts/.gitkeep`
    - `wiki/<name>/comparisons/.gitkeep`
    - `wiki/<name>/queries/.gitkeep`
-3. Add section to root `wiki/index.md` hub with the wiki's abstract
-   (use `mcp_turbovault_edit_note` or read-full/write-full on `wiki/index.md`)
-
-## SCHEMA.md Template
+3. **CRITICAL — Update the hub:**
+   - Add a section to root `wiki/index.md` with the new wiki's abstract
+   - The abstract is used by the agent for routing (see Routing section)
+   - Use read-full/write-full on `wiki/index.md`; do **not** use `mcp_turbovault_edit_note` for index files because SEARCH/REPLACE can accidentally delete or corrupt section headers
+   - Format: `## <wiki-name>` followed by an abstract paragraph
+4. **If the vault has INDEX.md files** (vault-ops convention):
+   - No change needed to `INDEX.md` (root) — it already links to `wiki/index.md`
+   - No change needed to `area/INDEX.md` or `projects/INDEX.md` — the wiki hub is its own INDEX
 
 Write this file completely — do not reference an external template. Adapt to
 the user's domain:

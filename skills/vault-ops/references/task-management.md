@@ -35,14 +35,32 @@ Obsidian Tasks uses emoji-based metadata inline in markdown checklists.
 | 🆔 | Task ID | `🆔 abc123` |
 | ⛔ | Depends on | `⛔ abc123` or `⛔ abc,def` |
 
-### Dependencies (Tasks 6.1.0+)
+### Dependencies
 
-Tasks can have Finish-to-Start dependencies. A task with `🆔` gets an ID, another references it with `⛔`:
+Tasks can have Finish-to-Start dependencies. A task with `🆔` gets an ID.
+
+**Legacy syntax (⛔):**
 
 ```markdown
 - [ ] Write first draft 🆔 draft-1
 - [ ] Test with users ⛔ draft-1
 ```
+
+**Modern syntax (`depends on:`) — Tasks 6.0+:**
+
+Multiline `depends on:` is preferred for readability, especially with multiple dependencies:
+
+```markdown
+- [ ] Write first draft 🆔 draft-1
+- [ ] Review draft 🆔 draft-review
+- [ ] Publish article 🆔 publish-article
+  depends on: draft-1
+  depends on: draft-review
+```
+
+The `depends on:` lines are indented with **two spaces**. Each line specifies one dependency. The parent task's `🆔` must be unique in the vault.
+
+**Pitfall — circular dependencies:** Tasks checks for cycles at render time and shows blocked tasks. Avoid `A → B → A` chains.
 
 **Query filters for dependencies:** `is blocking`, `is not blocking`, `is blocked`, `is not blocked`, `has id`, `no id`, `has depends on`, `no depends on`
 
@@ -70,7 +88,7 @@ Hermes does **not** resolve query blocks. For programmatic search use TurboVault
 
 ```bash
 # Get vault path dynamically
-mcp_turbovault_get_vault_context()  # → active_vault.path = /home/olaf/vaults/akademeia
+mcp_turbovault_get_vault_context()  # → active_vault.path = <vault-path>
 
 # Open tasks (- [ ])
 rg --no-heading -e '- \[ \]' <vault-path> --glob '!wiki/**' --glob '!system/**'
@@ -81,14 +99,14 @@ rg --no-heading -e '- \[x\]' <vault-path> --glob '!wiki/**'
 # All tasks (any status)
 rg --no-heading -e '- \[[ x\-?/]\]' <vault-path>
 
-# Not-done tasks (open + in-progress + question)
-rg --no-heading -e '- \[[ ?/]\]' <vault-path>
+# Not-done tasks (open + in-progress + question) — vault-ops scope
+rg --no-heading -e '- \[[ ?/]\]' <vault-path> --glob '!wiki/**' --glob '!system/**'
 ```
 
 **Keyword search** (for known task topics via Tantivy):
 
 ```bash
-mcp_turbovault_search(query="Hundesteuer")
+mcp_turbovault_search(query="<task-topic>")
 mcp_turbovault_advanced_search(query="2026-05", exclude_paths=["wiki/"])
 ```
 
@@ -105,6 +123,8 @@ mcp_turbovault_write_note(
 ```
 
 Where exactly the task goes depends on context — there is no required section. The task belongs in the note it is thematically related to.
+
+**CRITICAL RULE — Do NOT append tasks to MoCs:** Never append tasks to a Map of Content (MoC) or project-level MoC as a general collection. Tasks must be written inline directly next to the specific content inside the note they belong to, maintaining the rich context of the work.
 
 ### Complete a Task
 
@@ -146,4 +166,28 @@ mcp_turbovault_edit_note(
 - **Recurrence is plugin-only:** Hermes can set `🔁 every week`, but the recurrence logic runs only inside Obsidian.
 - **Restart required:** New tasks won't appear in query blocks until Obsidian is restarted (plugin caches vault index at startup).
 - **No `tasks/` folder needed:** The plugin scans the entire vault. Tasks belong in their context note.
+- **Pitfall (No MoC/Central Task Lists):** Never append tasks to a Map of Content (MoC) or collect them in central lists. Tasks must always be written inline, directly next to the specific content in the note they belong to, to preserve context.
 - **Prefer `mcp_turbovault_write_note(path, ..., mode="append")`** over `edit_note` for adding new tasks — simpler and avoids SEARCH/REPLACE complexity.
+- **Pitfall — Delimiter Format:** `mcp_turbovault_edit_note` requires the git-diff style delimiters: `<<<<<<< SEARCH` (opening), `=======` (separator), `>>>>>>> REPLACE` (closing). Plain `SEARCH`/`REPLACE` without angle brackets will fail with "Parse error: No SEARCH/REPLACE blocks found in input." This is the #1 failure cause.
+
+---
+
+## Workflows
+
+### Review all open tasks across the vault
+
+Use this when asked to "show all tasks" or "review all todos".
+
+1. **Get vault path**: `mcp_turbovault_get_vault_context()` → use `active_vault.path`
+2. **Search for non-done tasks** with standard exclusions:
+   ```bash
+   rg --no-heading -n -e '- \[[ ?/]\]' <vault-path> --glob '!wiki/**' --glob '!system/**'
+   ```
+   *Use `-n` to get line numbers for later editing.*
+3. **Categorize results** by directory:
+   - `projects/<name>/` → active tasks. Note priority (⏫, 🔼), due dates (📅), and task IDs (🆔).
+   - `archive/` → potentially stale. Read the note's frontmatter — if `status: archived`, flag tasks as likely obsolete.
+   - `area/`, `inbox/`, `sources/` → standard context tasks.
+   - `wiki/` → excluded by glob (vault-ops is read-only for wiki per AGENTS.md). If the user asks about wiki tasks, mention separately.
+4. **Read context for archive notes** — a task under an archived note may be a stale instruction, not an active todo.
+5. **Present structured overview** grouped by note, with priorities and due dates. Use a consistent format so the user can quickly scan.

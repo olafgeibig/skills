@@ -1,6 +1,6 @@
 # Vault Configuration
 
-vault-ops is TurboVault-first and requires TurboVault MCP tools.
+vault-ops requires an available TurboVault MCP server.
 
 ## Detect TurboVault
 
@@ -11,7 +11,7 @@ We use a two-stage check:
    - If missing: tell the user to install it (https://github.com/Epistates/turbovault)
 
 2. Stage 2 (decisive): check that the TurboVault MCP server is available (this is what the agent actually uses).
-   - Try: `mcp_turbovault_list_vaults`
+   - Call `mcp_turbovault_list_vaults`
    - If it succeeds (even with an empty list): TurboVault MCP is available.
    - If it fails: stop and instruct the user to enable/configure TurboVault MCP.
 

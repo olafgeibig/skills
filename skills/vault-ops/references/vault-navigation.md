@@ -1,73 +1,154 @@
-# TurboVault navigation
+# Vault Navigation
 
-Use this when TurboVault MCP tools are available. Prefer graph- and metadata-aware queries over filesystem scanning.
+Prefer TurboVault graph and metadata tools over filesystem scans. TurboVault already parses wikilinks, backlinks, frontmatter, tags, and graph structure.
 
-Scope note: by default, exclude `wiki/` and `system/` from navigation/search unless the user explicitly asks for them.
+Scope note: by default, exclude `wiki/` and `system/` from Vault Ops navigation/search unless the user explicitly asks for them. Use the `md-wiki` skill for wiki maintenance.
 
-Goal: follow the vault’s intended navigation path (MoCs -> notes) instead of doing global keyword search first.
+Goal: follow the vault's intended navigation path (INDEX → MoC → notes) before falling back to global keyword search.
 
-1) Find the entry MoC.
-- Default entry point is `+Index.md` (or a vault-local equivalent defined in `AGENTS.md`).
+## 1) Start From The Routing INDEX
 
-2) Traverse outward.
-- From a MoC note, use:
-  - `mcp_turbovault_get_forward_links` to enumerate outgoing links.
-  - `mcp_turbovault_get_backlinks` when you need incoming context or to find “where is this referenced?”.
+Default entry points:
 
-3) Expand selectively.
-- Use `mcp_turbovault_get_related_notes` (max_hops=1..2) to discover nearby notes, then read the most relevant ones.
-- Prefer breadth-limited traversal: stay on MoC nodes (+*.md) first, then drill into linked notes.
+- `INDEX.md` — vault root INDEX
+- `area/INDEX.md` — areas
+- `projects/INDEX.md` — projects
+- `wiki/index.md` — wiki domains, maintained with `md-wiki`
 
-4) Handle nested MoCs explicitly.
-- Treat MoCs as a hierarchy: a MoC can link to sub-MoCs (also +*.md).
-- During traversal, expand MoC -> sub-MoC links before expanding MoC -> regular note links.
-- If a MoC is too broad, expect navigation to continue via sub-MoCs; do not stop at the parent MoC.
+Workflow:
 
-5) Read notes as needed.
-- Use `mcp_turbovault_read_note` to read full content.
-- Use `mcp_turbovault_get_notes_info` for cheap metadata checks before reading full content.
+1. Read root `AGENTS.md` first.
+2. Read the relevant INDEX note.
+3. Use INDEX abstracts and `description` frontmatter to choose the relevant MoC.
+4. Read or traverse that MoC before doing broad search.
 
-## 2) Search frontmatter (structured)
+## 2) Hybrid MoC Navigation
 
-Use when you know what metadata you want (type, tags, updated, topics, etc.).
+The vault uses two complementary directions.
 
-1) Quick match:
-- `mcp_turbovault_search_by_frontmatter` for exact key/value matches.
+### Note → Parent/Related MoCs
 
-2) Pattern match:
-- `mcp_turbovault_query_metadata` for existence and comparison-style filters.
+Use when you already have a note and need to understand where it belongs.
 
-3) Complex queries / reporting:
-- `mcp_turbovault_query_frontmatter_sql` when you need joins/aggregations/sorting across many notes.
-- Start by inspecting schema once per vault with `mcp_turbovault_inspect_frontmatter`.
+Preferred tools:
 
-## 3) Keyword / full-text search (BM25)
+- If the note is already read, inspect its `topics` frontmatter directly.
+- Otherwise use `mcp_turbovault_get_metadata_value(file, 'topics')` for a cheap lookup.
+- For batch/reporting, use `mcp_turbovault_query_frontmatter_sql` against the `files` table.
 
-Use when:
-- you don’t know the right MoC yet,
-- you need to find a specific phrase,
+Steps:
+
+1. Read `topics` from frontmatter.
+2. Extract `[[+MoC]]` entries.
+3. Navigate directly to those MoCs.
+4. If graph correctness matters, verify that the same MoCs also appear as body links in the note's `Topics:` section.
+
+### MoC → Child Notes
+
+Use when you have a MoC and need its curated or related notes.
+
+Preferred tools:
+
+1. `mcp_turbovault_get_forward_links(moc_path)` — curated links explicitly listed in the MoC.
+2. `mcp_turbovault_get_backlinks(moc_path)` — notes that body-link back to the MoC.
+3. `mcp_turbovault_get_related_notes(moc_path, max_hops=1..2)` — nearby graph context when exploring.
+4. SQL against the `links` table for batch/reporting.
+
+Interpretation:
+
+- Forward links are the MoC author's curated navigation.
+- Backlinks show notes that claim this MoC as parent/related context through real body wikilinks.
+- `topics` frontmatter is useful for cheap parent lookup, but body links are the graph edge TurboVault can traverse.
+
+## 3) Structured Metadata Queries
+
+Use structured metadata queries when you know the property you need.
+
+1. Inspect schema once per vault/session when writing SQL:
+   - `mcp_turbovault_inspect_frontmatter`
+2. Exact frontmatter lookup:
+   - `mcp_turbovault_search_by_frontmatter(key, value)`
+3. Single-note metadata lookup:
+   - `mcp_turbovault_get_metadata_value(file, key)`
+4. Reporting and filtering:
+   - `mcp_turbovault_query_frontmatter_sql`
+
+Useful SQL examples:
+
+```sql
+-- List MoCs
+SELECT path, type, description FROM files WHERE type = 'moc' ORDER BY path LIMIT 50
+
+-- Inspect topics for one note
+SELECT path, topics FROM files WHERE path = 'projects/example/example-note.md'
+
+-- Graph edges pointing to a MoC or note
+SELECT source, target, link_type, is_valid FROM links WHERE target LIKE '%+Agents%' LIMIT 50
+
+-- Forward edges from a MoC
+SELECT source, target FROM links WHERE source = 'area/agents/+Agents.md' LIMIT 50
+```
+
+Caveat: do not assume arbitrary SQLite features. In the current tested TurboVault SQL engine, multi-table selects such as `files, json_each(topics)` are not supported. Prefer dedicated TurboVault tools for graph traversal and SQL only for simple filtered reports.
+
+## 4) Keyword And Semantic Search
+
+Use search when:
+
+- the right MoC is unknown,
+- you need a specific phrase,
+- the INDEX/MoC path is incomplete,
 - or you want to confirm coverage after graph traversal.
 
-1) Use `mcp_turbovault_search` with a focused query.
-- Prefer 2–5 distinctive keywords.
-- If results are too broad, add another term rather than making the query long.
+Tools:
 
-2) For conceptual matches (optional):
-- Use `mcp_turbovault_semantic_search` for “find notes like this concept” style queries.
+- `mcp_turbovault_search(query)` — BM25 full-text search. Use 2–5 distinctive terms.
+- `mcp_turbovault_advanced_search(...)` — full-text search with tags/frontmatter/path filters.
+- `mcp_turbovault_semantic_search(query, limit)` — conceptual similarity search.
+- `mcp_turbovault_recommend_related(path)` — ML-powered recommendations for a known note.
+- `mcp_turbovault_suggest_links(file, limit)` — link suggestions for improving a note.
 
-3) Validate through the graph:
-- After selecting a candidate note, jump to its MoCs via `mcp_turbovault_get_forward_links`/`get_backlinks` and confirm it integrates where expected.
+After selecting a candidate note from search, validate it through the graph:
 
-## 4) Safety / integrity checks (when changing structure)
+1. Read its `topics` frontmatter.
+2. Check backlinks/forward links.
+3. Confirm it integrates with the expected MoC/INDEX path.
 
-Before reorganizing, renaming, or doing bulk edits:
-- Run `mcp_turbovault_quick_health_check`.
-- For deeper analysis, run `mcp_turbovault_full_health_analysis`.
-- If moving notes, check impact with `mcp_turbovault_get_backlinks` first.
+## 5) Hub And Structure Analysis
 
-## 5) Output expectations
+Use these for architecture and cleanup tasks, not for ordinary lookup:
 
-When answering user questions, prefer:
-- the MoC path you followed (which MoCs led to which notes),
-- then the specific note excerpts/sections that justify the answer,
-- then (only if needed) keyword search results as supporting evidence.
+- `mcp_turbovault_get_hub_notes(top_n)` — notes with the most graph connections.
+- `mcp_turbovault_get_centrality_ranking()` — centrality metrics across the vault; can return large output.
+- `mcp_turbovault_get_isolated_clusters()` — disconnected subgraphs.
+- `mcp_turbovault_get_dead_end_notes()` — notes with backlinks but no outgoing links.
+- `mcp_turbovault_detect_cycles()` — circular reference chains.
+
+Hub interpretation:
+
+1. Check whether top hubs are intentional MoCs, INDEX files, or domain wiki hubs.
+2. If a non-MoC note becomes a hub, inspect whether it should become or link to a MoC.
+3. Do not promote a note to MoC automatically; report the candidate and ask the user before restructuring.
+
+## 6) Safety Checks Before Structural Changes
+
+Before reorganizing, renaming, promoting, archiving, or doing bulk edits:
+
+1. Run `mcp_turbovault_quick_health_check`.
+2. Check backlinks for any note that will move:
+   - `mcp_turbovault_get_backlinks(path)`
+3. For large changes, run `mcp_turbovault_full_health_analysis` or targeted SQL/reporting.
+4. After changes, verify:
+   - changed notes read back correctly,
+   - backlinks/forward links resolve,
+   - relevant INDEX/MoC entries were updated,
+   - no new broken links were introduced.
+
+## 7) Output Expectations
+
+When answering user questions about vault content, report:
+
+1. The navigation path followed (INDEX → MoC → note).
+2. The TurboVault tools used when relevant.
+3. The specific notes/sections that justify the answer.
+4. Search results only as supporting evidence when graph navigation was insufficient.
