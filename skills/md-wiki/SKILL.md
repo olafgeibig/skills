@@ -16,7 +16,7 @@ metadata:
       - vault-ops
       - turbovault-use
   source: https://github.com/olafgeibig/skills
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # Multi-Domain LLM Wiki (TurboVault)
@@ -257,6 +257,14 @@ See the `turbovault-use` skill for syntax and format requirements.
 ### Archiving
 
 **→ Trigger:** Load `./references/archiving.md` when the user asks to archive a wiki page or delete an entire domain wiki.
+
+### Source Freshness Check
+
+**→ Trigger:** Load `./references/source-freshness-check.md` when the user asks to check if git-based sources (tools, repos) have been updated since ingest. Runs `git ls-remote` against stored `latest_commit` values and reports drift. User decides on re-ingest.
+
+### Source Cascade Removal
+
+**→ Trigger:** Load `./references/source-cascade-removal.md` when the user asks to remove a raw source and all pages derived from it. Depends on `sources:` frontmatter for attribution — pages without it need user review.
 
 ## Do's and Don'ts
 
