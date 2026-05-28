@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Safe and effective use of TurboVault MCP tools — vault selection, active vault management, read/write/edit_note patterns, SEARCH/REPLACE syntax, search tools, batch operations, verification, and troubleshooting. Load this skill whenever a task uses mcp_turbovault_* tools."
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -133,6 +133,30 @@ All operations succeed or fail as one transaction. Use this for:
 - Ingest passes that create/update 3+ files
 - Structural changes (rename a note type across files)
 - Any multi-file operation where partial writes would leave the vault inconsistent
+
+## Graph & Connection Tools
+
+TurboVault provides graph analysis tools for finding relationships between notes — used by vault-ops for MoC navigation and by md-wiki for lint/orphan detection.
+
+| Tool | What it does | Best for |
+|------|-------------|----------|
+| `get_backlinks` | All notes linking TO a given note | Reverse references, orphans, MoC→children |
+| `get_forward_links` | All notes a given note links TO | Outbound link count, finding broken targets |
+| `get_related_notes` | Notes within N hops in the link graph | Topic cluster discovery, expanding exploration |
+| `recommend_related` | ML-powered recommendations | AI suggestions beyond direct link traversal |
+| `find_similar_notes` | TF-IDF cosine similarity by content | Conceptual matches, finding duplicates |
+| `suggest_links` | AI-powered link suggestions for a note | Finding pages a note should link to |
+| `get_link_strength` | Connection strength (0.0–1.0) between two notes | Quantifying how closely two notes relate |
+| `get_hub_notes` | Top N most connected notes | Finding central/organizing pages |
+| `get_centrality_ranking` | Full graph centrality metrics | Understanding structural importance |
+| `get_dead_end_notes` | Notes with incoming but NO outgoing links | Finding incomplete pages, knowledge dead-ends |
+| `get_isolated_clusters` | Disconnected subgraphs | Orphaned wiki domains, project silos |
+| `detect_cycles` | Circular reference chains | Debugging unintended link loops |
+| `get_broken_links` | All broken wikilinks vault-wide | Entry point for link repair |
+
+**Entry-point pattern:** Most interaction starts with `get_backlinks` (reverse lookup) or `get_forward_links` (forward check). Advanced tools (centrality, cycles, clusters) are usually only needed during vault health audits.
+
+**Note:** `suggest_links` and `recommend_related` use LLM inference and cost per call — use sparingly. Prefer `get_related_notes` (zero-cost, deterministic) for routine discovery.
 
 ## Verification
 
