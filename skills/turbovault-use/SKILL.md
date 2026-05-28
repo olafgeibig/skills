@@ -95,25 +95,12 @@ New replacement text
 **Best practices:**
 - **Always `read_note` first** — copy the exact text from the file into your SEARCH block
 - **Include enough context** — 3-5 lines around the change point for uniqueness
-- **Use `write_note` with full content** for fragile files — see "When NOT to use edit_note" below
-
-### When NOT to use `edit_note`
-
-For these files, **always use `read_note` + `write_note` (full read, modify in context, full overwrite):**
-
-| File type | Why |
-|-----------|-----|
-| `log.md` | SEARCH matches the previous entry's header and **replaces** it, leaving detail lines orphaned |
-| `index.md` | Matching a section header like `## Entities` **deletes** the header |
-| `SCHEMA.md` | Pipe characters `\|`, brackets `[]`, and backticks trigger parser errors |
-| Chronological lists | SEARCH on date-based entries can match the wrong line |
-
-**Parse error fallback:** If `edit_note` returns `"Parse error: Incomplete SEARCH/REPLACE block"`, the content likely contains special characters (pipes, brackets, YAML frontmatter). Fall back to:
-1. `mcp_turbovault_read_note(path=...)` — read full content
-2. Modify in your context
-3. `mcp_turbovault_write_note(path=..., content=..., mode="overwrite")` — full overwrite
-
-This bypasses the parser entirely and is always safe.
+- **If `edit_note` fails** (e.g. `"Parse error: Incomplete SEARCH/REPLACE block"`), fall back to:
+  1. `mcp_turbovault_read_note(path=...)` — read full content
+  2. Modify in your context
+  3. `mcp_turbovault_write_note(path=..., content=..., mode="overwrite")` — full overwrite
+  This bypasses the parser entirely and is always safe.
+- **Prefer `write_note` for files with complex structure** — YAML frontmatter, pipe tables `|`, brackets `[]`, backticks, and multi-line lists can confuse the SEARCH/REPLACE parser. Full read + write avoids these edge cases entirely.
 
 ## Search Tools
 
@@ -136,9 +123,9 @@ When creating or updating multiple files atomically:
 
 ```
 mcp_turbovault_batch_execute(operations=[
-  {type: "WriteNote", path: "wiki/<target>/entities/foo.md", content: "..."},
-  {type: "WriteNote", path: "wiki/<target>/index.md", content: "..."},
-  {type: "EditNote", path: "wiki/<target>/log.md", edits: "..."},
+  {type: "WriteNote", path: "path/to/note1.md", content: "..."},
+  {type: "WriteNote", path: "path/to/note2.md", content: "..."},
+  {type: "EditNote", path: "path/to/note3.md", edits: "..."},
 ])
 ```
 
