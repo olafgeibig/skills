@@ -23,14 +23,31 @@ the target wiki. Route using the hub abstracts (explicit naming → abstract mat
      - Ask them to provide the full text via inbox, PDF, or alternative method
      - Do NOT create entity/concept pages based on a truncated summary — the synthesis would be unreliable
 
-③ **Discuss takeaways** with the user — what's interesting, what matters for
+③ **Stamp the raw source with a content hash** — after writing, calculate a SHA256
+   checksum to enable future drift detection:
+
+   ```bash
+   sha256sum /path/to/vault/wiki/<target>/raw/articles/<name>.md
+   ```
+
+   Then update the raw source's frontmatter via `mcp_turbovault_update_frontmatter`:
+   ```yaml
+   sha256: a3f2c8b1...  # first 16 chars of the hash (uniqueness per vault is sufficient)
+   ```
+
+   The hash is a **passive fingerprint** — it sits in frontmatter and does nothing
+   until the lint workflow compares it against a future `sha256sum` of the same file.
+   This detects manual edits, sync conflicts, or re-extracts that changed the source.
+   No automatic re-ingest — the lint workflow reports drift and offers action.
+
+④ **Discuss takeaways** with the user — what's interesting, what matters for
    the domain. (Skip this in automated/cron contexts — proceed directly.)
 
-④ **Check what already exists** — search the target wiki with
+⑤ **Check what already exists** — search the target wiki with
    `mcp_turbovault_search(query="<topic>")` and filter results for
    `wiki/<target-wiki>/` prefix.
 
-⑤ **Write or update wiki pages** in the target wiki:
+⑥ **Write or update wiki pages** in the target wiki:
    - **New entities/concepts:** Create pages only if they meet the Page Thresholds
      in the target wiki's `SCHEMA.md` (2+ source mentions, or central to one source)
    - **Existing pages:** Add new information, update facts, bump `updated` date.
@@ -41,13 +58,13 @@ the target wiki. Route using the hub abstracts (explicit naming → abstract mat
      Check that existing pages link back.
    - **Tags:** Only use tags from the taxonomy in the target wiki's `SCHEMA.md`
 
-⑥ **Update navigation** in the target wiki:
+⑦ **Update navigation** in the target wiki:
    - Add new pages to the target wiki's `index.md` under the correct section, alphabetically
    - Update the "Total pages" count and "Last updated" date in the target wiki's index header
    - Append to the target wiki's `log.md`: `## [YYYY-MM-DD] ingest | Source Title`
    - List every file created or updated in the log entry
 
-⑦ **Report what changed** — list every file created or updated to the user.
+⑧ **Report what changed** — list every file created or updated to the user.
 
 A single source can trigger updates across 5-15 wiki pages. This is normal
 and desired — it's the compounding effect.

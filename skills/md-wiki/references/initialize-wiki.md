@@ -105,6 +105,7 @@ Raw sources ALSO get a small frontmatter block:
 ---
 source_url: https://example.com/article   # original URL, if applicable
 ingested: YYYY-MM-DD
+sha256:                                    # optional — set automatically on ingest for drift detection
 ---
 
 [raw content starts here]

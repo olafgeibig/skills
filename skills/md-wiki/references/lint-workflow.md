@@ -46,7 +46,7 @@ mcp_turbovault_inspect_frontmatter()
 Check that every wiki page (entities/, concepts/, comparisons/, queries/) has
 all required fields: title, created, type. Tags must be in the taxonomy.
 Note: index.md, log.md, SCHEMA.md are meta-files — skip them.
-Raw sources: check if they have frontmatter (Olaf's wiki expects it).
+Raw sources: check if they have frontmatter (check the domain wiki's `SCHEMA.md`).
 
 ## ⑤ Index Completeness
 
@@ -151,3 +151,32 @@ non-existent pages.
 Check that root `wiki/index.md` hub sections match what's on disk (directory
 names under `wiki/`). Flag domain directories on disk not listed in the hub,
 and hub sections with no matching domain directory.
+
+### ⑱ Source Drift (sha256)
+
+For every raw source file that has a `sha256` frontmatter field, verify the
+content has not changed since ingest:
+
+```bash
+sha256sum /path/to/vault/wiki/<target>/raw/articles/<file>.md
+```
+
+Compare the first 16 characters against the stored `sha256` value in frontmatter.
+- **Match** → content is unchanged. Skip.
+- **Mismatch** or **missing sha256 field** → content has drifted.
+
+**For each drift found, report:**
+- Path to the drifted raw source
+- Old hash (if present) vs new hash
+- Ask the user: "This raw source has changed since ingest. Should I re-read it
+  and update the wiki pages derived from it?"
+
+**Do NOT automatically re-ingest.** A changed hash doesn't mean the new content
+is better — the user decides.
+
+**Implementation notes:**
+- `mcp_turbovault_search_by_frontmatter(key="sha256")` discovers all raw sources
+  that have a hash on file
+- Raw sources without a `sha256` field are pre-existing (prior to this feature)
+  — report them once as un-hashed sources, do not flag them every lint
+- The terminal command runs on the local filesystem path, not an MCP tool
