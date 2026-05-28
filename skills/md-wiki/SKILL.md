@@ -125,7 +125,8 @@ AI/ML research, models, papers, benchmarks.
 - The hub lives in the vault, not in the skill config
 - The skill reads it for routing and updates it when creating new domain wikis
 
-**Hub detection:** The root `wiki/index.md` is always a hub. If it doesn't exist, the wiki root is uninitialized. Follow `./references/initialize-wiki.md`.
+**Hub detection:** The root `wiki/index.md` is always a hub. If it doesn't exist, the wiki root is uninitialized.
+**→ Trigger:** Load `./references/initialize-wiki.md` when no `wiki/index.md` exists, or when the user asks to create a new domain wiki.
 
 ## Routing
 
@@ -196,7 +197,7 @@ Never write `[[ai-research/concepts/foo]]` or `[[concepts/bar]]`. These look for
 
 ### 1. Ingest
 
-See `./references/ingest-workflow.md` for the complete workflow: capture raw source, check existing pages, create/update wiki pages, update navigation and log.
+**→ Trigger:** Load `./references/ingest-workflow.md` when the user provides a source (URL, paste, file) to integrate into a wiki, or when processing items from vault inbox.
 
 **Key rules that apply at every ingest:**
 - **Check for duplicates first** — search the target wiki before creating new pages
@@ -218,7 +219,7 @@ When the user asks a question about the wiki's domain:
 
 ### 3. Lint
 
-See `./references/lint-workflow.md` for the complete 17-check workflow: broken links, outbound link count, frontmatter validation, index completeness, orphans, tag taxonomy, stale content, page size, log rotation, reporting, iterative fixing, cross-wiki links, and hub drift.
+**→ Trigger:** Load `./references/lint-workflow.md` when the user asks to lint, audit, or health-check the wiki. Covers 18 checks: broken links, outbound link count, frontmatter validation, index completeness, orphans, tag taxonomy, stale content, page size, log rotation, report, fix cascading, cross-wiki links, hub drift, and source drift (sha256).
 
 **Lint cascades** — fixing one page often reveals the next. Re-run checks after each fix pass until clean.
 
@@ -241,7 +242,7 @@ mcp_turbovault_advanced_search(query="alignment", exclude_paths=["area/", "proje
 
 ### Detecting Unprocessed Raw Sources
 
-See `./references/detect-unprocessed-sources.md`. The `raw/articles/` directory is the signal — any file there not yet referenced by a wiki page is pending processing.
+**→ Trigger:** Load `./references/detect-unprocessed-sources.md` when the user asks to process new articles in `raw/articles/`. The `raw/articles/` directory is the signal — any file there not yet referenced by a wiki page is pending processing.
 
 ### Using `edit_note` for Targeted Edits
 
@@ -255,7 +256,7 @@ See the `turbovault-use` skill for syntax and format requirements.
 
 ### Archiving
 
-See `./references/archiving.md` for archiving single pages or removing entire domain wikis.
+**→ Trigger:** Load `./references/archiving.md` when the user asks to archive a wiki page or delete an entire domain wiki.
 
 ## Do's and Don'ts
 
