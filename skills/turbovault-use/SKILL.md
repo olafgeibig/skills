@@ -136,11 +136,11 @@ All operations succeed or fail as one transaction. Use this for:
 
 ## Verification
 
-After writing, editing, or moving notes, verify the result:
+Tool responses are authoritative — `write_note` returns success, `edit_note` returns `blocks_applied`, `move_note` returns success. No extra `read_note` needed.
 
-1. **Read back:** `mcp_turbovault_read_note(path=...)` to confirm content
-2. **If the user reports files missing in Obsidian:** Check the filesystem directly — `terminal -> ls -la /path/to/vault/...` or read back via `mcp_turbovault_read_note`. TurboVault writes directly to the filesystem. Obsidian may need a UI refresh (Ctrl+R / Cmd+R) to see externally created files.
-3. **For structural changes** (moves, renames, deletes): Check backlinks with `mcp_turbovault_get_backlinks` and update any broken wikilinks.
+**If the user reports files missing in Obsidian:** Files exist on disk. Obsidian's file tree is cached at startup — Ctrl+R / Cmd+R refreshes it. Check with `terminal -> ls -la /path/to/vault/...` to confirm. This is not a write issue.
+
+**For structural changes** (moves, renames, deletes): Check backlinks with `mcp_turbovault_get_backlinks` and update any broken wikilinks.
 
 ## Troubleshooting
 
