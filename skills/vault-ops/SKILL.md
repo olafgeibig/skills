@@ -2,12 +2,16 @@
 name: vault-ops
 description: "Use this skill when working with a markdown notes vault such as Obsidian. It defines a default workflow for selecting a vault, reading vault-local instructions, navigating notes, writing regular notes, and maintaining Maps of Content (MoCs). Triggers: vault, obsidian, notes vault, moc, map of content, markdown notes."
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
-    tags: [obsidian, vault]
-    related_skills: [md-wiki]
+    tags:
+      - obsidian
+      - vault
+    related_skills:
+      - md-wiki
+      - turbovault-use
 ---
 
 # Vault Ops
@@ -26,14 +30,7 @@ Use this skill as the default workflow for working with markdown note vaults. Va
 
 ### Check prerequisites
 
-Check if TurboVault MCP is available. Call `mcp_turbovault_list_vaults`. If it succeeds, proceed. Otherwise follow `./references/vault-configuration.md`. Use TurboVault Tools and avoid standard filesystem tools.
-
-### Vault selection
-- If the user names a vault, use it.
-- If exactly one vault exists, use it.
-- If a vault was used before in the same conversation, continue to use it.
-- If an active vault is set, use it
-- If you are not sure which vault to use, ask the user.
+The `turbovault-use` skill handles TurboVault availability checks, vault selection, and all tool-level mechanics. Load it — it is listed in `related_skills` and should be available. Follow its prerequisites and vault selection sections before proceeding with vault operations.
 
 ## Working with a vault
 Read the vault's root `AGENTS.md`. If it doesn't exist, tell the user that it is important. If TurboVault reports "subdirectory context discovered" (AGENTS.md/VAULT.md), treat it as authoritative and read it via filesystem tools if needed.
@@ -181,11 +178,7 @@ Prefixed with `wf-`
 ## Troubleshooting
 
 ### TurboVault `edit_note` — SEARCH/REPLACE parse failures
-**Signal:** `mcp_turbovault_edit_note` returns `"Parse error: No SEARCH/REPLACE blocks found"` despite valid input.
-
-**Fix:** The `edit_note` tool requires **git-diff style delimiters**: `<<<<<<< SEARCH` (opening), `=======` (separator), `>>>>>>> REPLACE` (closing). Plain `SEARCH`/`REPLACE` without angle brackets always fails with `"Parse error: No SEARCH/REPLACE blocks found"`. This is a format requirement, not a parser bug — the tool works reliably with the correct format. See `./references/task-management.md` for working examples.
-
-**Prevention:** Copy the SEARCH text exactly from the file (`read_note` first). Include enough surrounding context to ensure uniqueness. If the file has complex structure (log.md, index.md, SCHEMA.md), prefer `write_note` with full content — SEARCH matching on chronological lists and section headers is fragile.
+See the `turbovault-use` skill for complete `edit_note` syntax, format requirements, and troubleshooting. The `references/task-management.md` in this skill has working examples in the context of task operations.
 
 ## Templates
 

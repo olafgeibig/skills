@@ -14,8 +14,9 @@ metadata:
     related_skills:
       - arxiv
       - vault-ops
+      - turbovault-use
   source: https://github.com/olafgeibig/skills
-  version: "0.4.3"
+  version: "0.5.0"
 ---
 
 # Multi-Domain LLM Wiki (TurboVault)
@@ -34,9 +35,8 @@ index, and log — linked across domain boundaries via path-based wikilinks.
 summarizes, cross-references, files, and maintains consistency across domains.
 
 **Storage:** All wiki content lives in the `wiki/` directory within an Obsidian
-vault managed by **TurboVault**. All operations use `mcp_turbovault_*` tools
-(read_note, write_note, edit_note, search, batch_execute, get_broken_links, etc.).
-Paths are relative to the vault root with a `wiki/` prefix.
+vault managed by **TurboVault**. All operations use `mcp_turbovault_*` tools.
+See the `turbovault-use` skill for tool-level mechanics (read/write/edit/search/batch).
 
 ## When This Skill Activates
 
@@ -317,33 +317,18 @@ reporting, iterative fixing, cross-wiki links, and hub drift.
 
 ### Searching
 
+See the `turbovault-use` skill for available search tools and their purposes. Below are md-wiki-specific search patterns:
+
 ```bash
-# Find pages by content across the whole wiki
+# Find pages in a specific domain wiki (always scope to wiki/ prefix)
 mcp_turbovault_search(query="transformer")
-# Filter results to wiki/<target>/ prefix for domain-scoped search
+# Then filter results manually for wiki/<target>/ prefix
 
-# Advanced search with path exclusions
+# Advanced search with path exclusions to focus on wiki only
 mcp_turbovault_advanced_search(query="alignment", exclude_paths=["area/", "projects/", "inbox/"])
-
-# Find pages by frontmatter field
-mcp_turbovault_search_by_frontmatter(key="type", value="entity")
-# Then filter results for wiki/<target>/ prefix
-
-# Semantic search (conceptual matches beyond keywords)
-mcp_turbovault_semantic_search(query="reinforcement learning safety")
-
-# Find pages by frontmatter value
-mcp_turbovault_search_by_frontmatter(key="tags", value="model")
-
-# Recent activity in a specific domain wiki
-mcp_turbovault_read_note(path="wiki/ai-research/log.md")
 ```
 
-**Scope warning:** TurboVault search (`mcp_turbovault_search`) searches the
-**entire vault**, not just the `wiki/` directory. Always scope results by
-checking the `path` prefix or use `exclude_paths` in advanced search to
-exclude non-wiki directories (area/, projects/, inbox/, resources/, own/,
-archive/).
+**Scope warning:** TurboVault search (`mcp_turbovault_search`) searches the **entire vault**, not just the `wiki/` directory. Always scope results by checking the `path` prefix or use `exclude_paths` in advanced search to exclude non-wiki directories (area/, projects/, inbox/, resources/, archive/).
 
 ### Detecting Unprocessed Raw Sources
 
@@ -410,34 +395,13 @@ ingested: YYYY-MM-DD
 
 ### Using `edit_note` for Targetted Edits
 
-`mcp_turbovault_edit_note` uses SEARCH/REPLACE blocks (similar to the `patch`
-tool but within TurboVault). The `edits` parameter contains one or more
-SEARCH/REPLACE pairs:
+See the `turbovault-use` skill for complete `edit_note` syntax, format requirements, and troubleshooting.
 
-```
-<<<<<<< SEARCH
-Old text to find
-=======
-New replacement text
->>>>>>> REPLACE
-```
-
-**Best practices:**
-
-- Use the exact git-diff style delimiters required by TurboVault: `<<<<<<< SEARCH`, `=======`, and `>>>>>>> REPLACE`. Plain `SEARCH`/`REPLACE` or a closing `>>>>>>>` without `REPLACE` is invalid.
-- Include enough context around the SEARCH text to ensure uniqueness
-- **DON'T use `edit_note` for `log.md`** — the SEARCH block that matches the
-  previous entry's header **replaces** that header, leaving its detail lines
-  orphaned. Always use read-full/write-full instead.
-- **DON'T use `edit_note` for `index.md`** — matching a section header like
-  `## Entities` deletes the header. Always use read-full/write-full instead.
-- **DON'T use `edit_note` for `SCHEMA.md`** — schema files contain pipe characters `|`,
-  brackets `[]`, and backticks that trigger parser errors (`Parse error: Incomplete
-  SEARCH/REPLACE block`). Always use read-full/write-full instead.
-- For other files, `edit_note` is fine with enough context for uniqueness.
-  But when it fails, fall back to read-full/write-full.
-- **If `edit_note` fails with a parse error** (e.g., `Parse error: Incomplete SEARCH/REPLACE block`), the SEARCH/REPLACE content likely contains special characters (pipes `|`, brackets `[]`, path-separators `/`, or multi-line YAML frontmatter) that confuse the parser. Fall back to `mcp_turbovault_read_note` + `mcp_turbovault_write_note` (full read, modify in context, full overwrite) — this bypasses the parser entirely.
-- **After writing, verify files exist on disk** if the user reports them missing in Obsidian. Check the vault path with `terminal -> ls -la /path/to/vault/wiki/<target>/` or read back via `mcp_turbovault_read_note`. TurboVault writes directly to the filesystem; if Obsidian doesn't show the files, the user may need to reload the Obsidian file tree (Ctrl+R / Cmd+R). This is not a sync issue — the files are on disk.
+**md-wiki-specific DONT's:**
+- **DON'T use `edit_note` for `log.md`** — the SEARCH block that matches the previous entry's header replaces that header, leaving its detail lines orphaned. Always use read-full/write-full.
+- **DON'T use `edit_note` for `index.md`** — matching a section header like `## Entities` deletes the header. Always use read-full/write-full.
+- **DON'T use `edit_note` for `SCHEMA.md`** — schema files contain pipe characters `|`, brackets `[]`, and backticks that trigger parser errors. Always use read-full/write-full.
+- **DON'T use `edit_note` for `raw/` files** — raw sources are immutable by default. If the user explicitly asks to correct a raw source, use full read + write.
 
 ### Archiving
 
@@ -479,22 +443,16 @@ is the right tool for removing an entire wiki directory.
 
 ## Do's and Don'ts
 
-- **Never use standard filesystem tools (`read_file`, `write_file`) for vault/wiki files.** These tools are sandboxed to the Hermes Agent workspace and will fail with 'File not found' on absolute paths outside the workspace. Always use the proper `mcp_turbovault_*` tools.
 - **Do not modify files in `raw/` during normal ingest/synthesis** — sources are immutable by default. Corrections usually go in wiki pages. Exception: if the user explicitly asks to correct/adapt the raw source itself, make the narrow requested change and append a `log.md` entry that documents the raw-source revision.
-- **Always set the active vault first** — before any wiki operation, ensure
-  `mcp_turbovault_set_active_vault` has been called for the correct vault.
 - **Always orient first** — read root `wiki/index.md` (hub) then the target wiki's
   SCHEMA + index + recent log before any operation in a new session. Skipping
   this causes duplicates and missed cross-references.
 - **Always read index.md before editing it** — when adding entries via
-  `edit_note` or full rewrite, read the file first to see what already exists.
-  Use full read + write for index.md if unsure.
+  full rewrite, read the file first to see what already exists.
 - **For log.md, prefer read-full/write-full over edit_note.** Read the full
   log, prepend the new entry in your response, use `write_note` with overwrite.
   This completely avoids the boundary-matching risks that plague targetted edits
   on list/chronological files.
-- **If `edit_note` fails with a parse error** (e.g., `Parse error: Incomplete SEARCH/REPLACE block`), the SEARCH/REPLACE content likely contains special characters (pipes `|`, brackets `[]`, path-separators `/`, or multi-line YAML frontmatter) that confuse the parser. Fall back to `mcp_turbovault_read_note` + `mcp_turbovault_write_note` (full read, modify in context, full overwrite) — this is always safer and bypasses the parser entirely.
-- **After writing, verify files exist on disk** if the user reports them missing in Obsidian. Check the vault path with `terminal -> ls -la /path/to/vault/wiki/<target>/` or read back via `mcp_turbovault_read_note`. TurboVault writes directly to the filesystem; if Obsidian doesn't show the files, the user may need to reload the Obsidian file tree (Ctrl+R / Cmd+R). This is not a sync issue — the files are on disk.
 - **When deleting a wiki, check cross-references first.** Search for `[[wiki/<wiki-name>/` across the vault before removing the directory. Offer to update or remove links found in other wikis.
 - **Always read the hub first** — before any operation, read root `wiki/index.md` (the hub).
   Never skip orientation.
@@ -553,17 +511,8 @@ is the right tool for removing an entire wiki directory.
 - **Raw sources may need frontmatter.** In Olaf's camp wiki, raw sources have
   title/created/type frontmatter. In other wikis, they may not. Check the
   domain SCHEMA and user preferences. If in doubt, add it — it enables linting.
-- **For bulk operations, use batch_execute.** When creating or updating multiple
-  wiki pages in one ingest pass, wrap all writes in
-  `mcp_turbovault_batch_execute` for atomic consistency. This prevents partial
-  updates where only half the pages were written.
 - **Never use truncated content as a raw source.** If `web_extract` returns a summary
   instead of a full article (paywall, blocking, timeout), label the source `type: extract`
   `status: incomplete`, warn the user, and wait for the full text. Entity/concept pages
   derived from truncated sources are unreliable.
-- **Prefer full read + write over edit_note for log.md, index.md, and SCHEMA.md.** These
-  files have complex structure (lists, headers, chronological ordering, pipe characters) where
-  SEARCH/REPLACE can accidentally match the wrong occurrence or trigger parser errors.
-  Read the full file, modify in your context, write the complete
-  result back. This is always safer.
 

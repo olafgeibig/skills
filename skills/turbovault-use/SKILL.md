@@ -1,0 +1,187 @@
+---
+name: turbovault-use
+description: "Safe and effective use of TurboVault MCP tools — vault selection, active vault management, read/write/edit_note patterns, SEARCH/REPLACE syntax, search tools, batch operations, verification, and troubleshooting. Load this skill whenever a task uses mcp_turbovault_* tools."
+metadata:
+  version: "0.1.0"
+  source: https://github.com/olafgeibig/skills
+  hermes:
+    tags:
+      - turbovault
+      - mcp
+      - vault
+      - tools
+      - obsidian
+---
+
+# TurboVault Use
+
+This skill defines the **tool-level mechanics** for working with TurboVault MCP — the interface between Hermes Agent and an Obsidian markdown vault. Every skill that uses `mcp_turbovault_*` tools should either reference this skill or have it in `related_skills`.
+
+**Division of labor:**
+- `turbovault-use` = tool mechanics (vault selection, read/write/edit/search, syntax, troubleshooting)
+- `vault-ops` = vault structure, navigation (MoCs, INDEX, topics), note types, tags, frontmatter rules
+- `md-wiki` = wiki architecture (hub, SCHEMA, ingest, query, lint), raw source policies, linking conventions
+
+## When This Skill Activates
+
+This skill is a **secondary skill** — it is loaded by other skills that needs TurboVault access. Activate when:
+
+- A task requires reading, writing, editing, or searching vault notes
+- A task specifies "use TurboVault" or "use mcp_turbovault_* tools"
+- A parent skill (vault-ops, md-wiki) is loaded and enters the tool-level phase of a workflow
+
+## Check TurboVault Availability
+
+Before any vault operation, verify TurboVault MCP is connected:
+
+```
+mcp_turbovault_list_vaults
+```
+
+- **If it succeeds** (even with an empty list): TurboVault MCP is available. Proceed.
+- **If it fails:** TurboVault is not connected. Follow `./references/vault-configuration.md` to diagnose and set up.
+
+**Rule:** Always use `mcp_turbovault_*` tools for vault files. Never use standard filesystem tools (`read_file`, `write_file`) — these are sandboxed to the Hermes workspace and will fail with 'File not found' on vault paths.
+
+## Vault Selection
+
+Pick the right vault before any operation:
+
+1. **User names a vault** → use that vault
+2. **Exactly one vault exists** → use it
+3. **Vault was used earlier in the same conversation** → continue using it
+4. **Active vault is already set** → use it (verify with `mcp_turbovault_get_vault_context`)
+5. **Unsure** → ask the user. Do not guess.
+
+Set the vault:
+```
+mcp_turbovault_set_active_vault(name="<vault-name>")
+mcp_turbovault_get_vault_context   # verify it worked
+```
+
+## Core Tools Quick Reference
+
+| Tool | Purpose |
+|------|---------|
+| `read_note` | Read a note's full markdown content. Always read first before editing. |
+| `write_note` | Overwrite, append, or prepend to a note. Modes: `overwrite` (default), `append`, `prepend`. |
+| `edit_note` | Targeted SEARCH/REPLACE edits. See full section below. |
+| `move_note` | Rename/move a note. Does NOT update wikilinks — check backlinks first. |
+| `delete_note` | Permanently delete a note. Confirmation-protected (requires `confirm_path`). |
+| `batch_execute` | Atomic multi-file operations. See section below. |
+
+## Using `edit_note`
+
+`mcp_turbovault_edit_note` uses SEARCH/REPLACE blocks with **git-diff style delimiters**. This is the only format that works:
+
+```
+<<<<<<< SEARCH
+Old text to find — exact match, include surrounding context for uniqueness
+=======
+New replacement text
+>>>>>>> REPLACE
+```
+
+**Required format (exact):**
+- Opening delimiter: `<<<<<<< SEARCH`
+- Separator: `=======`
+- Closing delimiter: `>>>>>>> REPLACE`
+
+**Common mistakes:**
+- ❌ `SEARCH` / `REPLACE` without angle brackets → `"Parse error: No SEARCH/REPLACE blocks found"`
+- ❌ `>>>>>>>` without `REPLACE` → `"Parse error: Incomplete SEARCH/REPLACE block"`
+- ❌ Too little context in SEARCH block → matches the wrong occurrence or nothing at all
+
+**Best practices:**
+- **Always `read_note` first** — copy the exact text from the file into your SEARCH block
+- **Include enough context** — 3-5 lines around the change point for uniqueness
+- **Use `write_note` with full content** for fragile files — see "When NOT to use edit_note" below
+
+### When NOT to use `edit_note`
+
+For these files, **always use `read_note` + `write_note` (full read, modify in context, full overwrite):**
+
+| File type | Why |
+|-----------|-----|
+| `log.md` | SEARCH matches the previous entry's header and **replaces** it, leaving detail lines orphaned |
+| `index.md` | Matching a section header like `## Entities` **deletes** the header |
+| `SCHEMA.md` | Pipe characters `\|`, brackets `[]`, and backticks trigger parser errors |
+| Chronological lists | SEARCH on date-based entries can match the wrong line |
+
+**Parse error fallback:** If `edit_note` returns `"Parse error: Incomplete SEARCH/REPLACE block"`, the content likely contains special characters (pipes, brackets, YAML frontmatter). Fall back to:
+1. `mcp_turbovault_read_note(path=...)` — read full content
+2. Modify in your context
+3. `mcp_turbovault_write_note(path=..., content=..., mode="overwrite")` — full overwrite
+
+This bypasses the parser entirely and is always safe.
+
+## Search Tools
+
+TurboVault provides multiple search tools — pick the right one:
+
+| Tool | Best for | Notes |
+|------|----------|-------|
+| `search` | Full-text keyword search (BM25) | Searches the **entire vault** — scope results by path prefix |
+| `advanced_search` | Combined search with tags, frontmatter, path filters | Most versatile for complex queries |
+| `semantic_search` | Conceptual matches (TF-IDF cosine similarity) | Finds content beyond exact keyword overlap |
+| `search_by_frontmatter` | Find notes by frontmatter field value | Fast for structured metadata lookups |
+| `query_frontmatter_sql` | Arbitrary SQL against frontmatter | 3 tables: `files`, `tags`, `links`. Built-in SQLite. |
+| `inspect_frontmatter` | Discover available frontmatter columns and types | Call before writing SQL queries |
+
+**Scope warning:** `search`, `advanced_search`, and `semantic_search` search the **entire vault**, not a subdirectory. Always check the `path` prefix in results, or use `exclude_paths` in `advanced_search` to filter out non-target directories.
+
+## Batch Operations
+
+When creating or updating multiple files atomically:
+
+```
+mcp_turbovault_batch_execute(operations=[
+  {type: "WriteNote", path: "wiki/<target>/entities/foo.md", content: "..."},
+  {type: "WriteNote", path: "wiki/<target>/index.md", content: "..."},
+  {type: "EditNote", path: "wiki/<target>/log.md", edits: "..."},
+])
+```
+
+All operations succeed or fail as one transaction. Use this for:
+- Ingest passes that create/update 3+ files
+- Structural changes (rename a note type across files)
+- Any multi-file operation where partial writes would leave the vault inconsistent
+
+## Verification
+
+After writing, editing, or moving notes, verify the result:
+
+1. **Read back:** `mcp_turbovault_read_note(path=...)` to confirm content
+2. **If the user reports files missing in Obsidian:** Check the filesystem directly — `terminal -> ls -la /path/to/vault/...` or read back via `mcp_turbovault_read_note`. TurboVault writes directly to the filesystem. Obsidian may need a UI refresh (Ctrl+R / Cmd+R) to see externally created files.
+3. **For structural changes** (moves, renames, deletes): Check backlinks with `mcp_turbovault_get_backlinks` and update any broken wikilinks.
+
+## Troubleshooting
+
+### `edit_note` Parse Errors
+
+**Signal:** `"Parse error: No SEARCH/REPLACE blocks found"` or `"Parse error: Incomplete SEARCH/REPLACE block"`
+
+**Likely causes (in order of frequency):**
+1. **Wrong delimiter format** — used plain `SEARCH`/`REPLACE` instead of `<<<<<<< SEARCH`/`=======`/`>>>>>>> REPLACE`
+2. **Missing `REPLACE`** — closing delimiter is just `>>>>>>>` instead of `>>>>>>> REPLACE`
+3. **Special characters** — content contains pipes `|`, brackets `[]`, backticks, or multi-line YAML frontmatter that confuses the parser
+
+**Fix:** Always fall back to full read + write: `read_note` → modify → `write_note(mode="overwrite")`.
+
+### Stale Obsidian UI
+
+**Signal:** User says "I can't see the file in Obsidian" but the file exists on disk.
+
+**Cause:** Obsidian's file tree is cached at startup. Files written externally (via TurboVault/terminal) aren't visible until Obsidian refreshes.
+
+**Fix:** User presses Ctrl+R (Windows/Linux) or Cmd+R (macOS) to reload the file tree. This is not a sync issue.
+
+### No Active Vault
+
+**Signal:** Tool calls fail because no vault is active.
+
+**Fix:** `mcp_turbovault_set_active_vault(name="<vault-name>")` followed by `mcp_turbovault_get_vault_context` to confirm.
+
+## References
+
+- **`./references/vault-configuration.md`** — Installing TurboVault, registering vaults, diagnosing connection issues
