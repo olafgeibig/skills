@@ -45,13 +45,13 @@ mcp_turbovault_inspect_frontmatter()
 
 Check that every wiki page (entities/, concepts/, comparisons/, queries/) has
 all required fields: title, created, type. Tags must be in the taxonomy.
-Note: index.md, log.md, SCHEMA.md are meta-files — skip them.
+Note: `<name>-wiki.md`, `log.md`, `SCHEMA.md` are meta-files — skip them.
 Raw sources: check if they have frontmatter (check the domain wiki's `SCHEMA.md`).
 
 ## ⑤ Index Completeness
 
 Compare the filesystem (pages with `wiki/<target>/entities/`, `concepts/`, etc.
-paths) against entries in the target wiki's `index.md`. Use
+paths) against entries in the target wiki's `<name>-wiki.md`. Use
 `mcp_turbovault_search(query="")` with path prefix to discover all pages.
 
 ## ⑥ Contradictions
@@ -92,7 +92,7 @@ mcp_turbovault_get_backlinks(path="wiki/<target>/entities/<page>")
 
 Pages in entities/, concepts/, comparisons/, queries/ with 0 backlinks from
 other wiki pages = orphan. Raw/ pages are always orphans by design — skip them.
-Meta files (index, log, SCHEMA) are always orphans — skip them.
+Meta files (`<name>-wiki.md`, log, SCHEMA) are always orphans — skip them.
 
 ## ⑨ Tag Taxonomy
 

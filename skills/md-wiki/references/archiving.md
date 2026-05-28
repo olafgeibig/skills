@@ -8,7 +8,7 @@ When content is fully superseded or the domain scope changes:
    (via `mcp_turbovault_write_note` with a placeholder)
 2. Move the page to `_archive/` with its original path:
    `mcp_turbovault_move_note(from="wiki/<target>/entities/old-page.md", to="wiki/<target>/_archive/entities/old-page.md")`
-3. Remove the page from the domain wiki's `index.md`
+3. Remove the page from the domain wiki's `<name>-wiki.md`
 4. Update any pages that linked to it — replace wikilink with plain text + "(archived)"
 5. Log the archive action in the domain wiki's `log.md`
 

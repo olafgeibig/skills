@@ -74,7 +74,7 @@ vault-root/                   # active TurboVault vault
 │   ├── index.md              # Hub: one section per domain wiki with abstract
 │   ├── llm-wiki/             # Domain Wiki 1
 │   │   ├── SCHEMA.md         # Conventions, structure rules, domain config
-│   │   ├── index.md          # Sectioned content catalog with one-line summaries
+│   │   ├── llm-wiki.md       # Sectioned content catalog with one-line summaries
 │   │   ├── log.md            # Chronological action log (append-only, rotated yearly)
 │   │   ├── raw/              # Layer 1: Immutable source material
 │   │   │   ├── articles/     # Web articles, clippings
@@ -92,9 +92,10 @@ vault-root/                   # active TurboVault vault
 └── ...
 ```
 
-Every level uses `index.md`. The root `wiki/index.md` is the hub — it lists all
-domain wikis with abstracts. Each domain wiki has its own full structure:
-`SCHEMA.md`, `index.md`, `log.md`, `raw/`, `entities/`, `concepts/`, `comparisons/`, and `queries/`.
+Every level uses a different naming: the hub `wiki/index.md` catalogs all domain
+wikis, while each domain wiki has its own `<name>-wiki.md` (e.g., `wiki/llm-wiki/llm-wiki.md`).
+Each domain wiki's full structure:
+`SCHEMA.md`, `<name>-wiki.md`, `log.md`, `raw/`, `entities/`, `concepts/`, `comparisons/`, and `queries/`.
 
 **Layer 1 — Raw Sources:** Immutable by default. The agent reads but does not modify these during normal ingest/synthesis. If the user explicitly asks to correct or align a raw source itself, treat it as an intentional raw-source revision: make the narrow change and append a `log.md` entry documenting the exception.
 **Layer 2 — The Wiki:** Agent-owned markdown files. Created, updated, and cross-referenced by the agent.
@@ -119,7 +120,7 @@ AI/ML research, models, papers, benchmarks.
 ```
 
 **Rules:**
-- No page counts, no last-update dates, no tag lists — those live in each wiki's own `index.md` and `log.md`
+- No page counts, no last-update dates, no tag lists — those live in each wiki's own `<name>-wiki.md` and `log.md`
 - No separate routing file — the abstracts are the routing information
 - The hub lives in the vault, not in the skill config
 - The skill reads it for routing and updates it when creating new domain wikis
@@ -150,10 +151,10 @@ When the user has an existing wiki, **always orient yourself before doing anythi
 
 ③ **Route to target wiki** — explicit naming → abstract match → ask (see Routing above).
 
-④ **Read that wiki's `SCHEMA.md`, `index.md`, and recent `log.md`:**
+④ **Read that wiki's `SCHEMA.md`, `<wiki>-wiki.md`, and recent `log.md`:**
    ```
    mcp_turbovault_read_note(path="wiki/<target-wiki>/SCHEMA.md")
-   mcp_turbovault_read_note(path="wiki/<target-wiki>/index.md")
+   mcp_turbovault_read_note(path="wiki/<target-wiki>/<target-wiki>-wiki.md")
    mcp_turbovault_read_note(path="wiki/<target-wiki>/log.md")
    ```
 
@@ -200,7 +201,7 @@ See `./references/ingest-workflow.md` for the complete workflow: capture raw sou
 **Key rules that apply at every ingest:**
 - **Check for duplicates first** — search the target wiki before creating new pages
 - **Every page needs 2+ cross-references** — isolated pages are invisible
-- **Update index.md and log.md** — skipping this degrades the wiki
+- **Update `<name>-wiki.md` and `log.md`** — skipping this degrades the wiki
 - **Handle truncated content:** If `web_extract` returns a summary instead of full text, label the source `status: incomplete` and ask the user for the full version. Never create entity/concept pages from truncated sources.
 
 ### 2. Query
@@ -208,7 +209,7 @@ See `./references/ingest-workflow.md` for the complete workflow: capture raw sou
 When the user asks a question about the wiki's domain:
 
 ① **Read root `wiki/index.md`** — identify which wiki(s) are relevant using the hub abstracts.
-② **Read the relevant wiki `index.md` files** to identify relevant pages.
+② **Read the relevant wiki `<name>-wiki.md` files** to identify relevant pages.
 ③ **For wikis with 100+ pages**, also run `mcp_turbovault_search(query="<topic>")` across the wiki prefix — the index alone may miss relevant content.
 ④ **Read the relevant pages** using `mcp_turbovault_read_note(path="wiki/...")`.
 ⑤ **Synthesize an answer** from the compiled knowledge. Cite pages with their vault path: "Based on `[[wiki/ai-research/concepts/transformer-architecture]]` and `[[wiki/llm-wiki/concepts/three-layer-architecture]]`..."
@@ -248,7 +249,7 @@ See the `turbovault-use` skill for syntax and format requirements.
 
 **md-wiki-specific DON'Ts:**
 - **DON'T use `edit_note` for `log.md`** — SEARCH replaces the previous entry's header, leaving detail lines orphaned. Always use read-full/write-full.
-- **DON'T use `edit_note` for `index.md`** — matching `## Entities` deletes the header. Always use read-full/write-full.
+- **DON'T use `edit_note` for `<name>-wiki.md`** — matching `## Entities` deletes the header. Always use read-full/write-full.
 - **DON'T use `edit_note` for `SCHEMA.md`** — pipe characters `|`, brackets `[]`, and backticks trigger parser errors. Always use read-full/write-full.
 - **DON'T use `edit_note` for `raw/` files** — raw sources are immutable by default. Use full read + write for corrections.
 
@@ -259,8 +260,8 @@ See `./references/archiving.md` for archiving single pages or removing entire do
 ## Do's and Don'ts
 
 - **Never modify `raw/` files during normal ingest** — sources are immutable. Corrections go in wiki pages. Exception: user explicitly asks for a raw-source revision.
-- **Always orient first** — read hub → target SCHEMA + index + recent log before any operation in a new session.
-- **Always update `index.md` and `log.md`** — these are the navigational backbone. Skipping them degrades the wiki.
+- **Always orient first** — read hub → target SCHEMA + `<name>-wiki` + recent log before any operation in a new session.
+- **Always update `<name>-wiki.md` and `log.md`** — these are the navigational backbone. Skipping them degrades the wiki.
 - **Don't write summary pages** — one topic = one page. A source about "Wohnwagen-Kauf" should produce `feuchtigkeitsschaden.md` + `gasanlage.md` + `wohnwagen-marken.md`, not one summary document.
 - **Don't create pages for passing mentions** — follow the Page Thresholds in the domain wiki's `SCHEMA.md`.
 - **Don't create pages without cross-references** — every page must link to at least 2 other pages.

@@ -59,8 +59,8 @@ the target wiki. Route using the hub abstracts (explicit naming → abstract mat
    - **Tags:** Only use tags from the taxonomy in the target wiki's `SCHEMA.md`
 
 ⑦ **Update navigation** in the target wiki:
-   - Add new pages to the target wiki's `index.md` under the correct section, alphabetically
-   - Update the "Total pages" count and "Last updated" date in the target wiki's index header
+   - Add new pages to the target wiki's `<name>-wiki.md` under the correct section, alphabetically
+   - Update the "Total pages" count and "Last updated" date in the target wiki's `<name>-wiki.md` header
    - Append to the target wiki's `log.md`: `## [YYYY-MM-DD] ingest | Source Title`
    - List every file created or updated in the log entry
 
@@ -86,13 +86,13 @@ When ingesting multiple sources at once, batch the updates:
    mcp_turbovault_batch_execute(operations=[
      {type: "WriteNote", path: "wiki/<target>/entities/foo.md", content: "..."},
      {type: "WriteNote", path: "wiki/<target>/entities/bar.md", content: "..."},
-     {type: "WriteNote", path: "wiki/<target>/index.md", content: "..."},
+     {type: "WriteNote", path: "wiki/<target>/<target>-wiki.md", content: "..."},
      {type: "WriteNote", path: "wiki/<target>/log.md", content: "..."},
    ])
    ```
    This ensures all operations succeed or fail atomically.
 
-8. Update each wiki's `index.md` once at the end
+8. Update each wiki's `<name>-wiki.md` once at the end
 9. Write a single log entry per wiki covering the batch
 
 ## 3. Ingest from Vault Inbox
