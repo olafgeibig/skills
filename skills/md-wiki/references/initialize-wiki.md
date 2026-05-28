@@ -33,7 +33,7 @@ Root `wiki/index.md` for first-time setup:
 ```markdown
 # Wiki Hub
 
-## <domain-name>
+## [[wiki/<domain-name>/<domain-name>-wiki|<domain-name>]]
 <One-paragraph abstract describing the domain and scope.>
 ```
 

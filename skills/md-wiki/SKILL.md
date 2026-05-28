@@ -112,10 +112,10 @@ The root `wiki/index.md` is the hub. It contains one section per domain wiki.
 ```markdown
 # Wiki Hub
 
-## llm-wiki
+## [[wiki/llm-wiki/llm-wiki-wiki|llm-wiki]]
 LLM-Wiki methodology — persistent, compounding knowledge base for developing the multi-domain LLM Wiki skill itself.
 
-## ai-research
+## [[wiki/ai-research/ai-research-wiki|ai-research]]
 AI/ML research, models, papers, benchmarks.
 ```
 
