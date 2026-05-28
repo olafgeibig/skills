@@ -403,6 +403,11 @@ See the `turbovault-use` skill for complete `edit_note` syntax, format requireme
 - **DON'T use `edit_note` for `SCHEMA.md`** — schema files contain pipe characters `|`, brackets `[]`, and backticks that trigger parser errors. Always use read-full/write-full.
 - **DON'T use `edit_note` for `raw/` files** — raw sources are immutable by default. If the user explicitly asks to correct a raw source, use full read + write.
 
+### Lint / Health Check
+
+When the user asks to lint, audit, or health-check the wiki: load `./references/lint-workflow.md`.
+Follow the 17 checks in order. Re-run after fixes — lint cascades.
+
 ### Archiving
 
 When content is fully superseded or the domain scope changes:
