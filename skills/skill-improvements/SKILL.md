@@ -2,10 +2,11 @@
 name: {{BUNDLE_NAME}}-improvements
 description: "Container for agent-discovered optimizations to the {{BUNDLE_NAME}} bundle — {{SKILL_NAMES}}"
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags: [template, improvement, bundle, profile]
+    related_skills: [{{SKILL_NAMES}}]
 ---
 
 # {{BUNDLE_NAME}} Improvements
@@ -26,14 +27,12 @@ own improvements skill.
    (dates, paths, task names, personal names).
 5. **Document triggers:** Every entry clearly states when it's relevant.
 6. **No duplicates:** Before creating, check if the topic already exists.
-7. **Profile-specific entries** go into `profile-<name>.md`.
 
 ## Changelog
 
 Every change must be logged in `CHANGELOG.md`:
 - New entries: "added pitfalls.md: XYZ workflow"
 - Edits: "updated pitfalls.md: clarified XYZ rule"
-- New files: "created profile-<name>.md"
 
 One line per change. Keep it scannable.
 
