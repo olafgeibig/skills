@@ -112,7 +112,7 @@ The root `wiki/index.md` is the hub. It contains one section per domain wiki.
 ```markdown
 # Wiki Hub
 
-## [[wiki/llm-wiki/llm-wiki-wiki|llm-wiki]]
+## [[wiki/llm-wiki/llm-wiki|llm-wiki]]
 LLM-Wiki methodology — persistent, compounding knowledge base for developing the multi-domain LLM Wiki skill itself.
 
 ## [[wiki/ai-research/ai-research-wiki|ai-research]]
@@ -227,18 +227,9 @@ When the user asks a question about the wiki's domain:
 
 ### Searching
 
-See the `turbovault-use` skill for available search tools and their purposes.
+See the `turbovault-use` skill for available search tools.
 
-```bash
-# Find pages in a specific domain wiki (always scope to wiki/ prefix)
-mcp_turbovault_search(query="transformer")
-# Then filter results manually for wiki/<target>/ prefix
-
-# Advanced search with path exclusions to focus on wiki only
-mcp_turbovault_advanced_search(query="alignment", exclude_paths=["area/", "projects/", "inbox/"])
-```
-
-**Scope warning:** TurboVault search searches the **entire vault**, not just `wiki/`. Always scope results by path prefix or use `exclude_paths`.
+**Scope warning:** TurboVault search searches the **entire vault**, not just `wiki/`. Always scope results by `wiki/<domain>/` path prefix or use `exclude_paths`.
 
 ### Detecting Unprocessed Raw Sources
 
@@ -260,7 +251,7 @@ See the `turbovault-use` skill for syntax and format requirements.
 
 ### Source Freshness Check
 
-**→ Trigger:** Load `./references/source-freshness-check.md` when the user asks to check if git-based sources (tools, repos) have been updated since ingest. Runs `git ls-remote` against stored `latest_commit` values and reports drift. User decides on re-ingest.
+**→ Trigger:** Load `./references/source-freshness-check.md` when the user asks to check if git-based sources (tools, repos) have been updated since ingest. Re-extracts the URL and compares sha256 against stored value. User decides on re-ingest.
 
 ### Source Cascade Removal
 

@@ -59,17 +59,10 @@ For GitHub repos, the raw README URL may differ. Try these in order:
 
 ### ③ Re-extract and compare
 
-```bash
-# Step A: Fetch fresh content
-mcp_turbovault_write_note(
-  path="/tmp/fresh-source-check.md",
-  content=web_extract("<re-extract-url>").content,
-  mode="overwrite"
-)
-
-# Step B: Hash the fresh content
-sha256sum /tmp/fresh-source-check.md
-```
+1. Extract fresh content from the URL using `web_extract`
+2. Save the result to a temp file via `mcp_turbovault_write_note`
+3. Hash it via terminal: `sha256sum /tmp/fresh-source-check.md`
+4. Compare with stored `sha256` in the raw source's frontmatter
 
 Compare the new sha256 (first 16 chars) against the stored `sha256` in the
 raw source's frontmatter:

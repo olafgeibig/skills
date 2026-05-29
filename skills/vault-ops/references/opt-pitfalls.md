@@ -33,13 +33,3 @@ Durable rule:
 - Promotion from `opt-*` into stable references requires explicit user approval.
 - Keep improvements generic: remove proper names, one-off tool names, local paths, session dates, and single-project examples unless they are intentionally generic examples.
 
-## Bookmarks Terminology Replaces Resource Collections
-
-Vault Ops renamed the former `resource-collection` concept to `bookmarks` because the name better reflects curated external-resource link lists.
-
-Durable rule:
-
-- Use `type: bookmarks` for curated external-resource lists.
-- Use `references/bookmarks-writing.md` for the workflow.
-- Prefer `system/templates/bookmarks.md` when a vault-local template exists.
-- Do not create new references, templates, or examples using the old `resource-collection` terminology unless migrating legacy notes.

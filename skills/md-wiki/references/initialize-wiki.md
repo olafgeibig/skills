@@ -54,7 +54,7 @@ When the user asks to add a new domain wiki to an existing federation:
 3. **CRITICAL — Update the hub:**
    - Add a section to root `wiki/index.md` with the new wiki's abstract
    - The abstract is used by the agent for routing (see Routing section)
-   - Use read-full/write-full on `wiki/index.md`; do **not** use `mcp_turbovault_edit_note` for index files because SEARCH/REPLACE can accidentally delete or corrupt section headers
+   - Use read-full/write-full on `wiki/index.md`; do **not** use `mcp_turbovault_edit_note` for the wiki hub file because SEARCH/REPLACE can accidentally delete or corrupt section headers
    - Format: `## <wiki-name>` followed by an abstract paragraph
 4. **If the vault has INDEX.md files** (vault-ops convention):
    - No change needed to `INDEX.md` (root) — it already links to `wiki/index.md`
