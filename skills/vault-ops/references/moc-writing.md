@@ -17,8 +17,8 @@ MoCs are navigation notes that emphasize relationships between notes through cur
 ## Root MoC
 An MoC must integrate into the vault graph, see `./references/vault-graph.md`
 
-- There is a vault root MoC `+Index` with `type: moc`.
-- Top-level MoCs should ultimately link to `[[+Index]]` through `topics`, explicit links, or both.
+- There is a vault root MoC `INDEX.md` with `type: moc`.
+- Top-level MoCs should ultimately link to `[[INDEX]]` through `topics`, explicit links, or both.
 
 ## Nesting
 

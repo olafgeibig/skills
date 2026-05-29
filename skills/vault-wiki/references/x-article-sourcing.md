@@ -1,5 +1,7 @@
 # Extracting X Articles as Wiki Sources
 
+**→ Trigger:** Load this reference from the ingest workflow (step ②) when the source is an X.com URL. Do NOT load this for non-X sources.
+
 X Articles (long-form posts) are JS-rendered and cannot be extracted with `web_extract`. Use the xurl CLI instead.
 
 ## Prerequisites

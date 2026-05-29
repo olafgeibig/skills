@@ -10,7 +10,7 @@ The vault has multiple subsystems with **different rules**. A broken link in `ar
 
 | Directory | Reason for exclusion | Exception |
 |---|---|---|
-| `wiki/` | Per-design isolated subgraphs; SCHEMA.md uses placeholder `[[wikilinks]]` | Check that each wiki domain has an index.md |
+| `wiki/` | Per-design isolated subgraphs; SCHEMA.md uses placeholder `[[wikilinks]]` | Check that each wiki domain has a <name>-wiki.md file |
 | `sources/` | Raw articles from web; `[[@handle]]` links are external refs, not broken links | **Check incoming links**: sources with zero incoming links are candidates for archiving |
 | `system/` | `[[moc]]`, `[[note]]` are substitution placeholders, not real links | None |
 | `inbox/` | Fresh captures, not yet connected — temporary only | If older than 30 days: suggest integration into the main graph |
@@ -106,7 +106,7 @@ Use when evaluating the vault's overall structure and navigation design.
 
 | Goal | Tool | Exclusion Hint |
 |---|---|---|
-| Are the right notes acting as hubs? | `get_hub_notes(top_n: 10)` | Compare against expected hubs (+Index, area-MoCs) |
+| Are the right notes acting as hubs? | `get_hub_notes(top_n: 10)` | Compare against expected hubs (INDEX, area-MoCs) |
 | Which notes bridge knowledge domains? | `get_centrality_ranking()` (betweenness) | High betweenness in `wiki/` = normal (siloed domains) |
 | Are there disconnected subgraphs? | `get_isolated_clusters()` | ⚠️ **Every** `wiki/*/` domain is an isolated cluster by design. Only check clusters outside `wiki/`. |
 | Are there circular reference chains? | `detect_cycles()` | Rare, always 🔴 |

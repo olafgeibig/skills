@@ -18,7 +18,7 @@ wiki is always created as a domain wiki under a new hub:
 2. Choose a directory name for the first domain wiki (lowercase, hyphens, no spaces)
 3. Scaffold the domain wiki by writing its files via `mcp_turbovault_write_note`:
    - `wiki/<domain-name>/SCHEMA.md`
-   - `wiki/<domain-name>/index.md`
+   - `wiki/<domain-name>/<domain-name>-wiki.md`
    - `wiki/<domain-name>/log.md`
    - `wiki/<domain-name>/raw/.gitkeep` (placeholder — directories are implicit in note paths)
    - `wiki/<domain-name>/entities/.gitkeep`
@@ -33,7 +33,7 @@ Root `wiki/index.md` for first-time setup:
 ```markdown
 # Wiki Hub
 
-## <domain-name>
+## [[wiki/<domain-name>/<domain-name>-wiki|<domain-name>]]
 <One-paragraph abstract describing the domain and scope.>
 ```
 
@@ -44,7 +44,7 @@ When the user asks to add a new domain wiki to an existing federation:
 1. Determine wiki name from the user (lowercase, hyphens, no spaces)
 2. Write the scaffolding files via `mcp_turbovault_write_note`:
    - `wiki/<name>/SCHEMA.md` — customize to the domain
-   - `wiki/<name>/index.md` — sectioned header
+   - `wiki/<name>/<name>-wiki.md` — sectioned content catalog
    - `wiki/<name>/log.md` — creation entry
    - `wiki/<name>/raw/.gitkeep`
    - `wiki/<name>/entities/.gitkeep`
@@ -54,7 +54,7 @@ When the user asks to add a new domain wiki to an existing federation:
 3. **CRITICAL — Update the hub:**
    - Add a section to root `wiki/index.md` with the new wiki's abstract
    - The abstract is used by the agent for routing (see Routing section)
-   - Use read-full/write-full on `wiki/index.md`; do **not** use `mcp_turbovault_edit_note` for index files because SEARCH/REPLACE can accidentally delete or corrupt section headers
+   - Use read-full/write-full on `wiki/index.md`; do **not** use `mcp_turbovault_edit_note` for the wiki hub file because SEARCH/REPLACE can accidentally delete or corrupt section headers
    - Format: `## <wiki-name>` followed by an abstract paragraph
 4. **If the vault has INDEX.md files** (vault-ops convention):
    - No change needed to `INDEX.md` (root) — it already links to `wiki/index.md`
@@ -74,7 +74,7 @@ the user's domain:
 - Every wiki page starts with YAML frontmatter (see below)
 - All wikilinks use the full vault path: `[[wiki/<wiki-name>/<type>/<page-name>]]` (minimum 2 outbound links per page). Never use bare `[[pagename]]` or omit the `wiki/` prefix.
 - When updating a page, always bump the `updated` date
-- Every new page must be added to `index.md` under the correct section
+- Every new page must be added to `<name>-wiki.md` under the correct section
 - Every action must be appended to `log.md`
 
 ## Frontmatter
@@ -105,6 +105,7 @@ Raw sources ALSO get a small frontmatter block:
 ---
 source_url: https://example.com/article   # original URL, if applicable
 ingested: YYYY-MM-DD
+sha256:                                    # optional — set automatically on ingest for drift detection
 ---
 
 [raw content starts here]
@@ -127,7 +128,7 @@ add it here first, then use it. This prevents tag sprawl.
 - **Add to existing page** when a source mentions something already covered
 - **DON'T create a page** for passing mentions, minor details, or things outside the domain
 - **Split a page** when it exceeds ~200 lines — break into sub-topics with cross-links
-- **Archive a page** when its content is fully superseded — move to `_archive/`, remove from index
+- **Archive a page** when its content is fully superseded — move to `_archive/`, remove from `<name>-wiki`
 
 ## Entity Pages
 One page per notable entity. Include:
@@ -158,12 +159,12 @@ When new information conflicts with existing content:
 4. Flag for user review in the lint report
 ```
 
-## index.md Template
+## `<name>-wiki.md` Template
 
-Write this file completely:
+Write this file completely. Save it as `wiki/<wiki-name>/<wiki-name>-wiki.md`:
 
 ```markdown
-# Wiki Index
+# <Wiki Name> Index
 
 > Content catalog. Every wiki page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
@@ -180,7 +181,7 @@ Write this file completely:
 ```
 
 **Scaling rule:** When any section exceeds 50 entries, split it into sub-sections
-by first letter or sub-domain. When the index exceeds 200 entries total, create
+by first letter or sub-domain. When `<name>-wiki.md` exceeds 200 entries total, create
 a `_meta/topic-map.md` that groups pages by theme for faster navigation.
 
 ## log.md Template
@@ -197,5 +198,5 @@ Write this file completely:
 
 ## [YYYY-MM-DD] create | Wiki initialized
 - Domain: [domain]
-- Structure created with SCHEMA.md, index.md, log.md
+- Structure created with SCHEMA.md, `<domain-name>-wiki.md`, log.md
 ```

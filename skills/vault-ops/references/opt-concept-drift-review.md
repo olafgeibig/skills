@@ -15,7 +15,7 @@ Concept notes often drift after the skill changes. Review them against the loade
   - `references/bookmarks-writing.md`
   - `references/note-writing.md`
 - The selected vault's `AGENTS.md`
-- If a `wiki/` path is involved, load `md-wiki` and follow its orientation/logging rules
+- If a `wiki/` path is involved, load `vault-wiki` and follow its orientation/logging rules
 - The concept/design note(s) being reviewed
 
 ## Drift Checks
@@ -24,7 +24,7 @@ Check for these common stale patterns:
 
 1. **Scope drift**
    - Current rule: Vault Ops manages non-wiki vault work by default.
-   - `wiki/` is maintained by `md-wiki`; Vault Ops edits it only when the user explicitly asks and `md-wiki` is loaded.
+   - `wiki/` is maintained by `vault-wiki`; Vault Ops edits it only when the user explicitly asks and `vault-wiki` is loaded.
 
 2. **Note-type drift**
    - Current resource-list type is `bookmarks`, not `resource-collection`.
@@ -57,7 +57,7 @@ Check for these common stale patterns:
 1. Read the concept note and identify stale claims.
 2. Rewrite the note to match the current rules above.
 3. Keep project concepts concise but explicit about boundaries and caveats.
-4. If also updating a wiki page/raw article under `wiki/`, load `md-wiki`, orient to the target wiki, and append a log entry.
+4. If also updating a wiki page/raw article under `wiki/`, load `vault-wiki`, orient to the target wiki, and append a log entry.
 5. Verify by searching for stale phrases such as:
    - `resource-collection`
    - `Resource Collections`

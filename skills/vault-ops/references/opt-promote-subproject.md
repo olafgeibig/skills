@@ -70,7 +70,7 @@ mcp_turbovault_update_frontmatter(
 )
 ```
 
-**Pitfall:** `topics` in frontmatter is a YAML string array, NOT a real wikilink. `get_backlinks("+NewMoC.md")` will NOT find notes via their `topics` field. You MUST also have real `[[wikilinks]]` in the body for graph traversal. The `## MoCs` body section is where backlink discovery works.
+**Pitfall:** `topics` in frontmatter is a YAML string array, NOT a real wikilink. `get_backlinks("+NewMoC.md")` will NOT find notes via their `topics` field. You MUST also have real `[[wikilinks]]` in the body for graph traversal. The `Topics:` body section is where backlink discovery works.
 
 ### 4. Update the Project INDEX
 
@@ -152,6 +152,6 @@ The `path includes projects/<dir>` filter ensures the tasks query only picks up 
 |---------|-------------|------------|
 | `move_note` doesn't update wikilinks | Broken `[[links]]` everywhere | Use `get_backlinks` before moving, then systematic SEARCH/REPLACE |
 | `update_frontmatter` merge behavior | Accidentally clears frontmatter | Use `merge=true` for targeted updates |
-| `topics` is not a real wikilink | `get_backlinks` won't find notes by topics | Always have body `[[wikilinks]]` + `## MoCs` section |
+| `topics` is not a real wikilink | `get_backlinks` won't find notes by topics | Always have body `[[wikilinks]]` + `Topics:` section |
 | Renaming a MoC but not updating references | Broken links persist across the vault | Check all files that referenced the old name |
 | Forgetting to update INDEX `updated` field | Staleness tracking breaks | Manually set `updated: YYYY-MM-DD` after structural changes |

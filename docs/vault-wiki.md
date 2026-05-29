@@ -1,11 +1,11 @@
-# Multi-Domain LLM Wiki (md-wiki)
+# Multi-Domain LLM Wiki (vault-wiki)
 
 > A persistent, compounding federation of markdown knowledge bases — compiled
 > once by an agent, curated by a human, and linked across domain boundaries.
 
 ## The Concept
 
-The Multi-Domain LLM Wiki (md-wiki) is an alternative to traditional Retrieval
+The Multi-Domain LLM Wiki (vault-wiki) is an alternative to traditional Retrieval
 Augmented Generation (RAG). Where RAG re-discovers knowledge from scratch on
 every query — scattering fragments of context across vector stores, losing
 cross-references between queries, and never resolving contradictions — the wiki

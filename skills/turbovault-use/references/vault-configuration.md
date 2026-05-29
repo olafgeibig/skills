@@ -1,6 +1,6 @@
 # Vault Configuration
 
-vault-ops requires an available TurboVault MCP server.
+turbovault-use requires an available TurboVault MCP server.
 
 ## Detect TurboVault
 

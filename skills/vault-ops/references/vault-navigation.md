@@ -2,7 +2,7 @@
 
 Prefer TurboVault graph and metadata tools over filesystem scans. TurboVault already parses wikilinks, backlinks, frontmatter, tags, and graph structure.
 
-Scope note: by default, exclude `wiki/` and `system/` from Vault Ops navigation/search unless the user explicitly asks for them. Use the `md-wiki` skill for wiki maintenance.
+Scope note: by default, exclude `wiki/` and `system/` from Vault Ops navigation/search unless the user explicitly asks for them. Use the `vault-wiki` skill for wiki maintenance.
 
 Goal: follow the vault's intended navigation path (INDEX → MoC → notes) before falling back to global keyword search.
 
@@ -13,7 +13,7 @@ Default entry points:
 - `INDEX.md` — vault root INDEX
 - `area/INDEX.md` — areas
 - `projects/INDEX.md` — projects
-- `wiki/index.md` — wiki domains, maintained with `md-wiki`
+- `wiki/index.md` — wiki domains, maintained with `vault-wiki`
 
 Workflow:
 
