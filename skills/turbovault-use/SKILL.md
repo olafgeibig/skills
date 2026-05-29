@@ -117,6 +117,25 @@ TurboVault provides multiple search tools — pick the right one:
 
 **Scope warning:** `search`, `advanced_search`, and `semantic_search` search the **entire vault**, not a subdirectory. Always check the `path` prefix in results, or use `exclude_paths` in `advanced_search` to filter out non-target directories.
 
+### SQL Query Limitations
+
+`query_frontmatter_sql` provides SQL access to three tables (`files`, `links`, `tags`), but **TurboVault SQL is NOT full SQLite.** Do not assume arbitrary SQL features work.
+
+**Known non-working patterns:**
+- ❌ Multi-table joins with `json_each()` — e.g. `SELECT path FROM files, json_each(topics) ...` fails because the SQL engine does not support that shape
+- ❌ `LIKE` filters on array frontmatter fields — e.g. `WHERE topics LIKE '%MoC%'` fails on null/array values
+
+**Working patterns (preferred):**
+- ✅ Simple filtered reports: `SELECT path, type, description FROM files WHERE type = 'moc' ORDER BY path LIMIT 50`
+- ✅ Link queries: `SELECT source, target FROM links WHERE source = 'area/agents/+Agents.md' LIMIT 50`
+
+**For navigation and relationship discovery,** prefer TurboVault's graph tools — they're faster, more reliable, and avoid SQL engine quirks:
+- `get_forward_links(path)` — curated outgoing links
+- `get_backlinks(path)` — body-wikilink backlinks
+- `get_related_notes(path, max_hops=1..2)` — nearby graph context
+- `get_metadata_value(file, "topics")` — cheap Note → MoC lookup
+- `inspect_frontmatter` — discover available columns before writing queries
+
 ## Batch Operations
 
 When creating or updating multiple files atomically:
