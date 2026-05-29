@@ -67,3 +67,4 @@ Always:
 
 - `./references/note-writing.md` — for atomic notes (zettel)
 - `./references/moc-writing.md` — for Maps of Content
+- `vault-improvements` skill — for discovered workflows and pitfalls about bookmarks maintenance
