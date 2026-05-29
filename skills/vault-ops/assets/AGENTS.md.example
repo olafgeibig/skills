@@ -2,7 +2,7 @@
 - Local-first and security-sensitive. Do not upload content to external services without explicit approval.
 - Proactivity: Suggest next steps; ask before executing changes that have side effects.
 - Always read this file before operating in the vault.
-- Agents using `vault-ops` must NOT edit files under ./wiki. This is exclusively maintained by an agent using `md-wiki`.
+- Agents using `vault-ops` must NOT edit files under ./wiki. This is exclusively maintained by an agent using `vault-wiki`.
 - The vault uses Obsidian sync. Sync happens automatically. Do not sync manually.
 - Record content type and status as front‑matter properties, not tags.
 - The topics property always contains links to MoCs, not tags.

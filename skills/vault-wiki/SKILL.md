@@ -1,6 +1,6 @@
 ---
-name: md-wiki
-description: "Multi-domain LLM Wiki — build and maintain a federation of interlinked markdown wiki knowledge bases. Each domain wiki has its own schema, index, and log, linked across boundaries via path-based wikilinks. Use when user wants to use a wiki (create, ingest into, query, lint)."
+name: vault-wiki
+description: "Multi-domain LLM Wiki in vault — build and maintain a federation of interlinked markdown wiki knowledge bases inside your Obsidian vault. Each domain wiki has its own schema, index, and log, linked across boundaries via path-based wikilinks. Use when user wants to use a wiki (create, ingest into, query, lint)."
 license: MIT
 metadata:
   hermes:
@@ -239,7 +239,7 @@ See the `turbovault-use` skill for available search tools.
 
 See the `turbovault-use` skill for syntax and format requirements.
 
-**md-wiki-specific DON'Ts:**
+**vault-wiki-specific DON'Ts:**
 - **DON'T use `edit_note` for `log.md`** — SEARCH replaces the previous entry's header, leaving detail lines orphaned. Always use read-full/write-full.
 - **DON'T use `edit_note` for `<name>-wiki.md`** — matching `## Entities` deletes the header. Always use read-full/write-full.
 - **DON'T use `edit_note` for `SCHEMA.md`** — pipe characters `|`, brackets `[]`, and backticks trigger parser errors. Always use read-full/write-full.

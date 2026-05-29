@@ -9,7 +9,7 @@ This workflow covers bulk note-type refactors in an active TurboVault vault. It 
 ## Required Orientation
 
 1. Load `vault-ops` and read the selected vault's `AGENTS.md`.
-2. If any target path is under `wiki/`, load `md-wiki` and follow its orientation/logging rules.
+2. If any target path is under `wiki/`, load `vault-wiki` and follow its orientation/logging rules.
 3. Identify the old type name and new type name.
 4. Identify whether filenames/templates should also change.
 
@@ -46,7 +46,7 @@ When renaming a template file, prefer an actual file rename/move if using filesy
 
 Raw sources under `wiki/<domain>/raw/` are immutable by default. Preserve historical raw sources unless the user explicitly asks to adapt the raw source itself. If the user explicitly asks for that exception:
 
-1. Load `md-wiki`.
+1. Load `vault-wiki`.
 2. Read the target wiki's `SCHEMA.md`, `index.md`, and `log.md` as needed.
 3. Apply the explicit raw-source correction.
 4. Append a log entry explaining that the raw source was intentionally updated to align the concept with the current skill.
@@ -80,4 +80,4 @@ Report concise counts and exceptions:
 - number of notes with new type after
 - renamed/deleted template paths
 - remaining old-term hits, if any, with reason
-- whether `md-wiki` log was updated for wiki changes
+- whether `vault-wiki` log was updated for wiki changes

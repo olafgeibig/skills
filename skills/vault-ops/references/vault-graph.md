@@ -21,9 +21,9 @@ Default root navigation is:
 - `INDEX.md` — vault root INDEX, links to sub-INDEX files
 - `area/INDEX.md` — area MoCs
 - `projects/INDEX.md` — project MoCs
-- `wiki/index.md` — wiki domain hubs, maintained with `md-wiki`
+- `wiki/index.md` — wiki domain hubs, maintained with `vault-wiki`
 
-By default, Vault Ops operates on `area/`, `projects/`, `inbox/`, `sources/`, `system/`, and `archive/` according to `AGENTS.md`. Do not edit `wiki/` with Vault Ops unless the user explicitly asks and the `md-wiki` skill is loaded.
+By default, Vault Ops operates on `area/`, `projects/`, `inbox/`, `sources/`, `system/`, and `archive/` according to `AGENTS.md`. Do not edit `wiki/` with Vault Ops unless the user explicitly asks and the `vault-wiki` skill is loaded.
 
 ## Required Graph Integration
 

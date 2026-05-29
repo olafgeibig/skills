@@ -20,7 +20,7 @@ This skill defines the **tool-level mechanics** for working with TurboVault MCP 
 **Division of labor:**
 - `turbovault-use` = tool mechanics (vault selection, read/write/edit/search, syntax, troubleshooting)
 - `vault-ops` = vault structure, navigation (MoCs, INDEX, topics), note types, tags, frontmatter rules
-- `md-wiki` = wiki architecture (hub, SCHEMA, ingest, query, lint), raw source policies, linking conventions
+- `vault-wiki` = wiki architecture (hub, SCHEMA, ingest, query, lint), raw source policies, linking conventions
 
 ## When This Skill Activates
 
@@ -28,7 +28,7 @@ This skill is a **secondary skill** — it is loaded by other skills that needs 
 
 - A task requires reading, writing, editing, or searching vault notes
 - A task specifies "use TurboVault" or "use mcp_turbovault_* tools"
-- A parent skill (vault-ops, md-wiki) is loaded and enters the tool-level phase of a workflow
+- A parent skill (vault-ops, vault-wiki) is loaded and enters the tool-level phase of a workflow
 
 ## Check TurboVault Availability
 
@@ -136,7 +136,7 @@ All operations succeed or fail as one transaction. Use this for:
 
 ## Graph & Connection Tools
 
-TurboVault provides graph analysis tools for finding relationships between notes — used by vault-ops for MoC navigation and by md-wiki for lint/orphan detection.
+TurboVault provides graph analysis tools for finding relationships between notes — used by vault-ops for MoC navigation and by vault-wiki for lint/orphan detection.
 
 | Tool | What it does | Best for |
 |------|-------------|----------|

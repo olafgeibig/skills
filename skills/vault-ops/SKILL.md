@@ -10,7 +10,7 @@ metadata:
       - obsidian
       - vault
     related_skills:
-      - md-wiki
+      - vault-wiki
       - turbovault-use
 ---
 
@@ -84,7 +84,7 @@ Language: EN.
 - `projects/`: note clearly related to a project
 - `sources/`: Raw sources from external, web, documents
 - `system/`: Internal files, templates, state, helper scripts
-- `wiki/`: the root of a wiki maintained by the md-wiki skill
+- `wiki/`: the root of a wiki maintained by the vault-wiki skill
 
 ### Note Types
 Use default templates unless AGENTS.md defines different templates

@@ -34,7 +34,7 @@ Use this workflow to process incoming notes, ideas, clippings, or voice transcri
           │
           ▼
 [2. Route and structure]
-  - Known wiki source → use md-wiki workflow for wiki/<domain>/raw/ + entities/concepts
+  - Known wiki source → use vault-wiki workflow for wiki/<domain>/raw/ + entities/concepts
   - Unknown wiki source → graceful fallback in sources/clippings/ or vault-local collection
   - Personal capture → area/<domain>/ or projects/<project>/ as a zettel/article/capture per AGENTS.md
           │
@@ -69,7 +69,7 @@ Read `AGENTS.md`, `wiki/index.md`, and relevant `area/INDEX.md` / `projects/INDE
 
 ### External source with matching wiki domain
 
-Use the `md-wiki` workflow. Vault-ops should not directly edit `wiki/` unless the task explicitly activates the md-wiki layer and its rules.
+Use the `vault-wiki` workflow. Vault-ops should not directly edit `wiki/` unless the task explicitly activates the vault-wiki layer and its rules.
 
 ### External source without matching wiki domain
 
