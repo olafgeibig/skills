@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Safe and effective use of TurboVault MCP tools — vault selection, active vault management, read/write/edit_note patterns, SEARCH/REPLACE syntax, search tools, graph tools, batch operations, verification, and troubleshooting. Load this skill whenever a task uses mcp_turbovault_* tools."
 metadata:
-  version: "0.2.1"
+  version: "0.2.2"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:

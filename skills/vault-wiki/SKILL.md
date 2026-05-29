@@ -17,7 +17,7 @@ metadata:
       - vault-improvements
       - turbovault-use
   source: https://github.com/olafgeibig/skills
-  version: "0.7.0"
+  version: "0.7.1"
 ---
 
 # Multi-Domain LLM Wiki (TurboVault)
