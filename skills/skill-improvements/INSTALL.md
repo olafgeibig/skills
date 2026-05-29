@@ -13,7 +13,7 @@
 
 ### Step 1: Ask the user
 
-Use the `clarify` tool to ask the user for four things:
+Use the `clarify` or `ask` tool to ask the user for four things:
 
 1. **Bundle name** — e.g. `vault` (creates `vault-improvements`)
 2. **Core skills** — comma-separated, e.g. `vault-ops, vault-wiki`

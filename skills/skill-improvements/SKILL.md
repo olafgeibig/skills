@@ -14,8 +14,7 @@ metadata:
 This skill collects all improvements discovered while working with
 {{SKILL_LIST}}. Core skills remain untouched.
 
-**Profile-specific:** This skill lives in `<hermes-home>/skills/`, not in
-the shared `~/.agents/skills/` directory. Each Hermes profile gets its
+**Profile-specific:** This skill lives in `<hermes-profile-home>/skills/`. Each Hermes profile gets its
 own improvements skill.
 
 ## Edit Rules
