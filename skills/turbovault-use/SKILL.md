@@ -1,8 +1,8 @@
 ---
 name: turbovault-use
-description: "Safe and effective use of TurboVault MCP tools — vault selection, active vault management, read/write/edit_note patterns, SEARCH/REPLACE syntax, search tools, batch operations, verification, and troubleshooting. Load this skill whenever a task uses mcp_turbovault_* tools."
+description: "Safe and effective use of TurboVault MCP tools — vault selection, active vault management, read/write/edit_note patterns, SEARCH/REPLACE syntax, search tools, graph tools, batch operations, verification, and troubleshooting. Load this skill whenever a task uses mcp_turbovault_* tools."
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -11,6 +11,10 @@ metadata:
       - vault
       - tools
       - obsidian
+    related_skills:
+      - vault-ops
+      - vault-wiki
+      - vault-improvements
 ---
 
 # TurboVault Use
@@ -18,7 +22,7 @@ metadata:
 This skill defines the **tool-level mechanics** for working with TurboVault MCP — the interface between Hermes Agent and an Obsidian markdown vault. Every skill that uses `mcp_turbovault_*` tools should either reference this skill or have it in `related_skills`.
 
 **Division of labor:**
-- `turbovault-use` = tool mechanics (vault selection, read/write/edit/search, syntax, troubleshooting)
+- `turbovault-use` = tool mechanics (vault selection, read/write/edit/search, graph, syntax, troubleshooting)
 - `vault-ops` = vault structure, navigation (MoCs, INDEX, topics), note types, tags, frontmatter rules
 - `vault-wiki` = wiki architecture (hub, SCHEMA, ingest, query, lint), raw source policies, linking conventions
 
@@ -119,7 +123,7 @@ TurboVault provides multiple search tools — pick the right one:
 
 ### SQL Query Limitations
 
-`query_frontmatter_sql` provides SQL access to three tables (`files`, `links`, `tags`), but **TurboVault SQL is NOT full SQLite.** Do not assume arbitrary SQL features work.
+`mcp_turbovault_query_frontmatter_sql` provides SQL access to three tables (`files`, `links`, `tags`), but **TurboVault SQL is NOT full SQLite.** Do not assume arbitrary SQL features work.
 
 **Known non-working patterns:**
 - ❌ Multi-table joins with `json_each()` — e.g. `SELECT path FROM files, json_each(topics) ...` fails because the SQL engine does not support that shape
@@ -135,23 +139,6 @@ TurboVault provides multiple search tools — pick the right one:
 - `get_related_notes(path, max_hops=1..2)` — nearby graph context
 - `get_metadata_value(file, "topics")` — cheap Note → MoC lookup
 - `inspect_frontmatter` — discover available columns before writing queries
-
-## Batch Operations
-
-When creating or updating multiple files atomically:
-
-```
-mcp_turbovault_batch_execute(operations=[
-  {type: "WriteNote", path: "path/to/note1.md", content: "..."},
-  {type: "WriteNote", path: "path/to/note2.md", content: "..."},
-  {type: "EditNote", path: "path/to/note3.md", edits: "..."},
-])
-```
-
-All operations succeed or fail as one transaction. Use this for:
-- Ingest passes that create/update 3+ files
-- Structural changes (rename a note type across files)
-- Any multi-file operation where partial writes would leave the vault inconsistent
 
 ## Graph & Connection Tools
 
@@ -176,6 +163,23 @@ TurboVault provides graph analysis tools for finding relationships between notes
 **Entry-point pattern:** Most interaction starts with `get_backlinks` (reverse lookup) or `get_forward_links` (forward check). Advanced tools (centrality, cycles, clusters) are usually only needed during vault health audits.
 
 **Note:** `suggest_links` and `recommend_related` use LLM inference and cost per call — use sparingly. Prefer `get_related_notes` (zero-cost, deterministic) for routine discovery.
+
+## Batch Operations
+
+When creating or updating multiple files atomically:
+
+```
+mcp_turbovault_batch_execute(operations=[
+  {type: "WriteNote", path: "path/to/note1.md", content: "..."},
+  {type: "WriteNote", path: "path/to/note2.md", content: "..."},
+  {type: "EditNote", path: "path/to/note3.md", edits: "..."},
+])
+```
+
+All operations succeed or fail as one transaction. Use this for:
+- Ingest passes that create/update 3+ files
+- Structural changes (rename a note type across files)
+- Any multi-file operation where partial writes would leave the vault inconsistent
 
 ## Verification
 
@@ -206,11 +210,37 @@ Tool responses are authoritative — `write_note` returns success, `edit_note` r
 
 **Fix:** User presses Ctrl+R (Windows/Linux) or Cmd+R (macOS) to reload the file tree. This is not a sync issue.
 
+### Freshness Check: Re-extract, not git ls-remote
+
+**Pitfall — don't use `git ls-remote` for source freshness:** When ingesting a GitHub repo into the wiki, only the README (and select docs) are extracted as raw source markdown files — not a git clone. `git ls-remote` compares commits, not content — a README-only change between two commits won't be detected, but a CI-only change will trigger a false positive.
+
+**Correct approach:** Re-extract the source URL and compare the SHA256 hash of the fresh content against the stored hash. This works for all source types (articles, papers, repos) and detects actual content drift.
+- Local drift: `sha256sum` on disk → compare with stored `sha256` in frontmatter
+- Remote freshness: `web_extract` the `source_url` → `sha256sum` fresh content → compare with stored `sha256`
+
+Both use the same stored SHA256. No additional frontmatter fields needed.
+
 ### No Active Vault
 
 **Signal:** Tool calls fail because no vault is active.
 
 **Fix:** `mcp_turbovault_set_active_vault(name="<vault-name>")` followed by `mcp_turbovault_get_vault_context` to confirm.
+
+## Self-Improvement Gate
+
+This skill is the **stable core.** Do not edit it.
+
+All optimizations, pitfalls, and discovered workflows belong in
+**`vault-improvements`** — loaded via the `/vault` bundle alongside this skill.
+
+When a lesson learned emerges:
+1. Do NOT edit this file or its original references — they are the stable core
+2. Instead, write the finding into the `vault-improvements` skill as a new
+   reference entry or section
+3. Abstract properly: remove proper names, local paths, session dates,
+   one-off tool names before writing
+4. If a lesson is universal and user-approved, it may later be promoted
+   into this skill — but the agent never promotes unilaterally
 
 ## References
 
