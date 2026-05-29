@@ -1,98 +1,102 @@
-# Install: {{BUNDLE_NAME}} Improvements
+# INSTALL.md — Setup Guide
 
-This is a **template skill** that must be installed and configured
-before use. Follow these steps exactly.
+> This file is read by an agent to set up the improvements skill.
+> Delete it after successful installation.
 
 ## Prerequisites
 
-- The core skills you want to bundle are already installed in the hermes profile skills directory or an external skill directory
-  (e.g., `vault-ops`, `vault-wiki`, `turbovault-use`)
-- Hermes Agent is installed and `hermes` CLI is available
-- Git is available
+- The agent has `clarify` and `terminal` tools available
+- The bundle's core skills are already installed
+- Hermes CLI is available
 
-## Installation Steps
+## Installation Steps (for the agent)
 
-Execute these steps in order. After each step, confirm success before proceeding.
+### Step 1: Ask the user
 
-### Step 1 — Ask the User
+Use the `clarify` tool to ask the user for four things:
 
-Use the `clarify` tool to ask the user the following questions.
-Ask **all three questions at once** in a single `clarify` call:
+1. **Bundle name** — e.g. `vault` (creates `vault-improvements`)
+2. **Core skills** — comma-separated, e.g. `vault-ops, vault-wiki`
+3. **Hermes profile** — e.g. `hermes-agent` (the improvements skill goes into `<hermes-home>/skills/`)
+4. **Short description** — what does this bundle do?
 
-1. **Bundle name:** What should the bundle be called? (one word, lowercase, e.g. `vault`)
-2. **Skills:** Which skills belong in the bundle? (comma-separated, e.g. `vault-ops, vault-wiki, turbovault-use`)
-3. **Description:** Short description of the bundle (e.g. "Vault Operations + Wiki + Learnings")
+Example clarify call:
 
-Example:
-
-```markdown
-Ich brauche ein paar Infos für die Einrichtung:
-
-1. **Bundle-Name** — Ein Wort, lowercase, z.B. `vault`
-2. **Skills im Bundle** — Komma-getrennt, z.B. `vault-ops, vault-wiki, turbovault-use`
-3. **Beschreibung** — Kurzer Satz, z.B. "Vault Operations + Wiki + Learnings"
+```json
+{
+  "question": "To set up the improvements skill, I need:\n1. **Bundle name** — e.g. 'vault'\n2. **Core skills** — comma-separated, e.g. 'vault-ops, vault-wiki'\n3. **Hermes profile** — e.g. 'hermes-agent' (installation target for profile-specific skills)\n4. **Short description** — what does this bundle do?"
+}
 ```
 
-### Step 2 — Copy and Rename
+### Step 2: Resolve profile skills directory
 
 ```bash
-# Source: the directory this INSTALL.md lives in
-# Target: ~/.agents/skills/<bundle-name>-improvements
-SKILL_SOURCE_DIR=$(dirname "$(dirname "$(readlink -f "$0")")")
-cp -r "$SKILL_SOURCE_DIR" ~/.agents/skills/<bundle-name>-improvements
+# Default profile → ~/.hermes/skills/
+# Named profile → ~/.hermes/profiles/<profile>/skills/
+if [ "<profile>" = "default" ]; then
+  SKILL_DIR="$HOME/.hermes/skills"
+else
+  SKILL_DIR="$HOME/.hermes/profiles/<profile>/skills"
+fi
+mkdir -p "$SKILL_DIR"
 ```
 
-Replace `<bundle-name>` with the user's answer from Step 1.
-
-### Step 3 — Patch SKILL.md
-
-Replace all placeholders in the copied SKILL.md:
-
-| Placeholder | Replace with |
-|---|---|
-| `{{BUNDLE_NAME}}` | The bundle name (e.g. `vault`) |
-| `{{SKILL_NAMES}}` | Comma-separated skill names (e.g. `vault-ops, vault-wiki, turbovault-use`) |
-| `{{SKILL_LIST}}` | Natural language list (e.g. `vault-ops and vault-wiki`) |
-
-Use `terminal` with `sed` for the replacements:
+### Step 3: Install from template
 
 ```bash
-cd ~/.agents/skills/<bundle-name>-improvements
-sed -i 's/{{BUNDLE_NAME}}/<bundle-name>/g' SKILL.md INSTALL.md
-sed -i 's/{{SKILL_NAMES}}/<skills-csv>/g' SKILL.md INSTALL.md
-sed -i 's/{{SKILL_LIST}}/<skills-natural>/g' SKILL.md
+cp -r <TEMPLATE_PATH> "$SKILL_DIR/<bundle>-improvements"
 ```
 
-### Step 4 — Create the Hermes Bundle
+Where `<TEMPLATE_PATH>` is the location of this `skill-improvements` template.
+
+### Step 4: Patch the copied files
 
 ```bash
-hermes bundles create <bundle-name> \
-  --skill <skill-1> \
-  --skill <skill-2> \
-  --skill <bundle-name>-improvements \
+# Replace placeholders in SKILL.md
+sed -i 's/{{BUNDLE_NAME}}/<bundle>/g' "$SKILL_DIR/<bundle>-improvements/SKILL.md"
+sed -i 's/{{SKILL_NAMES}}/<comma-separated skill names>/g' "$SKILL_DIR/<bundle>-improvements/SKILL.md"
+sed -i 's/{{SKILL_LIST}}/<human-readable list>/g' "$SKILL_DIR/<bundle>-improvements/SKILL.md"
+```
+
+For the vault example:
+```bash
+SKILL_DIR="$HOME/.hermes/skills"
+sed -i 's/{{BUNDLE_NAME}}/vault/g' "$SKILL_DIR/vault-improvements/SKILL.md"
+sed -i 's/{{SKILL_NAMES}}/vault-ops, vault-wiki/g' "$SKILL_DIR/vault-improvements/SKILL.md"
+sed -i 's/{{SKILL_LIST}}/vault-ops and vault-wiki/g' "$SKILL_DIR/vault-improvements/SKILL.md"
+```
+
+### Step 5: Create the Hermes bundle
+
+```bash
+hermes bundles create <bundle> \
+  --skill <core-skill-1> \
+  --skill <core-skill-2> \
+  --skill <bundle>-improvements \
   --description "<description>"
 ```
 
-Replace with the user's answers. List the core skills first, then the improvements skill last.
+The bundle references skills by name — Hermes resolves them globally (both `~/.agents/skills/` and profile-specific directories).
 
-### Step 5 — Initialize Git
+### Step 6: Git init in the new skill
 
 ```bash
-cd ~/.agents/skills/<bundle-name>-improvements
+cd "$SKILL_DIR/<bundle>-improvements"
 git init
 git add -A
-git commit -m "init: <bundle-name>-improvements"
+git commit -m "init: <bundle>-improvements from template"
 ```
 
-### Step 6 — Delete INSTALL.md
+### Step 7: Clean up
 
 ```bash
-rm ~/.agents/skills/<bundle-name>-improvements/INSTALL.md
+rm "$SKILL_DIR/<bundle>-improvements/INSTALL.md"
 ```
 
 ## Verification
 
-After installation, verify with:
-- `hermes bundles list` — confirm the bundle exists with the correct skills
-- `ls ~/.agents/skills/<bundle-name>-improvements/` — confirm SKILL.md, CHANGELOG.md, references/
-- `cd ~/.agents/skills/<bundle-name>-improvements && git log --oneline` — confirm git commit exists
+```bash
+ls -la "$SKILL_DIR/<bundle>-improvements/"
+hermes bundles list | grep <bundle>
+git -C "$SKILL_DIR/<bundle>-improvements" log --oneline
+```

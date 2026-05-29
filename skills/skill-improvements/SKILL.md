@@ -2,16 +2,20 @@
 name: {{BUNDLE_NAME}}-improvements
 description: "Container for agent-discovered optimizations to the {{BUNDLE_NAME}} bundle — {{SKILL_NAMES}}"
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
   source: https://github.com/olafgeibig/skills
   hermes:
-    tags: [template, improvement, bundle]
+    tags: [template, improvement, bundle, profile]
 ---
 
 # {{BUNDLE_NAME}} Improvements
 
 This skill collects all improvements discovered while working with
 {{SKILL_LIST}}. Core skills remain untouched.
+
+**Profile-specific:** This skill lives in `<hermes-home>/skills/`, not in
+the shared `~/.agents/skills/` directory. Each Hermes profile gets its
+own improvements skill.
 
 ## Edit Rules
 
