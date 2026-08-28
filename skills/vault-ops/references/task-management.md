@@ -76,7 +76,69 @@ group by filename
 \`\`\`
 ```
 
-Hermes does **not** resolve query blocks. For programmatic search use TurboVault search tools (`mcp_turbovault_search`, `mcp_turbovault_advanced_search`).
+Hermes does **not** resolve query blocks.
+
+**Pattern: build a “Tasks Overview” note with multiple query blocks**
+
+This is a good default for a vault-wide task dashboard because it stays live inside Obsidian and doesn’t require the agent to enumerate tasks.
+
+Example structure:
+
+```markdown
+# Tasks Overview
+
+\`\`\`tasks
+not done
+(due before YYYY-MM-DD+1) OR (due on YYYY-MM-DD)
+sort by due
+\`\`\`
+
+## Due in next 3 days (grouped)
+
+### BitC-*
+\`\`\`tasks
+not done
+due after YYYY-MM-DD
+due before YYYY-MM-DD+4
+path includes BitC-
+sort by due
+\`\`\`
+
+### DFT
+\`\`\`tasks
+not done
+due after YYYY-MM-DD
+due before YYYY-MM-DD+4
+path includes DFT
+sort by due
+\`\`\` 
+
+### area/
+\`\`\`tasks
+not done
+due after YYYY-MM-DD
+due before YYYY-MM-DD+4
+path includes area/
+sort by due
+\`\`\`
+
+## All other open tasks (sorted by priority)
+\`\`\`tasks
+not done
+path does not include BitC-
+path does not include DFT
+path does not include area/
+sort by priority
+sort by due
+\`\`\`
+```
+
+**Notes:**
+- Use a **single, stable** root note for the dashboard (e.g. `Tasks Overview.md`).
+- Keep the dashboard based on **queries**, not manually copied task lines.
+- If you want to exclude generated/agent-only areas, add `path does not include wiki/` etc.
+
+For programmatic search/enumeration (outside Obsidian), use ripgrep pattern search or TurboVault search tools (`mcp_turbovault_search`, `mcp_turbovault_advanced_search`).
 
 ---
 
@@ -85,6 +147,14 @@ Hermes does **not** resolve query blocks. For programmatic search use TurboVault
 ### Find Tasks
 
 **Pattern search via `rg`** (for checkbox status — Tantivy strips these characters at index time):
+
+> **Pitfall (rg CLI):** Always pass patterns with `-e` when they start with `-` (like `- [ ]`).
+> Otherwise ripgrep may parse it as a flag and error with `rg: unrecognized flag -`.
+>
+> ✅ Good: `rg -n -e '- \\[[ ?/]\\]' <vault-path> ...`
+>
+> ❌ Bad: `rg -n '- \\[[ ?/]\\]' <vault-path> ...`
+
 
 ```bash
 # Get vault path dynamically

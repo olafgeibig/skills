@@ -2,7 +2,7 @@
 name: vault-ops
 description: "Use this skill when working with a markdown notes vault such as Obsidian. It defines a default workflow for selecting a vault, reading vault-local instructions, navigating notes, writing regular notes, and maintaining Maps of Content (MoCs). Triggers: vault, obsidian, notes vault, moc, map of content, markdown notes."
 metadata:
-  version: "0.7.1"
+  version: "0.7.2"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
@@ -20,6 +20,8 @@ metadata:
 Use this skill to manage a navigable notes-graph built from MoCs (Maps of Content) and frontmatter metadata that stays queryable and traversable.
 
 Use this skill as the default workflow for working with markdown note vaults. Vault Ops provides an opinionated approach to managing vaults using Obsidian-oriented best practices for top-level directory structure and note types. Vault specifics can be defined in the vault's AGENTS.md. The skill works best with TurboVault to interact with the vault safely.
+
+> **CSL vaults (Bosch security documentation):** The generic `area/`/`projects/`/`wiki/` layout below is the default. If a project adopts a **CSL vault** (lifecycle directories such as `analysis/`, `compiled/`, `evidence/`, `references/`, …), load the **`csl-vault`** skill for the CSL layout, lifecycle MoC, frontmatter-normalization, and template-sync conventions. This skill stays generic.
 
 ## Basic mandatory rules
 
@@ -92,6 +94,11 @@ Use default templates unless AGENTS.md defines different templates
 - ./assets/note-template.md base template for all note types
 - ./assets/moc-template.md for MoCs
 
+### Language and publication constraints
+- Project documentation must follow the repository or vault language rules. Do not infer the language from the current chat language.
+- If the user requests a project document/note/file and the project convention says documentation is English, write the artifact in English even when the surrounding conversation is in German.
+- When unsure whether a requested file is project documentation or a casual scratch note, ask only if that distinction changes the output language or publication expectations; otherwise prefer the documented project convention over chat language.
+
 ### Tags
 Default tags that can be overridden and extended in AGENTS.md
 - `project/<dir>`: each note in a project directory
@@ -113,8 +120,9 @@ updated: YYYY-MM-DD
 tags: [array of tags]
 topics: ["[[+related-moc]]"]
 ```
-- The `topics` property always contains links to MoCs (not tags and not notes - only MoCs) that link to this note. It can be more than one MoC. It serves as a **token-efficient parent/related link** — the agent reads it from frontmatter (~100 tokens, no extra call). **However**, `topics` is a YAML string, NOT a real wikilink — `get_backlinks("+related-moc.md")` does NOT find notes via `topics`.
-- **Hybrid navigation rule:** Every note must have BOTH `topics` in frontmatter AND a body `Topics:` section after a horizontal rule with the same MoC links as real `[[wikilinks]]`:
+- The `topics` property always contains links to MoCs (not tags and not notes — only MoCs) that link to this note. It can be more than one MoC. It serves as a **token‑efficient parent/related link** — the agent reads it from frontmatter (~100 tokens, no extra call). Values MUST be wikilink‑shaped strings, e.g. `"[[+Dataflows]]"` not `"+Dataflows"`.
+- For non‑wiki notes, use the MoC file name as the wikilink target (e.g. `[[+DFT]]`), not a full vault path; the `[[wiki/...]]` full‑path convention is reserved for vault‑wiki pages under `wiki/`.
+- **Hybrid navigation rule (MANDATORY):** Every note must have BOTH `topics` in frontmatter AND a body `Topics:` section after a horizontal rule with the same MoC links as real `[[wikilinks]]`:
   ```
   ---
   topics: ["[[+agents]]", "[[+vault-ops]]"]
@@ -130,8 +138,24 @@ topics: ["[[+related-moc]]"]
   - [[+agents]]
   - [[+vault-ops]]
   ```
-  `topics` enables token-efficient parent lookup (Note→MoC) from frontmatter. Body `Topics:` links enable `get_backlinks` discovery (MoC→Notes) and Obsidian graph view.
-- The `description` property functions as a retrieval filter, not a content summary. Optimize it for search discoverability and progressive disclosure.
+  `topics` enables token‑efficient parent lookup (Note→MoC) from frontmatter. Body `Topics:` links enable `get_backlinks` discovery (MoC→Notes) and Obsidian graph view.
+
+### Common mistakes (avoid)
+- Writing bare names in frontmatter: `topics: ["+Dataflows"]` ❌ — must be `topics: ["[[+Dataflows]]"]` ✅
+- Forgetting the body `Topics:` footer or letting it drift out of sync with frontmatter.
+- Putting tags or paths into `topics` (e.g., `interfaces`, `analysis`, `analysis/+Dataflows`) — only MoC wikilinks belong there.
+- Descriptions that just restate the filename (e.g., `Analysis: Foo`) — write a one‑sentence content summary that adds value.
+
+### Verification checklist (bulk)
+- Frontmatter topics:
+  - Run a SQL query against the vault's frontmatter (e.g. `SELECT path, topics FROM files;`).
+  - Expect every `topics` entry to be an array of strings each matching `^\[\[.+\]\]$`.
+- Body footer:
+  - Ensure a `Topics:` section exists at the end of each note and its bullet list exactly mirrors frontmatter `topics` (order not important).
+- Descriptions:
+  - Non‑empty, one sentence, content‑based (no trailing period preferred), not filename echoes.
+
+> **Bulk normalization of CSL analysis notes** (domain tags, `analysis` manifest snapshot, MoC-derived topics): see the **`csl-vault`** skill and `csl-analysis-frontmatter-normalization` reference.
 
 ## Self-Improvement Gate
 
@@ -139,6 +163,8 @@ This skill is the **stable core.** Do not edit it.
 
 All optimizations, pitfalls, and discovered workflows belong in
 **`vault-improvements`** — loaded via the `/vault` bundle alongside this skill.
+
+Note: In some Hermes environments, `vault-improvements` may exist only in the active profile’s skill set. If `skill_view('vault-improvements')` fails, use `skills_list` to confirm availability and avoid referencing it as a hard dependency.
 
 When a lesson learned emerges:
 1. Do NOT edit this file or its original references — they are the stable core
@@ -160,6 +186,7 @@ Always check if you need to read references matching your intent. Use the descri
 - Understanding the vault graph: `./references/vault-graph.md`
 - Navigating the vault: `./references/vault-navigation.md`
 - Task management: `./references/task-management.md`
+- Task overview dashboards (aggregated `tasks` blocks): `./references/wf-task-overview-dashboard.md`
 
 ## Workflows 
 Prefixed with `wf-`
@@ -173,7 +200,9 @@ Prefixed with `wf-`
 ### TurboVault `edit_note` — SEARCH/REPLACE parse failures
 See the `turbovault-use` skill for complete `edit_note` syntax, format requirements, and troubleshooting. The `references/task-management.md` in this skill has working examples in the context of task operations.
 
-## Templates
+### Templates
 
 - Default note template: `./assets/note-template.md`
 - Default MoC template: `./assets/moc-template.md`
+
+> **CSL vault template sync** (e.g. `assets/*` → `csl/system/templates/`): see the **`csl-vault`** skill.

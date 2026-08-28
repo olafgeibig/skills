@@ -36,16 +36,20 @@ This skill is a **secondary skill** — it is loaded by other skills that needs 
 
 ## Check TurboVault Availability
 
-Before any vault operation, verify TurboVault MCP is connected:
+Before any vault operation, verify TurboVault MCP is connected **and exposed in the current session**:
 
 ```
 mcp_turbovault_list_vaults
 ```
 
-- **If it succeeds** (even with an empty list): TurboVault MCP is available. Proceed.
-- **If it fails:** TurboVault is not connected. Follow `./references/vault-configuration.md` to diagnose and set up.
+- **If it succeeds** (even with an empty list): TurboVault MCP is available in this session. Proceed.
+- **If the `mcp_turbovault_*` tools are missing from the callable tool surface:** do **not** conclude the profile is misconfigured. First distinguish:
+  1. **Profile/runtime availability** — check with `hermes mcp list` and `hermes mcp test turbovault`
+  2. **Current-session tool exposure** — whether the tools are actually injected into this chat/session
+- **If profile/runtime checks pass but the tools are still absent in-session:** the likely issue is stale session tool binding (for example after MCP/profile changes or gateway restart). Start a **new chat/session** or reload MCP/session tool bindings before proceeding.
+- **If profile/runtime checks fail too:** TurboVault is not connected/configured. Follow `./references/vault-configuration.md` to diagnose and set up.
 
-**Rule:** Always use `mcp_turbovault_*` tools for vault files. Never use standard filesystem tools (`read_file`, `write_file`) — these are sandboxed to the Hermes workspace and will fail with 'File not found' on vault paths.
+**Rule:** Always use `mcp_turbovault_*` tools for vault files when they are present in the current session. Never use standard filesystem tools (`read_file`, `write_file`) as a substitute for real vault operations on external vault paths.
 
 ## Vault Selection
 
@@ -106,18 +110,18 @@ New replacement text
   This bypasses the parser entirely and is always safe.
 - **Prefer `write_note` for files with complex structure** — YAML frontmatter, pipe tables `|`, brackets `[]`, backticks, and multi-line lists can confuse the SEARCH/REPLACE parser. Full read + write avoids these edge cases entirely.
 
-## Search Tools
+### Pitfall: frontmatter field queries with the wrong tool
 
-TurboVault provides multiple search tools — pick the right one:
+- `mcp_turbovault_search(query="type: analysis")` is a full-text search and does NOT support field filters. It will error with messages like `Field does not exist: 'type'`.
+- Use one of:
+  - `mcp_turbovault_search_by_frontmatter(key="type", value="analysis")`, or
+  - `mcp_turbovault_query_frontmatter_sql`:
+    ```sql
+    SELECT path FROM files WHERE type = 'analysis';
+    ```
+- For graph-derived topics, prefer `get_forward_links`/`get_backlinks` over text search.
 
-| Tool | Best for | Notes |
-|------|----------|-------|
-| `search` | Full-text keyword search (BM25) | Searches the **entire vault** — scope results by path prefix |
-| `advanced_search` | Combined search with tags, frontmatter, path filters | Most versatile for complex queries |
-| `semantic_search` | Conceptual matches (TF-IDF cosine similarity) | Finds content beyond exact keyword overlap |
-| `search_by_frontmatter` | Find notes by frontmatter field value | Fast for structured metadata lookups |
-| `query_frontmatter_sql` | Arbitrary SQL against frontmatter | 3 tables: `files`, `tags`, `links`. Built-in SQLite. |
-| `inspect_frontmatter` | Discover available frontmatter columns and types | Call before writing SQL queries |
+**Pitfall:** `mcp_turbovault_search` and `advanced_search.query` are **full-text only**. They do *not* understand `field:value` filters like `type: analysis` — that syntax will error with "Field does not exist". For field-aware queries, always use `search_by_frontmatter` or `query_frontmatter_sql`.
 
 **Scope warning:** `search`, `advanced_search`, and `semantic_search` search the **entire vault**, not a subdirectory. Always check the `path` prefix in results, or use `exclude_paths` in `advanced_search` to filter out non-target directories.
 
@@ -189,7 +193,40 @@ Tool responses are authoritative — `write_note` returns success, `edit_note` r
 
 **For structural changes** (moves, renames, deletes): Check backlinks with `mcp_turbovault_get_backlinks` and update any broken wikilinks.
 
-## Troubleshooting
+## Safe renames and refactors (link-preserving)
+
+When renaming or moving notes inside a vault, use TurboVault so wikilinks update Obsidian-style across the vault.
+
+Recommended procedure:
+
+1) Move/rename the note:
+   - `mcp_turbovault_move_note(from="analysis/testing-existing.md", to="analysis/vandv-existing.md")`
+   - For batch jobs (multiple files), call `move_note` per file; avoid raw filesystem moves.
+
+2) Do not assume inbound links were updated.
+   - Even though the desired outcome is Obsidian-style link preservation, verify what actually happened in this session/tool version.
+   - Immediately search the vault for the old basename/path and inspect backlinks or broken links.
+   - If old-path wikilinks remain, patch them explicitly.
+
+3) Fix residual MoC content, headings, aliases, and semantic drift.
+   - Use `edit_note` with SEARCH/REPLACE blocks when the change is structural (e.g., `# +Testing` -> `# +VandV`).
+   - After a rename, review surrounding prose for outdated terminology such as `V&V` vs `testing`, old aliases, and stale link display text. Link updates alone are not enough.
+   - Important: file renames do not rename heading anchors/section IDs inside the target note. If other notes link to `[[...#OLD-ID]]`, you must rename the headings/IDs in the note body and then update all anchor links across the vault.
+
+4) Verify:
+   - `mcp_turbovault_get_broken_links` -> ensure 0 new broken links.
+   - Search the vault for the old basename/old wikilink target to catch stale references outside the graph.
+   - Search for old anchor IDs / section IDs (for example `VANDV-METHODS-*`) and update every reference, including compiled/docs notes that may store plain-text evidence IDs rather than wikilinks.
+   - Search for literal vault-note paths like `csl/analysis/<name>.md`; convert those to wikilinks if they are note references rather than repo evidence.
+
+5) Link style with ambiguous basenames:
+
+   - For unique basenames prefer simple `[[basename]]`.
+   - If the vault uses path-qualified wikilinks (for example `[[analysis/kafka-migration]]`), update those explicitly after the move; do not assume every reference is a plain basename link.
+
+Pitfall: Avoid filesystem-level `mv` for vault notes. It will NOT update inbound links and MoCs; use `move_note` instead.
+
+Pitfall: If TurboVault/MCP is unavailable in the current session, do not stop at the rename alone. Fall back to a repo-level rename plus explicit text search for both plain wikilinks (`[[basename]]`) and path-qualified wikilinks (`[[dir/basename]]`), then verify there are no remaining occurrences of the old target.
 
 ### `edit_note` Parse Errors
 
@@ -226,12 +263,28 @@ Both use the same stored SHA256. No additional frontmatter fields needed.
 
 **Fix:** `mcp_turbovault_set_active_vault(name="<vault-name>")` followed by `mcp_turbovault_get_vault_context` to confirm.
 
+## Applying templates safely (frontmatter and bodies)
+
+- Treat templates as schema, not literal values. Use `mcp_turbovault_update_frontmatter(merge=true)` to add missing keys without overwriting real content.
+- Structural fields: safe to normalize automatically (e.g., `type`, version fields like `analysis`).
+- Descriptive/time fields (`description`, `updated`) and navigation metadata (`tags`, `topics`) should not be stamped with placeholders across the vault; prefer empty values only when missing, and avoid overwriting existing real values.
+- In frontmatter templates, put human guidance in YAML comments (lines starting with `#`) and keep the actual values empty (e.g., `description: ""`, `updated: ""`, `tags: []`, `topics: []`).
+- In document bodies, use HTML comments `<!-- TEMPLATE: ... -->` for instructions that must not ship to readers.
+
+## Frontmatter queries: pick the right tool
+
+- `mcp_turbovault_search` is full-text only — it does NOT support field filters like `type: analysis`.
+- Use `mcp_turbovault_search_by_frontmatter(key="type", value="analysis")` or `mcp_turbovault_query_frontmatter_sql` instead when you need to filter by a frontmatter column.
+- Discover available columns first with `mcp_turbovault_inspect_frontmatter`.
+
 ## Self-Improvement Gate
 
 This skill is the **stable core.** Do not edit it.
 
 All optimizations, pitfalls, and discovered workflows belong in
 **`vault-improvements`** — loaded via the `/vault` bundle alongside this skill.
+
+Note: `vault-improvements` is expected to exist, but may be profile-local. If it’s missing, record the improvement in a local support file under a relevant skill (or ask the user to install/enable `vault-improvements`) rather than editing this stable core.
 
 When a lesson learned emerges:
 1. Do NOT edit this file or its original references — they are the stable core
