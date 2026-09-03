@@ -1,3 +1,4 @@
 .SKILL.md.swp
 tmp
 .DS_Store
+__pycache__
