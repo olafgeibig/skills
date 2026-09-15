@@ -1,8 +1,8 @@
 ---
 name: skill-governance
-description: "Use this skill whenever creating, maintaining, or self-improving ANY skill, and especially before an agent patches a skill in an external_dirs repository. It defines the two skill ownership classes (own vs third-party), the decision matrix for routing generic / project-specific / agent-specific improvements, and the mandatory read-before-write and promotion-freeze rules. Triggers: skill governance, skill maintenance, self-improvement, improve a skill, patch a skill, update a skill, skill scope, skill ownership."
+description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -36,7 +36,7 @@ The Bosch-specific application of these rules lives in `bosch-skills`; the agent
 
 Every skill belongs to exactly one class. The class decides whether the skill itself may be edited autonomously.
 
-1. **Own skills** — the maintainer's personal and Bosch skills, kept in their own git repositories (e.g. `personal/skills`, `bosch-skills`). The maintainer wants the agent to keep developing these, but only within these rules (generic changes only).
+1. **Own skills** — the maintainer's personal, Bosch, and project skills, kept in their own git repositories. The maintainer wants the agent to keep developing these, but only within these rules and the intended scope of each repository.
 2. **Third-party skills** — checked out from another author's git repository and mounted as their own `external_dirs` entry. The maintainer does **not** want the skill itself touched: any change is overwritten on the next `git pull`. These are **never edited directly** — improvements go only to an agent-specific improvement sidecar.
 
 ## Decision Matrix: Where an Improvement Goes
@@ -70,8 +70,11 @@ There is **no separate "shared improvements" tier**. The only generic home is th
 ## Hard Rules for Any Skill Write
 
 - **Read-before-write (ENFORCED):** before patching or editing an existing `SKILL.md`, load it with `skill_view(name)`. Before overwriting an existing supporting file, load it with `skill_view(name, file_path=...)`. Content quoted earlier in a transcript does **not** count — a fresh load is required.
-- Create new skills and add new supporting files through `skill_manage`; use `skill_manage(action="write_file")` for supporting files.
-- Use `patch` for targeted edits to existing skill files.
+- Use `skill_manage` for existing skills: it resolves skills across the profile and `skills.external_dirs`, then patches the file in place with native validation, ledger, cache invalidation, and security hooks.
+- Before creating a skill, classify its ownership and determine its canonical repository. `skill_manage(action="create")` writes only to the profile-local skills directory or the single configured `skills.create_dir`; it cannot select among several external repositories per call.
+- Use `skill_manage(action="create")` only when its resolved creation directory is the intended canonical root. Otherwise create the new files explicitly in the canonical repository with filesystem tools, then validate them, load the skill, verify `_source_path`, and remove or rename any local shadow.
+- Use `skill_manage(action="write_file")` for supporting files of an existing skill. Use targeted `skill_manage(action="patch")` or `patch` edits instead of full rewrites.
+- See `references/skill-manage-external-directories.md` for the verified behavior, trade-offs, and decision table.
 - Verify the saved file by re-reading the frontmatter.
 - **Never edit a third-party skill's `SKILL.md`** under any classification — route to the sidecar instead.
 
@@ -81,9 +84,10 @@ Required where the repo convention uses them:
 
 - `name` — lowercase-hyphenated, noun phrase preferred
 - `description` — one or two trigger-focused sentences, ends with a period
-- `version` — semantic versioning; bump on every meaningful change
-- `metadata.source` — the owning git repository URL
-- skope-appropriate `metadata.hermes.tags` and `metadata.hermes.related_skills`
+- `metadata.version` — semantic versioning; bump when the skill itself or its supporting behavior changes
+- `metadata.author` — intended human owner when attribution is maintained
+- `metadata.source` — the owning git repository URL when one exists
+- scope-appropriate `metadata.hermes.tags` and `metadata.hermes.related_skills`
 
 Version rules (semantic):
 - **patch** — typo, wording, metadata-only, small clarifications
