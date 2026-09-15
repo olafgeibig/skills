@@ -1,8 +1,8 @@
 ---
 name: vault-ops
-description: "Use this skill when working with a markdown notes vault such as Obsidian. It defines a default workflow for selecting a vault, reading vault-local instructions, navigating notes, writing regular notes, and maintaining Maps of Content (MoCs). Triggers: vault, obsidian, notes vault, moc, map of content, markdown notes."
+description: "Use when managing Obsidian vault structure and notes."
 metadata:
-  version: "0.8.0"
+  version: "0.8.1"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
