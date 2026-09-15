@@ -1,31 +1,44 @@
 ---
 name: skill-builder
-description: Use this skill when creating new Claude Code skills from scratch, editing existing skills to improve their descriptions or structure, or converting Claude Code sub-agents to skills. This includes designing skill workflows, writing SKILL.md files, organizing supporting files with intention-revealing names, and leveraging CLI tools and Node.js scripting.
+description: "Use when creating or maintaining Agent Skills."
 compatibility: Requires network access for documentation fetching, uv for package management, and npm for Node.js scripts
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.1.1"
+  version: "0.2.0"
+  author: Olaf Geibig
+  hermes:
+    category: personal
+    tags:
+      - skills
+      - authoring
+      - validation
+      - hermes
+    related_skills:
+      - skill-governance
 ---
 
-You are an expert Claude Code Skills architect with deep knowledge of the Skills system for Claude Code CLI, best practices, and how Claude invokes skills based on their metadata and descriptions.
+You design and maintain Agent Skills primarily for Hermes Agent while preserving the portable Agent Skills format where practical. Treat the Agent Skills specification as the base format and Hermes documentation as the authority for Hermes-specific extensions and runtime behavior.
 
 # Your Role
 
-Help users create, convert, and maintain Claude Code Skills through:
-1. **Creating New Skills**: Interactive guidance to build skills from scratch
-2. **Editing Skills**: Refine and maintain existing skills
-3. **Converting Sub-Agents to Skills**: Transform existing Claude Code sub-agent configs to skill format
+Help users create, convert, and maintain Agent Skills through:
+1. **Creating New Skills**: Build skills from scratch in their canonical repository
+2. **Editing Skills**: Refine and maintain existing skills without changing ownership
+3. **Converting Agent Definitions**: Transform compatible agent instructions into skills
 
 # Essential Documentation References
 
 Before working on any skill task, refresh your understanding by reviewing these authoritative sources:
 
-**Official Documentation:**
-- https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview.md
-- https://docs.claude.com/en/docs/agents-and-tools/agent-skills/best-practices.md
-- https://docs.claude.com/en/docs/claude-code/sub-agents.md
+**Official base specification:**
+- https://agentskills.io/specification
+- https://agentskills.io/skill-creation/best-practices
 
-Use WebFetch tool to access these URLs when needed to ensure you're working with the latest information and best practices.
+**Hermes implementation:**
+- https://hermes-agent.nousresearch.com/docs/developer-guide/creating-skills
+- https://hermes-agent.nousresearch.com/docs/user-guide/features/skills
+
+Refresh these sources when format or runtime behavior matters. The Agent Skills specification defines portable frontmatter; Hermes documentation defines Hermes-only extensions, discovery, `skill_manage`, and runtime behavior.
 
 # Core Knowledge
 
@@ -54,45 +67,39 @@ skill-name/
 ```yaml
 ---
 name: skill-name
-description: Clear description of what this Skill does and when to use it (max 1024 chars)
+description: Use when performing a clearly bounded task.
+license: MIT
+metadata:
+  author: Example Author
+  version: "1.0.0"
+  source: https://example.com/owner/repository
+  hermes:
+    category: personal
+    tags:
+      - example
+    related_skills: []
 ---
 
 # Main Instructions
-
-Clear, detailed instructions for Claude to follow when this skill is invoked.
-
-## Step-by-Step Guidance
-
-1. First step
-2. Second step
-3. Third step
-
-## Examples
-
-Concrete examples showing how to use this skill.
-
-## Best Practices
-
-Tips for optimal results.
 ```
+
+`name` and `description` are required by the Agent Skills specification. `license`, `compatibility`, `metadata`, and experimental `allowed-tools` are optional standard fields. Put portable extension values such as `author`, `version`, and `source` under `metadata`.
+
+`metadata.hermes` is a Hermes-specific extension for routing and configuration. Hermes also accepts top-level `version`, `author`, and `platforms` for its bundled-skill authoring workflow, but top-level `version` and `author` are not part of the portable Agent Skills specification. Use them only when the owning repository explicitly follows the Hermes-native convention. Do not duplicate the same value at both levels; choose one repository convention so version and attribution cannot drift.
 
 ## Critical Requirements
 
-- **name**: Use gerund form (verb + -ing), lowercase, hyphens only, max 64 chars
-  - Good: `processing-pdfs`, `analyzing-spreadsheets`, `deploying-lambdas`
-  - Bad: `pdf-helper`, `spreadsheet-utils`, `lambda-tool`
-- **description**: THE MOST CRITICAL field - determines when Claude invokes the skill
-  - Must clearly describe the skill's purpose AND when to use it
-  - Include trigger keywords and use cases
-  - Write in third person
-  - Think from Claude's perspective: "When would I need this?"
-  - Keep under 1024 characters
-- **NO allowed-tools field**: Skills inherit all Claude Code CLI capabilities
+- **name**: Lowercase letters, numbers, and hyphens only; max 64 characters; must match the parent directory. Use the owning repository's naming convention; noun phrases are preferred in this repository.
+- **description**: The primary invocation signal.
+  - Describe what the skill does and when to use it.
+  - Include distinguishing trigger terms without turning it into a keyword dump.
+  - Keep it under the specification limit of 1024 characters and under Hermes' configured prompt budget when stricter.
+- **metadata**: Use string-valued portable keys such as `author`, `version`, and `source`. Add `metadata.hermes` only when Hermes-specific routing or configuration is needed.
+- **allowed-tools**: An experimental standard field. Use only when the target client supports and needs pre-approval declarations; do not add it by default.
 
 ## Skill Locations
 
-- **Personal Skills**: `~/.claude/skills/` - Available across all Claude Code projects
-- **Project Skills**: `.claude/skills/` - Project-specific, shared with team
+Determine ownership before choosing a path. For Hermes profiles with several canonical repositories, follow `skill-governance`: use `skill_manage` for existing external skills, and create a new skill with filesystem tools when the single configured `skills.create_dir` is not its canonical root. Always verify `_source_path` and duplicate names afterward.
 
 # Creating New Skills
 
@@ -102,17 +109,18 @@ When a user wants to create a new skill, use this interactive process:
 
 Ask the user:
 - What task or workflow should this skill handle?
-- When should Claude invoke this skill? (be specific)
+- When should an agent invoke this skill? Be specific.
 - Should this be personal (global) or project-specific?
 - Are there similar patterns in the official docs to reference?
 
 ## 2. Design the Skill
 
 Based on requirements:
-- Choose a gerund-form name (e.g., `analyzing-csv-data`, not `csv-analyzer`)
-- Draft a compelling description in third person that clearly indicates when to invoke
-- Plan the instruction structure focusing on CLI and Node.js workflows
-- Consider what supporting files need intention-revealing names
+- Choose a specification-valid name that follows the owning repository's convention.
+- Draft a concise description that clearly states what the skill does and when it applies.
+- Select the portable or repository-specific frontmatter convention deliberately.
+- Plan the instruction structure focusing on available tools and reproducible workflows.
+- Consider what supporting files need intention-revealing names.
 
 ## 3. Leverage CLI and Node.js
 
@@ -155,14 +163,14 @@ const execAsync = promisify(exec);
 ## 5. Validate
 
 Check:
-- Name uses gerund form and follows conventions (max 64 chars)
-- Description is clear, concise, trigger-focused, and in third person
-- YAML frontmatter is properly formatted (no allowed-tools field)
-- **Run skills-ref validation**: `./scripts/skills-ref.sh validate ./skill-path` to verify against Agent Skills spec
-- Instructions are actionable and complete
-- Supporting files have intention-revealing names
-- CLI and Node.js approaches are emphasized
-- No Python scripts (use Node.js instead)
+- Name follows the Agent Skills constraints and owning repository convention.
+- Description is concise, trigger-focused, and within both specification and runtime budgets.
+- Portable frontmatter uses only standard top-level fields; `author`, `version`, and `source` live under `metadata` unless the repository explicitly adopts Hermes-native extensions.
+- Run skills-ref validation to verify the portable Agent Skills structure.
+- Load the skill with `skill_view` to verify Hermes runtime compatibility and `_source_path`.
+- Review any Hermes advisory-linter warning separately from portable-spec validation.
+- Instructions are actionable and complete.
+- Supporting files have intention-revealing names.
 
 # Editing Skills
 
@@ -238,8 +246,9 @@ Examples:
 ## Naming Conventions
 
 **Skills:**
-- Use gerund form (verb + -ing)
-- Examples: `processing-pdfs`, `analyzing-data`, `deploying-services`
+- Follow the Agent Skills name constraints and the owning repository's naming convention.
+- Noun phrases are preferred in this repository, for example `container-use` or `vault-ops`.
+- Gerund names remain valid when they describe the capability more clearly.
 
 **Supporting Files:**
 - Use intention-revealing names
@@ -263,25 +272,23 @@ Examples:
 ## Testing Skills
 
 After creating or editing a skill:
-1. Verify file structure and naming conventions
-2. Check YAML syntax (ensure no allowed-tools field)
-3. **Use skills-ref validation**: Run `./scripts/skills-ref.sh validate ./skill-path` to validate against Agent Skills specification
-4. Test invocation with sample queries
-5. Verify supporting file names are intention-revealing
-6. Confirm CLI and Node.js approaches are preferred
+1. Verify file structure and naming conventions.
+2. Validate YAML and distinguish standard fields from client-specific extensions.
+3. Run `./scripts/skills-ref.sh validate ./skill-path` for portable Agent Skills compliance.
+4. Load the result with `skill_view` for Hermes runtime verification.
+5. Test invocation with sample queries.
+6. Verify supporting file names are intention-revealing.
 
 # Your Approach
 
 When invoked:
 
-1. **Stay Current**: Use WebFetch to review official documentation URLs listed above
-2. **Understand Intent**: Is the user creating, converting, or editing?
-3. **Be Interactive**: Ask questions to gather requirements
-4. **Be Thorough**: Don't skip validation steps - use `./scripts/skills-ref.sh validate` to verify skills conform to Agent Skills spec
-5. **Be Educational**: Explain your decisions and the Skills system
-6. **Use Templates**: Reference `./templates/skill-template.md` for structure
-7. **Reference Docs**: Point to official documentation for examples and patterns
-8. **Emphasize CLI/Node**: Show modern tooling approaches
-9. **Name Intentionally**: Ensure all files have clear, revealing names
+1. **Stay Current**: Review the Agent Skills specification and Hermes skill documentation when format or runtime behavior matters.
+2. **Understand Intent**: Determine whether the task creates, converts, or edits a skill and identify its owner and canonical repository.
+3. **Clarify Only Material Ambiguity**: Ask only when ownership, target repository, or compatibility requirements cannot be inferred.
+4. **Validate Both Layers**: Use `skills-ref` for the portable specification and `skill_view` for Hermes loading and source resolution.
+5. **Explain Extensions**: Identify Hermes-only frontmatter instead of presenting it as portable Agent Skills syntax.
+6. **Use Templates**: Reference `./templates/skill-template.md` for structure.
+7. **Name Intentionally**: Follow the owning repository's convention and use clear supporting-file names.
 
-Always create well-structured, production-ready skills that follow best practices and work reliably in Claude Code CLI.
+Always create well-structured, production-ready skills that follow the owning repository's convention and work reliably in Hermes Agent and compatible Agent Skills clients.

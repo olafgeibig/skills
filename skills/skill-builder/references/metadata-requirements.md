@@ -1,5 +1,29 @@
 # Skill Metadata Requirements Reference
 
+## Frontmatter compatibility
+
+The Agent Skills specification permits these top-level fields:
+
+- `name`
+- `description`
+- `license`
+- `compatibility`
+- `metadata`
+- experimental `allowed-tools`
+
+Place portable extension values under `metadata`:
+
+```yaml
+metadata:
+  author: example-org
+  version: "1.0.0"
+  source: https://example.com/example-org/example-skills
+```
+
+Hermes supports additional conventions, including nested `metadata.hermes` values for routing and configuration and top-level `version`, `author`, and `platforms` in its bundled-skill workflow. These are Hermes extensions, not fields defined by the portable Agent Skills specification.
+
+Default to the portable layout for external skills unless the owning repository explicitly chooses Hermes-native frontmatter. Do not duplicate `author` or `version` at both levels; one authoritative location prevents drift. Validate the portable structure with `skills-ref`, then load with `skill_view` to verify Hermes behavior.
+
 ## Critical Fields
 
 The YAML frontmatter in SKILL.md contains two critical fields that determine how and when skills are invoked.
@@ -17,31 +41,17 @@ The YAML frontmatter in SKILL.md contains two critical fields that determine how
 - **No XML tags:** Plain text only
 - **No reserved words:** Avoid "anthropic", "claude", "skill"
 
-**Naming Convention - Gerund Form (verb + -ing):**
+**Naming convention:**
 
-Use action-oriented names that describe what the skill does:
+The Agent Skills specification does not require gerund names. Follow the owning repository's convention while keeping the name specific and capability-oriented. This repository prefers concise noun phrases.
 
-**Good Examples:**
-- `processing-pdfs` (not `pdf-processor`)
-- `analyzing-spreadsheets` (not `spreadsheet-analyzer`)
-- `deploying-lambdas` (not `lambda-deployer`)
-- `reviewing-code` (not `code-reviewer`)
-- `debugging-applications` (not `debugger`)
-- `managing-databases` (not `database-manager`)
-- `transforming-data` (not `data-transformer`)
+**Good examples:**
+- `container-use`
+- `vault-ops`
+- `skill-governance`
+- `pdf-processing`
 
-**Bad Examples (avoid noun forms):**
-- `pdf-helper`
-- `spreadsheet-utils`
-- `lambda-tool`
-- `code-review`
-- `debug-agent`
-
-**Why Gerund Form?**
-- Describes ongoing action/capability
-- More intuitive for invocation matching
-- Consistent with skill-as-capability mental model
-- Aligns with "what is this skill doing?" question
+Gerund names such as `processing-pdfs` remain valid when they communicate the capability more clearly.
 
 ## Description Field
 
@@ -173,16 +183,16 @@ Ask yourself:
 
 Before finalizing metadata:
 
-- [ ] Name is in gerund form (verb + -ing)
+- [ ] Name follows the owning repository's convention and the Agent Skills syntax constraints
 - [ ] Name is lowercase with hyphens only
 - [ ] Name is under 64 characters
-- [ ] Description starts with "Use this skill when..."
-- [ ] Description is written in third person
-- [ ] Description includes 5+ trigger keywords
-- [ ] Description lists concrete use cases
-- [ ] Description is under 1024 characters
-- [ ] No `allowed-tools`, `model`, or `tools` fields in YAML
-- [ ] YAML uses spaces (not tabs)
+- [ ] Description explains what the skill does and when to use it
+- [ ] Description includes distinguishing trigger terms
+- [ ] Description is under 1024 characters and any stricter client prompt budget
+- [ ] Portable `author`, `version`, and `source` values are under `metadata`
+- [ ] Hermes-specific fields are identified as extensions
+- [ ] `allowed-tools` is omitted unless intentionally used with a supporting client
+- [ ] YAML uses spaces, not tabs
 
 ## Examples of Complete Metadata
 
