@@ -49,6 +49,18 @@ Top-level `version`, `author`, and `platforms` are not fields defined by the por
 
 Do not duplicate `version` or `author` at both levels.
 
+## Profile-local adaptations
+
+Store a Hermes profile adaptation at:
+
+```text
+$HERMES_HOME/skills/adaptations/<source-skill>-adaptation/SKILL.md
+```
+
+Use `templates/adaptation-skill-template.md` and load `skill-governance/references/profile-adaptations.md` for the normative scope and promotion rules. An adaptation contains only local deltas, links the source through `related_skills`, and is not synchronized automatically across profiles.
+
+Use profile `AGENTS.md` for simple standing paths or preferences that do not need a reusable multi-step skill. Do not create an adaptation for an owned generic skill merely to avoid updating its canonical repository.
+
 ## Location and ownership
 
 Hermes can discover skills from profile-local storage and configured `skills.external_dirs`. Discovery does not decide ownership.

@@ -173,6 +173,7 @@ gh pr create [with flags]
 **Emphasis:**
 - Use CLI tools liberally: `gh`, `aws`, `npm`, `git`, `jq`, domain tools
 - Show how to chain CLI operations
+- Prefer Python for Hermes-adjacent scripts in this repository. Use the standard library when sufficient and `uv` when external dependencies are required.
 
 **Avoid:**
 - Ad-hoc approaches without leveraging existing CLI tools
@@ -237,7 +238,7 @@ After creating/editing a skill:
 - [ ] SKILL.md under 500 lines (ideally ~150-200)
 - [ ] All relative paths (./file.md) correct
 - [ ] Supporting files lowercase, intention-revealing names
-- [ ] Scripts are Node.js (not Python)
+- [ ] Scripts follow the repository language policy; prefer Python for Hermes-adjacent tooling
 - [ ] Examples complete and runnable
 - [ ] Commit message follows conventional commits format
 - [ ] Metadata includes `source` (git repository URL) and `version` (e.g., "0.1.0")
@@ -245,7 +246,7 @@ After creating/editing a skill:
 
 ## Documentation Resources
 
-- Use the `skill-builder` skill for comprehensive skill creation guidance
-- https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview.md
-- https://docs.claude.com/en/docs/agents-and-tools/agent-skills/best-practices.md
-- See `.claude/skills/skill-builder/references/` for detailed patterns
+- Use the `skill-builder` skill for comprehensive skill creation guidance.
+- https://agentskills.io/specification
+- https://agentskills.io/skill-creation/best-practices
+- See `skills/skill-builder/references/` for detailed patterns.

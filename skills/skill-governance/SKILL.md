@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -67,6 +67,8 @@ Before promoting an existing sidecar entry into a stable skill:
 - migrate the rule once, then retire the duplicate sidecar entry.
 
 For an owned skill, a newly discovered generic rule may be written directly to the skill when the user has authorized the change and the repository workflow permits it.
+
+For the normative profile-local storage layout, naming, delta rules, and promotion signals, load `references/profile-adaptations.md`.
 
 ## Hard Rules for Any Skill Write
 

@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.3.0"
+  version: "0.4.0"
   author: Olaf Geibig
   hermes:
     category: personal
@@ -80,7 +80,7 @@ Keep project facts in project content, not reusable skills.
 - Keep the description within the 1024-character specification limit and any stricter client prompt budget.
 - Prefer one trigger-focused sentence over a keyword dump.
 
-See `references/metadata-requirements.md` for the field matrix and examples.
+See `references/metadata-requirements.md` for the field matrix and examples. Apply the package-size and consistency checks in `references/skill-quality-gates.md`.
 
 ### 4. Build the package
 
@@ -141,10 +141,10 @@ Hermes-specific nested metadata and Hermes-native top-level fields are documente
 - Include exact commands only when they are stable and necessary.
 - Document required parameters, failure conditions, and verification.
 - Do not include invented output, incomplete command placeholders, or untested claims.
-- Use the scripting language and tool policy of the owning repository. This repository prefers Node.js for bundled scripts; that is not an Agent Skills specification rule.
+- Use the scripting language and tool policy of the owning repository. This repository prefers Python for Hermes-adjacent tooling; that is not an Agent Skills specification rule.
 - Keep `SKILL.md` under 500 lines; aim for roughly 150–200 when practical.
 
-See `references/skill-best-practices.md`. For repository-approved Node.js helpers, see `references/nodejs-and-cli-patterns.md`.
+See `references/skill-best-practices.md` and `references/skill-quality-gates.md`. For repository-approved Python helpers, see `references/python-and-cli-patterns.md`.
 
 ### 7. Edit safely
 
@@ -192,6 +192,7 @@ Load `references/hermes-skills.md` before creating or editing a Hermes skill. It
 
 - `metadata.hermes` extensions;
 - Hermes-native top-level extensions;
+- profile-local adaptations and `templates/adaptation-skill-template.md`;
 - external-directory and `skill_manage` behavior;
 - runtime validation and source-path checks.
 
