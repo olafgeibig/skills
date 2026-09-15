@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.2.1"
+  version: "0.3.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -11,7 +11,6 @@ metadata:
       - self-improvement
     related_skills:
       - bosch-skills
-      - vault-improvements
       - skill-builder
 ---
 
@@ -55,17 +54,19 @@ When self-improvement (or a user-directed patch) has a learning to capture, clas
 
 There is **no separate "shared improvements" tier**. The only generic home for an owned skill is the skill itself. Profile-specific and environment-specific learnings go to profile `AGENTS.md` or an explicitly maintained profile-local sidecar. This keeps the model to two ownership classes and explicit route targets.
 
-## Promotion Freeze (Stable Core)
+## Promotion From Sidecars
 
-- The versioned stable skill must **not** be edited directly just because of a single new learning.
-- New learnings, known pitfalls, and discovered workflows go **first** to the improvement sidecar.
-- Before anything is promoted from a sidecar into the stable skill, it must be **abstracted**:
-  - no personal names
-  - no local paths
-  - no session dates
-  - no one-off tool or environment details
-  - no project-specific facts in a generic skill
-- **Promotion happens only after explicit maintainer approval.** The agent must never promote unilaterally.
+A sidecar is not a mandatory staging area for improvements to owned skills. Use one only when direct editing is prohibited, the finding is profile-specific, or the owning repository has explicitly chosen a review queue.
+
+Before promoting an existing sidecar entry into a stable skill:
+
+- classify ownership and scope using the decision matrix;
+- abstract away personal names, local paths, session dates, one-off tool details, and project facts;
+- check whether the target skill already contains the durable rule;
+- obtain explicit maintainer approval when the sidecar or repository requires it;
+- migrate the rule once, then retire the duplicate sidecar entry.
+
+For an owned skill, a newly discovered generic rule may be written directly to the skill when the user has authorized the change and the repository workflow permits it.
 
 ## Hard Rules for Any Skill Write
 

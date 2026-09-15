@@ -132,17 +132,17 @@ Hub interpretation:
 
 ## 6) Safety Checks Before Structural Changes
 
-Before reorganizing, renaming, promoting, archiving, or doing bulk edits:
+For a vault-wide refactor, normalization, cleanup, rename set, or other multi-note change:
 
-1. Run `mcp_turbovault_quick_health_check`.
-2. Check backlinks for any note that will move:
-   - `mcp_turbovault_get_backlinks(path)`
-3. For large changes, run `mcp_turbovault_full_health_analysis` or targeted SQL/reporting.
-4. After changes, verify:
-   - changed notes read back correctly,
-   - backlinks/forward links resolve,
-   - relevant INDEX/MoC entries were updated,
-   - no new broken links were introduced.
+1. Start read-only. Inventory affected paths, counts, patterns, broken links, and relevant INDEX/MoC relationships before proposing writes.
+2. Define scope, exclusions, and rollback strategy before multi-file writes or moves. Ask for approval when the requested scope does not already authorize those side effects.
+3. Prefer minimal deltas. Do not reformat unrelated content or move notes without a concrete navigation benefit.
+4. Run `mcp_turbovault_quick_health_check` and inspect backlinks for every note that will move.
+5. Apply changes in bounded passes so failures and link drift remain attributable.
+6. After each pass, verify changed notes, relevant INDEX/MoC entries, backlinks, forward links, and broken links.
+7. For large changes, finish with `mcp_turbovault_full_health_analysis` or a targeted report and compare it with the initial inventory.
+
+The selected vault's `AGENTS.md` overrides these defaults. A healthy aggregate score does not replace targeted checks for the affected paths.
 
 ## 7) Output Expectations
 

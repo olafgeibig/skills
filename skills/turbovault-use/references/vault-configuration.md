@@ -15,21 +15,24 @@ We use a two-stage check:
    - If it succeeds (even with an empty list): TurboVault MCP is available.
    - If it fails: stop and instruct the user to enable/configure TurboVault MCP.
 
-## Detect vaults and register them in TurboVault
+## Register and activate an existing vault
 
-Goal: if vaults are discoverable locally (e.g. via Obsidian), register them in TurboVault so the agent can select them via MCP.
+When the user provides an existing vault path that is not registered:
 
-1. Discover Obsidian vaults via `obsidian.json`.
-   Common locations:
-   - macOS: `/Users/<username>/Library/Application Support/obsidian/obsidian.json`
-   - Windows: `%APPDATA%\\obsidian\\obsidian.json`
-   - Linux: `~/.config/obsidian/obsidian.json`
-   - Flatpak: `~/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json`
+1. Call `list_vaults` and `get_active_vault` to establish registered and active state.
+2. Call `add_vault(name, path)` for the existing directory. Registration does not require a newly created directory.
+3. Call `set_active_vault(name)` explicitly. Registration and activation are separate operations.
+4. Verify with `get_vault_context`; confirm the active vault name, registered path, and ready state together.
 
-2. For each discovered vault path, register it with TurboVault:
-   - `mcp_turbovault_add_vault` (use a stable name, preferably the vault folder name)
+Do not assume `add_vault` also selects the vault. Do not claim success from the registration response alone.
 
-3. If no vaults are discoverable, ask the user for vault paths and register those with TurboVault.
+## Discover vaults from Obsidian configuration
 
-Notes:
-- If the user provides a vault path directly and it is not registered yet, register it with TurboVault before proceeding.
+When the user has not provided a path, discover local Obsidian vaults through `obsidian.json` where appropriate. Common locations:
+
+- macOS: `/Users/<username>/Library/Application Support/obsidian/obsidian.json`
+- Windows: `%APPDATA%\\obsidian\\obsidian.json`
+- Linux: `~/.config/obsidian/obsidian.json`
+- Flatpak: `~/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json`
+
+Register only the vaults needed for the task. If none are discoverable, ask for the vault path. Registration still requires a separate activation and `get_vault_context` verification.
