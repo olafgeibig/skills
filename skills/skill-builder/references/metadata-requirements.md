@@ -1,17 +1,19 @@
-# Skill Metadata Requirements Reference
+# Frontmatter and Metadata Requirements
 
-## Frontmatter compatibility
+## Portable Agent Skills fields
 
-The Agent Skills specification permits these top-level fields:
+The Agent Skills specification defines these top-level fields:
 
-- `name`
-- `description`
-- `license`
-- `compatibility`
-- `metadata`
-- experimental `allowed-tools`
+| Field | Required | Purpose |
+|---|---:|---|
+| `name` | yes | Skill identifier; must match the parent directory |
+| `description` | yes | What the skill does and when to use it |
+| `license` | no | License name or bundled license reference |
+| `compatibility` | no | Product, environment, package, or network requirements |
+| `metadata` | no | Additional metadata |
+| `allowed-tools` | no | Experimental pre-approved tool declaration |
 
-Place portable extension values under `metadata`:
+Author and version appear in the official example under `metadata`:
 
 ```yaml
 metadata:
@@ -20,221 +22,78 @@ metadata:
   source: https://example.com/example-org/example-skills
 ```
 
-Hermes supports additional conventions, including nested `metadata.hermes` values for routing and configuration and top-level `version`, `author`, and `platforms` in its bundled-skill workflow. These are Hermes extensions, not fields defined by the portable Agent Skills specification.
+Keep version strings quoted. Do not duplicate a value at both the top level and under `metadata`.
 
-Default to the portable layout for external skills unless the owning repository explicitly chooses Hermes-native frontmatter. Do not duplicate `author` or `version` at both levels; one authoritative location prevents drift. Validate the portable structure with `skills-ref`, then load with `skill_view` to verify Hermes behavior.
+## Client extensions
 
-## Critical Fields
+A client may accept additional fields or richer metadata values. Those fields are extensions, not portable guarantees.
 
-The YAML frontmatter in SKILL.md contains two critical fields that determine how and when skills are invoked.
+For Hermes extensions, use `references/hermes-skills.md`. For Claude Code-specific behavior, use `references/claude-code-skills.md`.
 
-## Name Field
+## Name
 
-**Purpose:** Unique identifier for the skill
+A valid name:
 
-**Format Requirements:**
-- **Maximum:** 64 characters
-- **Characters:** Lowercase letters, numbers, hyphens only
-- **No spaces:** Use hyphens instead
-- **No underscores:** Use hyphens
-- **No special characters:** No `@`, `#`, `$`, etc.
-- **No XML tags:** Plain text only
-- **No reserved words:** Avoid "anthropic", "claude", "skill"
+- contains 1–64 lowercase letters, digits, or hyphens;
+- does not start or end with a hyphen;
+- does not contain consecutive hyphens;
+- matches the parent directory.
 
-**Naming convention:**
+The specification does not require gerund names. Follow the owning repository's convention. This repository prefers concise noun phrases such as `vault-ops`, `skill-governance`, and `skill-builder`.
 
-The Agent Skills specification does not require gerund names. Follow the owning repository's convention while keeping the name specific and capability-oriented. This repository prefers concise noun phrases.
+## Description
 
-**Good examples:**
-- `container-use`
-- `vault-ops`
-- `skill-governance`
-- `pdf-processing`
+A valid description:
 
-Gerund names such as `processing-pdfs` remain valid when they communicate the capability more clearly.
+- contains 1–1024 characters;
+- explains what the skill does and when it applies;
+- contains terms that distinguish it from adjacent skills;
+- fits any stricter client prompt budget.
 
-## Description Field
+Preferred form:
 
-**Purpose:** THE MOST CRITICAL field - determines when Claude invokes the skill
-
-**This is your skill's "invocation trigger" - spend time crafting it carefully.**
-
-### Requirements
-
-- **Maximum:** 1024 characters
-- **Voice:** Third person (not first person)
-- **Focus:** WHEN to use the skill (not just WHAT it does)
-- **Content:** Include trigger keywords and concrete use cases
-
-### Writing Formula
-
-```
-Use this skill when [primary situation]. This includes [specific use cases with trigger keywords], [more use cases], and [edge cases].
-```
-
-### Key Principles
-
-1. **Be Specific About "When"**
-   - Good: "Use this skill when..."
-   - Bad: "This skill can..." or "This skill helps with..."
-
-2. **Include Trigger Keywords**
-   - Words users might say in queries
-   - Technical terms relevant to the domain
-   - Action verbs that imply this skill's use
-   - Tool names, file formats, frameworks
-
-3. **List Concrete Use Cases**
-   - Real scenarios where skill applies
-   - Different phrasings of the same need
-   - Edge cases that should trigger invocation
-
-4. **Think From Claude's Perspective**
-   - "When would I need this skill?"
-   - "What user queries should activate this?"
-   - "How do I distinguish this from other skills?"
-
-5. **Write in Third Person**
-   - Describe the skill to someone else
-   - Not "I help you..." but "Use this skill when..."
-
-### Examples
-
-**Good Description (CSV processing skill):**
 ```yaml
-description: Use this skill when working with CSV files using the xsv command-line tool, including exploring CSV structure, understanding column headers, filtering data, selecting specific columns, transforming files, sorting, joining datasets, or performing data analysis on tabular data. Invoke when users mention CSV files with tasks like "explore", "filter", "select columns", "transform", "sort", or "join".
+description: "Use when creating or maintaining Agent Skills."
 ```
 
-**Why it's good:**
-- Starts with "Use this skill when"
-- Lists specific operations: exploring, filtering, selecting, transforming, sorting, joining
-- Includes trigger keywords: CSV, xsv, tabular data, column headers
-- Mentions common user verbs: explore, filter, select, transform
-- Covers the full scope of when to invoke
+Avoid keyword dumps, marketing language, and lists of every possible edge case.
 
-**Bad Description:**
+## Compatibility
+
+Use `compatibility` only for actual runtime requirements:
+
 ```yaml
-description: CSV helper skill
+compatibility: Requires network access and git 2.40+
 ```
 
-**Why it's bad:**
-- Doesn't explain when to use it
-- No trigger keywords
-- Too vague and generic
-- Doesn't help Claude decide when to invoke
+Do not list optional tools as mandatory.
 
-**Good Description (AWS Lambda deployment skill):**
-```yaml
-description: Use this skill when deploying AWS Lambda functions, updating Lambda configurations, managing Lambda layers, setting environment variables, configuring triggers, or troubleshooting Lambda deployments. This includes working with SAM templates, CloudFormation stacks, Lambda permissions, VPC configurations, and monitoring Lambda metrics. Invoke for tasks involving serverless deployments, Lambda updates, or AWS serverless architecture.
-```
+## Allowed tools
 
-**Why it's good:**
-- Comprehensive list of Lambda-related tasks
-- Includes AWS-specific terminology (SAM, CloudFormation, VPC)
-- Covers both deployment and troubleshooting
-- Multiple trigger phrases (deploying, managing, configuring, troubleshooting)
+`allowed-tools` is experimental and client support varies. Add it only when the target client supports it and pre-approval is intentional. Otherwise omit it.
 
-**Good Description (Git workflow skill):**
-```yaml
-description: Use this skill when performing advanced Git operations including interactive rebasing, cherry-picking commits, resolving complex merge conflicts, managing Git submodules, working with Git bisect for debugging, or executing complex branch strategies. This includes repository cleanup, history rewriting, and multi-repository workflows. Invoke for non-trivial Git tasks beyond basic add/commit/push operations.
-```
-
-**Why it's good:**
-- Clearly scoped to "advanced" operations
-- Lists specific Git commands: rebase, cherry-pick, bisect, submodules
-- Distinguishes from basic Git operations
-- Includes multiple scenarios: cleanup, debugging, multi-repo
-
-### Testing Your Description
-
-Ask yourself:
-
-1. **Would these user queries trigger this skill?**
-   - List 5-10 example queries
-   - Check if description contains relevant keywords from each
-
-2. **Is it distinct from other skills?**
-   - How does this differ from similar skills?
-   - Are there clear boundaries?
-
-3. **Does it cover edge cases?**
-   - What unusual requests should still trigger this?
-   - Are those mentioned in the description?
-
-4. **Could Claude figure out when to invoke this?**
-   - Read it from Claude's perspective
-   - Is the "when" clear and unambiguous?
-
-### Common Mistakes
-
-❌ **Too vague:** "Use this skill for data work"
-✅ **Specific:** "Use this skill when analyzing CSV files, writing SQL queries, or generating statistical insights"
-
-❌ **What instead of when:** "This skill processes PDFs and extracts text"
-✅ **When-focused:** "Use this skill when extracting text from PDFs, analyzing PDF structure, or converting PDFs to other formats"
-
-❌ **First person:** "I help you with Docker containers"
-✅ **Third person:** "Use this skill when building Docker images, managing containers, or debugging Docker deployments"
-
-❌ **Missing triggers:** "Use this skill for Python projects"
-✅ **With triggers:** "Use this skill when writing Python code, debugging Python scripts, managing virtual environments with pip/poetry, or optimizing Python performance"
-
-## Validation Checklist
-
-Before finalizing metadata:
-
-- [ ] Name follows the owning repository's convention and the Agent Skills syntax constraints
-- [ ] Name is lowercase with hyphens only
-- [ ] Name is under 64 characters
-- [ ] Description explains what the skill does and when to use it
-- [ ] Description includes distinguishing trigger terms
-- [ ] Description is under 1024 characters and any stricter client prompt budget
-- [ ] Portable `author`, `version`, and `source` values are under `metadata`
-- [ ] Hermes-specific fields are identified as extensions
-- [ ] `allowed-tools` is omitted unless intentionally used with a supporting client
-- [ ] YAML uses spaces, not tabs
-
-## Examples of Complete Metadata
-
-### Example 1: Email Template Documenter
+## Portable example
 
 ```yaml
 ---
-name: documenting-sendgrid-templates
-description: Use this skill when generating business-focused documentation for SendGrid email templates by analyzing AWS Lambda configurations and codebase usage. This includes translating technical implementations into business rules, extracting trigger conditions, documenting data fields, and creating comprehensive template documentation. Invoke when working with SendGrid template IDs, email template documentation, or Lambda email sending logic.
+name: document-review
+description: "Use when reviewing documents for structural and factual issues."
+license: MIT
+metadata:
+  author: Example Author
+  version: "1.0.0"
+  source: https://example.com/example-org/example-skills
 ---
 ```
 
-### Example 2: CSV Analysis
+## Validation checklist
 
-```yaml
----
-name: analyzing-csv-data
-description: Use this skill when working with CSV files using xsv CLI tool, including exploring structure, filtering data, selecting columns, transforming files, sorting, joining datasets, or performing tabular data analysis. Invoke when users mention CSV files with operations like explore, filter, select, transform, sort, or join.
----
-```
-
-### Example 3: GitHub Workflows
-
-```yaml
----
-name: creating-github-workflows
-description: Use this skill when creating or debugging GitHub Actions workflows, writing workflow YAML files, configuring CI/CD pipelines, managing GitHub secrets, troubleshooting workflow failures, or optimizing workflow performance. This includes working with actions marketplace, custom actions, matrix strategies, and deployment workflows. Invoke for GitHub Actions automation, continuous integration, or deployment pipeline tasks.
----
-```
-
-## Why Metadata Matters
-
-**The description is the difference between:**
-- A skill that's never invoked (poor description)
-- A skill that's invoked at the right time (great description)
-
-Claude reads skill descriptions to decide which skills to activate for each user query. A well-crafted description ensures your skill is discovered and used when needed.
-
-**Time investment:**
-- Spend 5-10 minutes crafting the description
-- Test with multiple example queries
-- Iterate based on invocation behavior
-- Update as you learn what triggers work best
-
-This is the most important part of skill creation - don't rush it!
+- [ ] Directory name equals `name`.
+- [ ] Name satisfies syntax and length constraints.
+- [ ] Description explains both capability and trigger.
+- [ ] Description fits specification and client budgets.
+- [ ] Portable values are placed under `metadata`.
+- [ ] Client extensions are documented as extensions.
+- [ ] `author` and `version` have one authoritative location.
+- [ ] `allowed-tools` is intentional if present.
+- [ ] YAML uses spaces and parses correctly.

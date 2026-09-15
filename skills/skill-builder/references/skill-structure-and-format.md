@@ -1,172 +1,97 @@
-# Skill Structure and Format Reference
+# Skill Structure and Format
 
-## Directory Structure
+## Package structure
 
-Every skill requires a directory with a `SKILL.md` file:
+Every skill is a directory containing `SKILL.md`:
 
-```
+```text
 skill-name/
-├── SKILL.md (required)
-├── references/ (optional - for detailed documentation)
-│   ├── methodology.md
-│   └── examples.md
-├── scripts/ (optional)
-│   └── process-data.js (Node.js preferred)
-└── templates/ (optional)
-    └── output-template.txt
+├── SKILL.md
+├── references/
+├── scripts/
+├── assets/
+└── templates/
 ```
 
-## File Naming Conventions
+Only `SKILL.md` is required. The Agent Skills specification recommends `scripts/`, `references/`, and `assets/`; other directories are permitted.
 
-**Use intention-revealing names for all supporting files:**
+## `SKILL.md`
 
-**Good Examples:**
-- `./references/converting-sub-agents.md`
-- `./references/aws-deployment-patterns.md`
-- `./references/github-workflow-examples.md`
-- `./scripts/analyze-complexity.js`
-- `./templates/report-template.md`
-
-**Bad Examples (avoid generic names):**
-- `./reference.md`
-- `./helpers.md`
-- `./utils.md`
-- `./misc.md`
-
-**Reference files with relative paths:**
-- Use `./filename.md` in SKILL.md
-- Use lowercase filenames with hyphens
-- Group related files in subdirectories (references/, scripts/, templates/)
-
-## SKILL.md Format
+Use YAML frontmatter followed by Markdown instructions:
 
 ```yaml
 ---
 name: skill-name
-description: Clear description of what this skill does and when to use it (max 1024 chars)
+description: "Use when performing a clearly bounded task."
+metadata:
+  author: Example Author
+  version: "1.0.0"
 ---
 
-# Main Instructions
+# Skill Name
 
-Clear, detailed instructions for Claude to follow when this skill is invoked.
+## When to Use
 
-## Step-by-Step Guidance
+## Procedure
 
-1. First step
-2. Second step
-3. Third step
+## Pitfalls
 
-## Examples
-
-Concrete examples showing how to use this skill.
-
-## Reference Documentation
-
-- See `./references/detailed-methodology.md` for [what it contains]
-- See `./references/advanced-patterns.md` for [what it contains]
-- See `./templates/` for [what templates are available]
+## Verification
 ```
 
-## YAML Frontmatter Requirements
+Use `references/metadata-requirements.md` for the complete field rules.
 
-**Required fields:**
-- `name`: Skill identifier (see metadata requirements)
-- `description`: When to invoke this skill (see metadata requirements)
+## Progressive disclosure
 
-**NO other fields allowed:**
-- Do NOT include `allowed-tools` field (skills inherit all Claude Code capabilities)
-- Do NOT include `model` field (not applicable to skills)
-- Do NOT include `tools` field (legacy sub-agent field)
+Structure the package around when information is needed:
 
-**YAML syntax rules:**
-- Use spaces, not tabs
-- Name and description must be valid YAML strings
-- Use quotes if description contains special characters
-- Ensure proper indentation
+1. `name` and `description` support discovery.
+2. `SKILL.md` supplies the core procedure after activation.
+3. Supporting files are loaded only when the task needs them.
 
-## Skill Locations
+Keep `SKILL.md` under 500 lines and preferably around 150–200. Move detailed methodology, large examples, command catalogs, and client-specific behavior into focused references.
 
-**Personal Skills:**
-- Location: `~/.claude/skills/`
-- Scope: Available across all Claude Code projects
-- Use for: General-purpose skills, cross-project utilities
+## Supporting files
 
-**Project Skills:**
-- Location: `.claude/skills/`
-- Scope: Project-specific, shared with team
-- Use for: Project-specific workflows, team conventions
+Use lowercase, intention-revealing names:
 
-## Progressive Disclosure Pattern
+```text
+references/frontmatter-rules.md
+references/service-deployment.md
+scripts/validate-output.js
+assets/report-example.json
+templates/report-template.md
+```
 
-**Keep SKILL.md lean (<500 lines target):**
+Avoid vague names such as `reference.md`, `helpers.md`, or `misc.md`.
+
+Reference files from the skill root:
 
 ```markdown
-# Main Skill Instructions
-
-[Core workflow and essential guidance only]
-
-## Step 1: Initial Analysis
-[Brief overview - 3-5 bullets]
-
-## Step 2: Processing
-See `./references/processing-methodology.md` for detailed approach.
-
-## Step 3: Validation
-See `./references/validation-checklist.md` for complete checklist.
+See `references/service-deployment.md` for the deployment procedure.
+Run `scripts/validate-output.js` to validate the generated result.
 ```
 
-**Move details to reference files:**
-- Detailed methodologies → `./references/methodology.md`
-- Extensive examples → `./references/examples.md`
-- Long checklists → `./references/checklist.md`
-- Background information → `./references/background.md`
+Keep references one level deep where practical. A reference should not require a long chain of additional references to become useful.
 
-**Benefits:**
-- Lower initial context cost
-- Easier to maintain
-- Clearer separation of concerns
-- On-demand detail loading
+## Scripts
 
-## Multi-File Organization Example
+Scripts must:
 
-```
-analyzing-data/
-├── SKILL.md                           # Core workflow (~150 lines)
-├── references/
-│   ├── data-processing-patterns.md    # Detailed examples
-│   ├── sql-optimization-guide.md      # Query best practices
-│   └── statistical-methods.md         # Background theory
-├── templates/
-│   ├── analysis-report.md
-│   └── query-template.sql
-└── scripts/
-    ├── aggregate-json.js              # Node.js utility
-    └── transform-csv.js               # Node.js utility
-```
+- be self-contained or document their dependencies;
+- validate required inputs;
+- produce useful error messages;
+- avoid exposing secrets;
+- have a verification command;
+- follow the owning repository's language and platform policy.
 
-This structure keeps SKILL.md focused while making detailed information available when needed.
+The Agent Skills specification permits common scripting languages including Python, Bash, and JavaScript. A repository may impose a narrower rule.
 
-## Table of Contents for Long Reference Files
+## Client-specific behavior
 
-When reference files exceed 200 lines, include a table of contents:
+Keep client rules separate from the portable structure:
 
-```markdown
-# Detailed Methodology Reference
+- Hermes: `references/hermes-skills.md`
+- Claude Code: `references/claude-code-skills.md`
 
-## Table of Contents
-- [Overview](#overview)
-- [Step-by-Step Process](#step-by-step-process)
-- [Advanced Patterns](#advanced-patterns)
-- [Troubleshooting](#troubleshooting)
-
-## Overview
-[Content...]
-```
-
-## File Organization Best Practices
-
-1. **One topic per reference file** - Don't create catch-all files
-2. **Use lowercase filenames** - e.g., `nodejs-patterns.md`, not `NodeJS-Patterns.md`
-3. **Group by type** - references/, scripts/, templates/
-4. **Intention-revealing names** - Name describes the content clearly
-5. **Cross-reference sparingly** - Reference files should be self-contained when possible
+Do not place a client-specific installation path into a generic template.

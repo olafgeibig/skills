@@ -1,472 +1,98 @@
-# Editing and Refining Skills Guide
-
-## When to Edit Skills
+# Editing Existing Skills
 
-Edit existing skills to:
-1. Improve invocation accuracy (most common)
-2. Update for new use cases or workflows
-3. Apply progressive disclosure (reduce SKILL.md size)
-4. Add CLI/Node.js patterns
-5. Fix outdated information
-6. Reorganize for clarity
+## Start with the actual package
 
-## Common Skill Improvements
+1. Load the current `SKILL.md` from its resolved source.
+2. Load each supporting file that may change.
+3. Confirm ownership and canonical repository.
+4. Read the repository's local rules.
+5. State the concrete defect or improvement goal.
 
-### 1. Refine Description for Better Invocation
+Do not edit an installed shadow when the canonical skill lives elsewhere.
 
-**This is the most impactful edit you can make.**
+## Classify the change
 
-**Problem:** Skill isn't being invoked when it should be
+Common change classes:
 
-**Investigation:**
-- What user queries should trigger this skill?
-- What keywords are missing from the description?
-- Does description explain WHEN to use it?
+- **Trigger correction** — description is too broad, too narrow, or ambiguous.
+- **Procedure correction** — instructions are wrong, incomplete, or unverifiable.
+- **Structure improvement** — main file is too large or supporting files are poorly organized.
+- **Client separation** — portable and client-specific rules are mixed.
+- **Metadata correction** — fields use the wrong convention or conflict.
+- **Tooling update** — commands, APIs, or dependencies changed.
 
-**Solution:**
-```yaml
-# Before (weak)
-description: Helps with CSV files
+Fix the class of defect, not only one visible sentence.
 
-# After (strong)
-description: Use this skill when working with CSV files using xsv CLI, including exploring structure, filtering data, selecting columns, transforming files, sorting, joining datasets, or performing tabular data analysis. Invoke when users mention CSV with tasks like explore, filter, select, transform, sort, or join.
-```
+## Make a coherent edit
 
-**Process:**
-1. Read current description
-2. List 10 user queries that should trigger the skill
-3. Extract keywords from those queries
-4. Ensure description includes those keywords
-5. Start with "Use this skill when..."
-6. Add concrete use cases
+- Keep the change bounded to the stated goal.
+- Update references and templates that encode the same rule.
+- Remove obsolete instructions instead of adding exceptions around them.
+- Preserve valid project or repository conventions.
+- Do not introduce unrelated refactors.
 
-### 2. Apply Progressive Disclosure
+## Description changes
 
-**Problem:** SKILL.md is over 500 lines with too much detail
+Before changing a description:
 
-**Solution:** Move detailed content to reference files
+1. List representative requests that should activate the skill.
+2. Identify adjacent skills that should not activate.
+3. Write one concise statement covering capability and trigger.
+4. Check the Agent Skills limit and the target client's prompt budget.
 
-**Process:**
+Do not require a fixed phrase or a minimum keyword count unless the owning repository does.
 
-1. **Identify sections to extract:**
-   - Detailed methodology (background/theory)
-   - Long examples (>50 lines)
-   - Comprehensive checklists
-   - Reference tables
-   - Troubleshooting guides
+## Structural changes
 
-2. **Create reference files with intention-revealing names:**
-   ```
-   skill-name/
-   ├── SKILL.md (keep core workflow)
-   ├── references/
-   │   ├── detailed-methodology.md
-   │   ├── advanced-examples.md
-   │   └── troubleshooting-guide.md
-   ```
+Move content out of `SKILL.md` when it is:
 
-3. **Replace detailed sections with skinny pointers:**
-   ```markdown
-   ## Methodology
+- detailed background;
+- a large example library;
+- client-specific behavior;
+- a long command catalog;
+- a reusable template.
 
-   See `./references/detailed-methodology.md` for comprehensive background on the approach.
-   ```
+Keep the core workflow and verification in `SKILL.md`. Use clear links to every supporting file.
 
-4. **Keep in SKILL.md:**
-   - Essential workflow steps (high-level)
-   - Core instructions Claude needs immediately
-   - Quick reference (1-2 examples)
-   - Pointers to detailed documentation
+## Client-specific changes
 
-5. **Move to reference files:**
-   - Detailed explanations
-   - Background theory
-   - Extensive example libraries
-   - Long checklists
-   - Edge case handling
+If behavior differs by client:
 
-**Example transformation:**
+- keep the portable base in `SKILL.md`;
+- put Hermes behavior in `references/hermes-skills.md`;
+- put Claude Code behavior in `references/claude-code-skills.md`;
+- load the relevant reference only when that client is the target.
 
-```markdown
-# Before (in SKILL.md, 150 lines)
-## CSV Processing Methodology
+Do not allow one client's path, frontmatter, or agent model to become a universal rule.
 
-CSV files are comma-separated values files...
-[50 lines of CSV format explanation]
+## Versioning
 
-Here are 15 detailed examples:
-[100 lines of examples]
+Follow `skill-governance` and the owning repository:
 
-# After (in SKILL.md, 10 lines)
-## CSV Processing Methodology
+- patch for corrections and small clarifications;
+- minor for substantive additive guidance or new workflows;
+- major for breaking scope or behavior changes.
 
-See `./references/csv-methodology.md` for detailed CSV format information.
-See `./references/csv-examples.md` for 15+ comprehensive examples.
+Bump the version when the skill package changes, including behavior-bearing references and templates.
 
-Quick example:
-```bash
-xsv select column1,column2 input.csv > output.csv
-```
-```
-
-### 3. Improve Organization
-
-**Problem:** Instructions are hard to follow or unclear
-
-**Solution:** Restructure with clear hierarchy
-
-**Before:**
-```markdown
-You should first check the data then process it and validate.
-Use xsv for CSV. You can also use jq for JSON.
-Sometimes errors happen so handle those.
-```
-
-**After:**
-```markdown
-## Processing Workflow
-
-1. **Validation**
-   - Check file format with `file` command
-   - Verify structure with `head`
-
-2. **Processing**
-   - CSV files: Use `xsv` commands
-   - JSON files: Use `jq` commands
-
-3. **Error Handling**
-   - Verify output with test commands
-   - Check for data integrity issues
-
-See `./references/detailed-workflow.md` for comprehensive steps.
-```
-
-### 4. Add CLI and Node.js Patterns
-
-**Problem:** Skill doesn't emphasize modern tooling
-
-**Solution:** Add specific CLI commands and Node.js examples
-
-**What to add:**
-- CLI tools section with specific commands
-- Node.js script examples (not Python)
-- Complete, runnable command examples
-- Command chaining patterns
-
-**Before:**
-```markdown
-Process the data using appropriate tools.
-```
-
-**After:**
-```markdown
-## CLI Tools
-
-**Process with xsv:**
-```bash
-xsv select id,name data.csv | xsv sort -s name > sorted.csv
-```
-
-**Process with Node.js:**
-```javascript
-#!/usr/bin/env node
-import { readFile } from 'fs/promises';
-const data = JSON.parse(await readFile('data.json', 'utf-8'));
-console.log(data.filter(x => x.active));
-```
-
-See `./references/nodejs-and-cli-patterns.md` for more examples.
-```
-
-### 5. Update Outdated Content
-
-**Problem:** Skill references old tools, deprecated commands, or outdated practices
-
-**Solution:** Update to current best practices
-
-**Common updates:**
-- Python scripts → Node.js scripts
-- Old CLI tool versions → Latest versions
-- Deprecated commands → Current alternatives
-- Old API patterns → Modern approaches
-
-**Process:**
-1. Review official documentation for referenced tools
-2. Check for deprecated features
-3. Update commands and examples
-4. Test updated commands
-5. Update version requirements if needed
-
-### 6. Add Supporting Files
-
-**When to add supporting files:**
-- Skill needs detailed reference information
-- Multiple complex examples would help
-- Templates would accelerate workflows
-- Helper scripts would be reusable
-
-**File types to consider:**
-
-**Reference documentation:**
-```
-references/
-├── methodology.md          # Detailed approach explanation
-├── advanced-patterns.md    # Complex use cases
-├── troubleshooting.md      # Common issues and solutions
-└── api-reference.md        # API/command reference
-```
-
-**Templates:**
-```
-templates/
-├── report-template.md      # Output format template
-├── config-template.yaml    # Configuration template
-└── script-template.js      # Node.js script skeleton
-```
-
-**Scripts:**
-```
-scripts/
-├── process-data.js         # Data processing utility
-├── validate-output.js      # Validation script
-└── transform-files.js      # File transformation
-```
-
-## Editing Workflow
-
-### Step 1: Analyze Current State
-
-1. Read SKILL.md completely
-2. Check supporting files (if any)
-3. Identify the issue:
-   - Poor invocation? → Fix description
-   - Too long? → Apply progressive disclosure
-   - Missing examples? → Add supporting files
-   - Outdated? → Update content
-   - Unclear? → Improve organization
-
-### Step 2: Review Official Documentation
-
-Before making changes:
-- Check https://docs.claude.com/en/docs/agents-and-tools/agent-skills/best-practices.md
-- Review latest patterns and recommendations
-- Verify your approach aligns with current best practices
-
-### Step 3: Make Focused Changes
-
-**Don't change everything at once. Focus on:**
-1. Most impactful improvement (usually description)
-2. One structural improvement (progressive disclosure or organization)
-3. One content improvement (examples or CLI tools)
-
-### Step 4: Validate Changes
-
-After editing:
-- [ ] YAML frontmatter is valid (no syntax errors)
-- [ ] Description is under 1024 characters
-- [ ] Name follows gerund form convention
-- [ ] SKILL.md is under 500 lines (ideally)
-- [ ] All relative paths (./file.md) are correct
-- [ ] Supporting files have intention-revealing names
-- [ ] Examples are tested and work
-- [ ] No Python scripts (use Node.js)
-
-### Step 5: Test Invocation
-
-Test with realistic user queries:
-1. Write 5-10 queries that should trigger this skill
-2. Test if description keywords match those queries
-3. Ensure skill is invoked appropriately
-4. Verify instructions are clear and actionable
-
-## Common Editing Patterns
-
-### Pattern: Extract Long Section
-
-**Before (SKILL.md has 300-line examples section):**
-```markdown
-## Examples
-
-### Example 1: Basic Usage
-[50 lines]
-
-### Example 2: Advanced Usage
-[80 lines]
-
-### Example 3: Edge Cases
-[70 lines]
-
-### Example 4: Integration
-[100 lines]
-```
-
-**After (SKILL.md has brief overview):**
-```markdown
-## Examples
-
-See `./references/comprehensive-examples.md` for 15+ detailed examples covering:
-- Basic usage patterns
-- Advanced transformations
-- Edge case handling
-- Integration with other tools
-
-Quick example:
-```bash
-xsv select id,name data.csv > output.csv
-```
-```
-
-### Pattern: Add CLI Emphasis
-
-**Before (generic instructions):**
-```markdown
-Check the data and then process it appropriately.
-```
-
-**After (specific CLI tools):**
-```markdown
-## Data Validation
-
-**Check file format:**
-```bash
-file data.csv
-head -n 5 data.csv
-xsv headers data.csv
-```
-
-**Process data:**
-```bash
-xsv select column1,column2 data.csv | xsv filter -s column1 'value' > output.csv
-```
-
-See `./references/cli-commands.md` for complete command reference.
-```
-
-### Pattern: Modernize Scripts
-
-**Before (Python script):**
-```markdown
-## Processing Script
-
-```python
-import pandas as pd
-df = pd.read_csv('data.csv')
-print(df.head())
-```
-```
-
-**After (Node.js script):**
-```markdown
-## Processing Script
-
-```javascript
-#!/usr/bin/env node
-import { readFile } from 'fs/promises';
-import { parse } from 'csv-parse/sync';
-
-const content = await readFile('data.csv', 'utf-8');
-const records = parse(content, { columns: true });
-console.log(records.slice(0, 5));
-```
-
-See `./scripts/process-csv.js` for complete implementation.
-```
-
-### Pattern: Improve Description Specificity
-
-**Before:**
-```yaml
-description: Helps with data analysis tasks
-```
-
-**After:**
-```yaml
-description: Use this skill when analyzing datasets, writing SQL queries, exploring data patterns, generating statistical insights, creating data visualizations, or transforming data files. This includes working with CSV files, JSON data, database queries, and data aggregation tasks. Invoke for data exploration, statistical analysis, or data transformation needs.
-```
-
-## Editing Checklist
-
-When editing any skill:
-
-- [ ] Read complete current SKILL.md and supporting files
-- [ ] Identify specific issue to address
-- [ ] Review official best practices documentation
-- [ ] Make focused, targeted improvements
-- [ ] If reducing SKILL.md size:
-  - [ ] Created reference files with intention-revealing, lowercase names
-  - [ ] Replaced verbose sections with skinny pointers
-  - [ ] Verified relative paths are correct
-- [ ] If improving description:
-  - [ ] Starts with "Use this skill when..."
-  - [ ] Includes 5+ trigger keywords
-  - [ ] Lists concrete use cases
-  - [ ] Written in third person
-  - [ ] Under 1024 characters
-- [ ] If adding CLI tools:
-  - [ ] Specific, runnable commands
-  - [ ] Modern tool versions
-  - [ ] Complete examples
-- [ ] If adding scripts:
-  - [ ] Node.js v24+ with ESM
-  - [ ] Not Python
-  - [ ] Executable with shebang
-- [ ] Validated YAML syntax
-- [ ] Tested with realistic queries
-- [ ] SKILL.md under 500 lines
-
-## When NOT to Edit
-
-Don't edit a skill if:
-1. **It's working well** - No invocation issues, clear instructions, good organization
-2. **Recent changes** - Give skills time to stabilize after edits
-3. **No clear goal** - Don't edit just to edit; have specific improvement in mind
-4. **User feedback needed** - If unclear what to improve, gather usage data first
-
-## Testing Edits
+## Validation
 
 After editing:
 
-1. **Syntax check:**
-   ```bash
-   cat SKILL.md  # Verify YAML and markdown render correctly
-   ```
+1. Run the package's Agent Skills validator.
+2. Confirm all links resolve.
+3. Run scripts or examples affected by the change.
+4. Load the skill in the target client.
+5. Confirm canonical source resolution and absence of shadows.
+6. Inspect the repository diff and status.
+7. Commit or publish only when authorized.
 
-2. **Structure check:**
-   ```bash
-   ls -la skill-name/
-   # Verify all referenced files exist
-   ```
+## Stop conditions
 
-3. **Invocation test:**
-   - Ask Claude queries that should trigger skill
-   - Verify skill is invoked
-   - Check instructions are followed
+Do not edit when:
 
-4. **Comparison:**
-   - Before: What was the problem?
-   - After: Is the problem solved?
-   - Trade-offs: What changed for better/worse?
-
-## Quick Reference: Common Edits
-
-| Problem | Solution | Files Affected |
-|---------|----------|----------------|
-| Not being invoked | Improve description with trigger keywords | SKILL.md |
-| Too long (>500 lines) | Extract to reference files with skinny pointers | SKILL.md + new references/ files |
-| Missing examples | Add examples or reference file | SKILL.md or references/examples.md |
-| Python scripts | Replace with Node.js | scripts/*.js |
-| Unclear structure | Reorganize with hierarchy | SKILL.md |
-| No CLI tools | Add CLI commands section | SKILL.md or references/cli-patterns.md |
-| Outdated commands | Update to current versions | SKILL.md + reference files |
-| Generic name | Change to gerund form | SKILL.md (name field) |
-| Verbose explanation | Challenge necessity, condense or remove | SKILL.md |
-
-## Iterative Improvement
-
-Skills improve over time through:
-1. **Usage observation** - See when they're invoked (or not)
-2. **Targeted edits** - Fix specific issues
-3. **Testing** - Verify improvements work
-4. **Refinement** - Iterate based on results
-
-Don't expect perfection on first edit. Skills evolve through iterative refinement based on real-world usage.
+- the skill is third-party and direct changes are prohibited;
+- ownership or target repository is unresolved;
+- the proposed change is a project fact rather than reusable procedure;
+- the evidence for a claimed tooling change is missing;
+- the user requested review before modification.
