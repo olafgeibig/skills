@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -17,11 +17,11 @@ metadata:
 
 # Skill Governance
 
-This skill is the **generic, ownership-agnostic** rule set for creating, maintaining, and self-improving Hermes skills. It applies to the maintainer's own skills (personal and Bosch) and tells an improving agent where a new learning must go.
+This skill is the **generic, ownership-agnostic** rule set for creating, maintaining, and self-improving Hermes skills. It applies to the maintainer's own personal, Bosch, and project skills and tells an improving agent where a new learning must go.
 
 The key stance is **scope discipline**: every improvement is routed either into the skill itself (only if generic and the skill is yours), into a project skill, or into an agent-specific improvement sidecar. Third-party skills are never edited directly.
 
-The Bosch-specific application of these rules lives in `bosch-skills`; the agent-specific improvement container pattern lives in `vault-improvements`. This skill is the shared core.
+The Bosch-specific application of these rules lives in `bosch-skills`. Profile- or environment-specific rules belong in the profile's `AGENTS.md` or an explicitly maintained profile-local sidecar. This skill is the shared core.
 
 ## When to Use
 
@@ -46,14 +46,14 @@ When self-improvement (or a user-directed patch) has a learning to capture, clas
 | The learning is… | And the skill is… | Route it to… |
 |---|---|---|
 | **Generic** (true for any user of the skill) | Own | **The skill itself** (this is the only "shared" tier — the git-versioned skill IS the shared artifact) |
-| **Generic** | Third-party | **Never the skill** → agent improvement sidecar |
+| **Generic** | Third-party | **Never the skill** → an explicitly maintained profile-local adaptation or sidecar |
 | **Project-specific** (reusable within one project, not across) | Own | **A project skill** (name starts with `project-`) or project content |
-| **Agent-/environment-specific** (this profile, this machine, this setup) | Any | **Agent improvement sidecar** (e.g. `vault-improvements`) |
+| **Agent-/environment-specific** (this profile, this machine, this setup) | Any | **Profile `AGENTS.md`** or an explicitly maintained profile-local sidecar |
 | **Project fact** (architecture, current state, system brief) | Any | **Project repository content** — never a skill |
 
 ### The simplification that matters
 
-There is **no separate "shared improvements" tier**. The only generic home is the skill itself. Agent-specific and environment-specific learnings go to the profile-local improvement sidecar. This keeps the model to two skill classes and three route targets — nothing more.
+There is **no separate "shared improvements" tier**. The only generic home for an owned skill is the skill itself. Profile-specific and environment-specific learnings go to profile `AGENTS.md` or an explicitly maintained profile-local sidecar. This keeps the model to two ownership classes and explicit route targets.
 
 ## Promotion Freeze (Stable Core)
 
@@ -101,7 +101,7 @@ Never leave the version unchanged after editing.
 - Do not route a generic rule only into one domain skill — put it in the generic core so every skill inherits it.
 - Do not edit a third-party skill directly just because you loaded it; being in play does not make it editable.
 - Do not store project facts in skills — they belong in the project repository content.
-- Do not mix agent-specific/environment quirks into a shared generic skill; keep them in the sidecar.
+- Do not mix agent-specific/environment quirks into a shared generic skill; keep them in profile `AGENTS.md` or an explicitly maintained profile-local sidecar.
 - Do not promote from a sidecar without explicit maintainer approval and full abstraction.
 - Do not skip the version bump after an edit.
 
@@ -121,7 +121,7 @@ Do not fold project-specific conventions, one-off repository rules, local termin
 
 Route such content to the correct place instead:
 - the relevant project skill or project repository content for project-specific material
-- the agent improvement sidecar (e.g. `vault-improvements`) for agent- or environment-specific quirks
+- profile `AGENTS.md` or an explicitly maintained profile-local sidecar for agent- or environment-specific quirks
 
 When improving this skill:
 - keep only reusable cross-domain governance here
