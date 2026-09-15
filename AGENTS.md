@@ -78,10 +78,11 @@ Since SKILL.md files are executable code (not documentation), changes should be 
 - **docs**: Only for changes to README.md
 
 **Version Updates:**
-Update `metadata.version` in SKILL.md when making changes:
+Update `metadata.version` when `SKILL.md` or a supporting file changes the skill package:
 - **feat**: Increment minor version (0.1.0 → 0.2.0)
 - **fix**: Increment patch version (0.1.0 → 0.1.1)
-- **refactor**/`chore`/`docs**: No version change needed
+- **refactor**/`chore`: Increment the patch version when the skill package changes; repository-only maintenance needs no skill version change
+- **docs**: Increment the patch version for instructional or reference content inside the skill package; repository documentation outside a skill needs no skill version change
 
 **Examples:**
 ```
@@ -119,8 +120,8 @@ When working on skills:
 5. Update `metadata.version` in SKILL.md according to semantic versioning:
    - `feat`: Increment minor version (0.1.0 → 0.2.0)
    - `fix`: Increment patch version (0.1.0 → 0.1.1)
-   - `refactor`/`chore`: No version change needed
-   - `docs`: No version change needed
+   - `refactor`/`chore`: Increment patch when the skill package changes; no bump for repository-only maintenance
+   - `docs`: Increment patch for skill instructions or references; no bump for repository documentation outside a skill
 6. Commit with conventional commit message
 7. Push and create PR if needed
 
