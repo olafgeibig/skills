@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.4.0"
+  version: "0.4.1"
   author: Olaf Geibig
   hermes:
     category: personal
@@ -69,6 +69,8 @@ Write down:
 - adjacent skills it must not duplicate;
 - required tools or environment constraints;
 - the concrete verification that proves the workflow works.
+
+Before writing, run the routing gate in `skill-governance`: search for an overlapping skill and pick one of the three declared forms — a delta in the owning skill, `<source>-adaptation`, or a skill that declares `metadata.scope: standalone`. An undeclared profile-local skill that overlaps an existing one is an unnamed adaptation.
 
 Keep project facts in project content, not reusable skills.
 
@@ -217,6 +219,7 @@ Before finishing:
 - Ownership and canonical location are confirmed.
 - Frontmatter uses one documented convention.
 - Client extensions are explicitly labeled.
+- Any new profile-local skill declares `metadata.scope: standalone` or `metadata.adapted_from`; no unnamed adaptation was created.
 - The entire changed package is internally consistent.
 - `skills-ref` validation passes.
 - Client loading and source resolution pass.

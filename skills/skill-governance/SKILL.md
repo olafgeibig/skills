@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -49,10 +49,32 @@ When self-improvement (or a user-directed patch) has a learning to capture, clas
 | **Project-specific** (reusable within one project, not across) | Own | **A project skill** (name starts with `project-`) or project content |
 | **Agent-/environment-specific** (this profile, this machine, this setup) | Any | **Profile `AGENTS.md`** or an explicitly maintained profile-local sidecar |
 | **Project fact** (architecture, current state, system brief) | Any | **Project repository content** — never a skill |
+| **A new skill that narrows, specializes, or extends one existing skill** | Own or third-party | **The owning skill (owned only) or a `<source>-adaptation`** — never a standalone sibling; see the routing gate below |
 
 ### The simplification that matters
 
 There is **no separate "shared improvements" tier**. The only generic home for an owned skill is the skill itself. Profile-specific and environment-specific learnings go to profile `AGENTS.md` or an explicitly maintained profile-local sidecar. This keeps the model to two ownership classes and explicit route targets.
+
+## Routing Gate Before Creating a Skill
+
+The matrix above routes a **learning**; a new skill needs the same decision *before* it exists, because the default write goes to the wrong place. `skill_manage(action="create")` creates in the profile-local skills directory unless `skills.create_dir` points elsewhere — creating a skill is therefore not a routing decision, it is the absence of one.
+
+1. **Search for an overlapping skill** across the profile-local directory and every `skills.external_dirs` root. Compare topics and trigger phrases, not only names:
+   ```bash
+   python3 skills/skill-library-maintenance/scripts/audit-skill-declarations.py --strict
+   ```
+2. **If the new skill narrows, specializes, or extends an existing skill**, exactly two outcomes are allowed:
+   - **Generic rule → the owning skill.** Write the delta into the owning skill (owned repositories only, never a third-party source tree).
+   - **Local delta → an adaptation.** `<source-skill>-adaptation` with `metadata.adapted_from`, `metadata.scope: profile-local`, `metadata.hermes.category: adaptations`, and the source listed in `related_skills`.
+3. **A standalone profile-local sibling is prohibited** when it quietly duplicates or narrows an existing skill. If the skill genuinely stands alone, say so explicitly: `metadata.scope: standalone` plus `metadata.hermes.related_skills` naming the skills it borders. Undeclared skills are indistinguishable from unnamed adaptations — that is what makes the gap invisible.
+
+### Self-declaration is not a precondition
+
+The prohibitions that apply to adaptations apply to any profile-local skill that *functions* as a local delta or improvement bundle, whether or not it claims the label. "Do not create generic catch-all improvement bundles" and "no nested Git repository for an individual adaptation" bind the artifact, not the declaration — otherwise every rule can be escaped by choosing a different name.
+
+### A generic rule must not live only in an adaptation
+
+An adaptation that accumulates generic rules leaks: the owning skill never learns them and other profiles never receive them. When a finding turns out to be generic (true for any user of the source skill), promote it into the source skill in the same session and leave only the local delta behind. See `references/profile-adaptations.md`.
 
 ## Promotion From Sidecars
 
@@ -107,6 +129,9 @@ Never leave the version unchanged after editing.
 - Do not mix agent-specific/environment quirks into a shared generic skill; keep them in profile `AGENTS.md` or an explicitly maintained profile-local sidecar.
 - Do not promote from a sidecar without explicit maintainer approval and full abstraction.
 - Do not skip the version bump after an edit.
+- Do not treat `skill_manage(action="create")` as a routing decision — it writes to the profile-local directory by default, which is where unnamed adaptations accumulate.
+- Do not rely on a name convention to keep the rules honest: an undeclared improvement bundle escapes every adaptation rule. The prohibitions bind the artifact, not the label.
+- Do not leave a generic rule in a profile-local adaptation because that is where it was discovered — promote it to the owning skill in the same session.
 
 ## Verification
 
@@ -114,6 +139,7 @@ Never leave the version unchanged after editing.
 - Route confirmed: the improvement's generality and ownership map to exactly one target in the decision matrix.
 - Read-before-write honored (fresh `skill_view` before any edit).
 - Version bumped to match change magnitude.
+- New skill: the overlap search ran, and the outcome is one of the three declared forms — a delta in the owning skill, a `<source>-adaptation`, or an explicit `metadata.scope: standalone`.
 - Saved file re-read and consistent with intent.
 
 ## Generic-scope and self-improvement rule

@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or restructuring a skill library."
 license: MIT
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -59,16 +59,34 @@ The audit reports:
 
 The audit does not edit files. Review findings using `skill-builder/references/skill-quality-gates.md` before refactoring.
 
+## Declaration Audit (across roots)
+
+`audit-skill-library.py` audits one repository's packages. This one audits the *runtime*: every root Hermes loads from — the profile-local directory plus each `skills.external_dirs` entry, discovered from the active profile's `config.yaml`.
+
+```bash
+python3 skills/skill-library-maintenance/scripts/audit-skill-declarations.py
+python3 skills/skill-library-maintenance/scripts/audit-skill-declarations.py --strict --json
+```
+
+It reports:
+
+- **name collisions** across roots — the loader fails closed on these, so the skill is unusable under its bare name;
+- **undeclared profile-local skills** (neither `metadata.adapted_from` nor `metadata.scope: standalone`), scoped by `.usage.json` provenance so the list stays actionable: agent-created skills are listed in full, unattributed ones only when they overlap an external skill;
+- **overlap candidates** — token similarity over name plus description, a review list rather than a verdict.
+
+Exit code 1 on a collision; with `--strict`, also 1 when an agent-created skill is undeclared and overlaps an external skill.
+
 ## Maintenance Workflow
 
 1. Discover repository root, branch, status, remotes, local identity, and all skill packages.
 2. Load repository governance and the target skills before editing.
-3. Run the library audit and the repository's Agent Skills validator.
+3. Run the library audit, the declaration audit, and the repository's Agent Skills validator.
 4. Classify findings:
    - package-local quality problem;
    - generic rule in the wrong skill;
    - domain or project procedure in a generic skill;
    - profile-local adaptation in a shared repository;
+   - unnamed adaptation — a profile-local skill that narrows or extends an external skill without declaring `adapted_from`;
    - obsolete or duplicate material.
 5. Select the smallest coherent migration or refactor.
 6. Update the main skill, references, templates, and scripts together.

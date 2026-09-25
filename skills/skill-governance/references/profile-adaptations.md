@@ -14,6 +14,20 @@ The default skill name is `<source-skill>-adaptation`. Use a bundle adaptation o
 
 Profile-local adaptations are not stored in an owned canonical skill repository or inside the third-party source tree. Do not create a nested Git repository for an individual adaptation.
 
+### Standalone profile-local skills
+
+A profile-local skill that is not a delta for a source skill must declare itself: `metadata.scope: standalone` plus `metadata.hermes.related_skills` naming the skills it borders. Without that declaration it is indistinguishable from an unnamed adaptation — which is how a local delta ends up invisible to its owning skill.
+
+Find both cases with the audit:
+
+```bash
+python3 skills/skill-library-maintenance/scripts/audit-skill-declarations.py
+```
+
+### Rule reach
+
+These rules bind the artifact, not the label. A profile-local skill that *functions* as a local delta, overlay, or improvement bundle is subject to them whether or not it declares itself an adaptation. Semantic overlap with a source skill is what makes a skill an adaptation; the name only makes it reviewable.
+
 ## Scope
 
 An adaptation contains only the local delta:
@@ -64,10 +78,13 @@ Before promotion:
 4. Obtain required maintainer approval.
 5. Update and validate the canonical skill.
 6. Remove the duplicated rule from every affected adaptation after verification.
+7. A generic rule must not stay in the adaptation merely because that is where it was discovered. Promotion is part of writing the finding down, not a later cleanup.
 
 ## Verification
 
 - Path is below the active `$HERMES_HOME/skills/adaptations/`.
+- `metadata.scope: standalone` is present when the skill is not a delta for a source skill (and `adapted_from` is absent).
+- No generic rule lives only here — generic rules were promoted to the source skill.
 - Name ends in `-adaptation` and identifies the source skill.
 - `metadata.adapted_from` and `metadata.scope: profile-local` are present.
 - `metadata.hermes.category` is `adaptations`.
