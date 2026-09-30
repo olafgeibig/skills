@@ -2,7 +2,7 @@
 name: ob-headless-sync
 description: Obsidian Headless Sync — wrapper management, dirty-check gating, cron@1min scheduler, and recovery for the ob sync service on headless machines. Includes the `ob sync-list-local` parser pitfalls and the reusable wrapper patterns (mkdir atomic lock, pkill self-immunity, embedded Python+SQLite check).
 metadata:
-  version: "0.7.3"
+  version: "0.7.4"
   source: https://github.com/olafgeibig/skills
   origin: durin-2026-04-18
   updated: "2026-07-08"
@@ -303,7 +303,7 @@ journalctl --user -u ob-sync-all.service -n 50 --no-pager
 
 - **`pkill -f '/.npm-global/bin/ob sync'` matches too broadly** (v0.5 pitfall). It will match the wrapper bash itself if the path appears in its argv, causing self-kill. Use `ps -e -o pid=,comm=,args= | awk '$2=="node" && $3 ~ ob && $4=="sync"'` for precise matching, or filter by parent PID. See `references/wrapper-patterns.md` for the generic pattern.
 
-- **`ob sync-list-local` does NOT emit `Vault: <name> (<id>)`** (v0.7 pitfall). Third-party examples and the `ob` docs sometimes show that format; the actual output is a 4-line block with the 32-hex vault-id on its own line, followed by `    Path: <path>` and `    Host: <server>`. A parser that matches `Vault:` will silently produce an empty vault list. See `references/sync-list-local-format.md` for the exact format and a working parser.
+- **`ob sync-list-local` does NOT emit `Vault: <name> (<id>)`** (v0.7 pitfall). Third-party examples and the `ob` docs sometimes show that format; the actual output is a 4-line block with the 32-hex vault-id on its own line, followed by `    Path: <path>` and `    Host: <server>`. A parser that matches `Vault:` will silently produce an empty vault list and exit cleanly with "no vaults discovered". See `references/sync-list-local-format.md` for the exact format and a working parser.
 
 - **Three stuck-process variants exist.** Variant A (documented above): the `timeout 120` parent sends SIGTERM but the child Node ignores it and stays in `Connecting...` for days. Variant B: the wrapper script was re-invoked **without** a `timeout` parent at all, so the Node process has no kill signal and only dies when killed manually. Variant D (v0.5): the wrapper is robust, but Issue #1 makes `ob sync` itself hang server-side — the wrapper's 120s timeout fires, returns exit 124, and the wrapper's trap cleans up cleanly. The symptom "Node alive for >3 min with no progress" is now NORMAL during a server-hang, not a stuck wrapper.
 
@@ -317,7 +317,6 @@ journalctl --user -u ob-sync-all.service -n 50 --no-pager
 
 - **Sibling-agent on iPad: file mtime in `state.db` shows `device='iPad'`, file lives in `.obsidian/*.json` drift** (v0.7, 2026-07-15). The `.obsidian/appearance.json`, `core-plugins.json`, `graph.json` etc. drift entries in `server_files` (vs `local_files`) come from iPad and `boromir` devices syncing Obsidian config that's intentionally not synced to disk. This is normal and benign — `ob sync` doesn't try to materialize them. Don't flag these as "missing files" during dirty-check inspection.
 
-- **`ob sync-list-local` output format is NOT what you expect (v0.6).** Real output is four-line blocks of `Configured vaults:` / `<vault-id hex 32 chars>` / `  Path: <path>` / `  Host: <server>` — the vault-id sits on its own line, NOT inside `Vault: <name> (<id>)`. A naive parser matching `^Vault: +(.+) \(([a-f0-9]+)\)$` will silently match zero vaults and exit cleanly with "no vaults discovered". The actual format is whitespace-prefixed lines, so use `^[[:space:]]+([a-f0-9]{32})[[:space:]]*$` for the id line and `^[[:space:]]+Path:[[:space:]]+(.+)$` for the path. See `references/wrapper-with-preflight.sh` for a working parser.
 
 ## Timer vs Service — Key Distinction
 
