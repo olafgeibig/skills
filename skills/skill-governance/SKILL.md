@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.7.1"
+  version: "0.8.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -60,7 +60,7 @@ When self-improvement (or a user-directed patch) has a learning to capture, clas
 |---|---|---|
 | **Generic** (true for any user of the skill) | Own | **The skill itself** (this is the only "shared" tier — the git-versioned skill IS the shared artifact) |
 | **Generic** | Third-party | **Never the skill** → an explicitly maintained profile-local adaptation or sidecar |
-| **Project-specific** (reusable within one project, not across) | Own | **A project skill** (`project-*`), including lessons that only make sense with that project's context |
+| **Project-specific** (reusable within one project, not across) | Own | **A project skill** (`project-*`) mirroring the project's own folder — same name, same scope; including lessons that only make sense with that project's context |
 | **Agent-/environment-specific** (this profile, this machine, this setup) | Any | **A profile-local skill** under `$HERMES_HOME/skills/`, declared `metadata.scope: standalone` or `metadata.adapted_from` |
 | **A rule discovered while working** (pitfall, correction, new technique) | Any | Classified and routed in the session it arises: generic → the owning skill (review gate); project-only → the **project skill**; profile/environment → **profile-local skill**. Never a diary entry — see Capture Discipline |
 | **Project fact** (architecture, current state, system brief) | Any | **Project repository content** — never a skill |
@@ -69,6 +69,16 @@ When self-improvement (or a user-directed patch) has a learning to capture, clas
 ### The simplification that matters
 
 There is **no separate "shared improvements" tier**. The only generic home for an owned skill is the skill itself. Profile-specific and environment-specific learnings go to a profile-local skill under `$HERMES_HOME/skills/`. This keeps the model to two ownership classes and explicit route targets.
+
+### The project route: one skill per project
+
+A project skill is the route that is easiest to get wrong, because "project" is not a scope you can feel — either the project has an anchor or it does not.
+
+- **One skill per project, named after the project folder.** `project-<folder>` mirrors the project's canonical folder (vault project folder, work tree) one-to-one. No project skill without a project to anchor it; no actively used project without a skill.
+- **No note inventory.** The project's MoC is the single source for what exists and what is open. A skill that lists notes, tasks, or contacts duplicates the MoC and drifts from the first rename.
+- **What the skill does carry:** location and naming conventions, the load triggers, the stable situation (who/what, and which open decision shapes the work), the working rules for that project, and the methodology developed inside it.
+- **Methods discovered inside a project stay inside that project skill** as `references/` or `scripts/` until a second, independent consumer exists — see Promotion From Sidecars.
+- **A method is not generic because it is method-shaped.** A source ladder, checklist, or analysis script written while working one project is that project's procedure, not a shared capability.
 
 ## Routing Gate Before Creating a Skill
 
@@ -131,6 +141,8 @@ Before promoting an existing sidecar entry into a stable skill:
 - obtain explicit maintainer approval when the sidecar or repository requires it;
 - migrate the rule once, then retire the duplicate sidecar entry.
 
+**Promotion needs a second, independent occurrence.** A method, checklist, or script developed for one project is not evidence of a generic capability — it is evidence of one use. Promote it into an owned canonical skill when a *second, independent* consumer appears (another project, another domain, another profile), not on the first occurrence: a rule promoted on a guess lands in the shared artifact and has to be maintained there forever. Until then it lives in the project skill that uses it.
+
 For an owned skill, a newly discovered generic rule goes through the review gate above: propose the delta, obtain approval, then write it. "The user authorized the change" is satisfied by approving that specific delta — not by a general mandate to keep a repository tidy.
 
 For the normative profile-local storage layout, naming, delta rules, and promotion signals, load `references/profile-adaptations.md`.
@@ -178,6 +190,8 @@ Never leave the version unchanged after editing.
 - Do not treat `skill_manage(action="create")` as a routing decision — it writes to the profile-local directory by default, which is where unnamed adaptations accumulate.
 - Do not rely on a name convention to keep the rules honest: an undeclared improvement bundle escapes every adaptation rule. The prohibitions bind the artifact, not the label.
 - Do not leave a generic rule in a profile-local adaptation because that is where it was discovered — promote it to the owning skill in the same session.
+- Do not create a project skill without a project to anchor it, and do not inventory notes in one — the MoC is the source of truth, and a note list in a skill drifts from the first rename.
+- Do not promote a project-born method into an owned canonical skill on its first occurrence — one consumer is not a signal, a second independent one is.
 - Do not answer a request for a capability that "used to exist" by creating a new skill — run `hermes curator list-archived` first; archived skills are invisible to discovery, and nothing restores them automatically.
 
 ## Verification
@@ -190,6 +204,7 @@ Never leave the version unchanged after editing.
 - Canonical write: the delta proposal (target, rule text, generality, dedupe evidence, retirement) was approved before the write.
 - Capture: the rule was searched against the target first, and no staging, batch, or diary file was created.
 - Route: a project-only finding landed in the project skill, not in a generic one.
+- Project route: the skill mirrors exactly one project folder by name, carries no note inventory, and any method it holds has not been promoted on its first occurrence.
 - Saved file re-read and consistent with intent.
 
 ## Generic-scope and self-improvement rule

@@ -74,7 +74,7 @@ The same rule appearing independently in multiple profiles is a promotion signal
 
 Before promotion:
 
-1. Confirm that the rule is no longer profile-specific.
+1. Confirm that the rule is no longer profile-specific — and that it is not merely project-born: a method developed for one project stays in that project skill until a second, independent consumer appears.
 2. Remove names, local paths, dates, incidents, and environment-only assumptions.
 3. Search the target skill for the rule; a restatement of an existing rule is not a promotion.
 4. Propose the delta — target file, verbatim rule text, why it is generic, the dedupe search, and what gets retired — and wait for approval. See the review gate in `skill-governance`.
@@ -87,6 +87,7 @@ Before promotion:
 - Path is below the active `$HERMES_HOME/skills/adaptations/`.
 - `metadata.scope: standalone` is present when the skill is not a delta for a source skill (and `adapted_from` is absent).
 - No generic rule lives only here — generic rules were promoted to the source skill.
+- No project-born method was promoted on its first occurrence — one consumer is not a promotion signal.
 - Name ends in `-adaptation` and identifies the source skill.
 - `metadata.adapted_from` and `metadata.scope: profile-local` are present.
 - `metadata.hermes.category` is `adaptations`.
