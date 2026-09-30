@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -20,7 +20,7 @@ This skill is the **generic, ownership-agnostic** rule set for creating, maintai
 
 The key stance is **scope discipline**: every improvement is routed either into the skill itself (only if generic and the skill is yours), into a project skill, or into an agent-specific improvement sidecar. Third-party skills are never edited directly.
 
-The Bosch-specific application of these rules lives in `bosch-skills`. Profile- or environment-specific rules belong in the profile's `AGENTS.md` or an explicitly maintained profile-local sidecar. This skill is the shared core.
+The Bosch-specific application of these rules lives in `bosch-skills`. Profile- or environment-specific rules belong in a **profile-local skill** under `$HERMES_HOME/skills/`. A profile `AGENTS.md` is not an option — Hermes never loads `$HERMES_HOME/AGENTS.md` (see "Who Maintains What"). This skill is the shared core.
 
 ## When to Use
 
@@ -38,6 +38,20 @@ Every skill belongs to exactly one class. The class decides whether the skill it
 1. **Own skills** — the maintainer's personal, Bosch, and project skills, kept in their own git repositories. The maintainer wants the agent to keep developing these, but only within these rules and the intended scope of each repository.
 2. **Third-party skills** — checked out from another author's git repository and mounted as their own `external_dirs` entry. The maintainer does **not** want the skill itself touched: any change is overwritten on the next `git pull`. These are **never edited directly** — improvements go only to an agent-specific improvement sidecar.
 
+## Who Maintains What (verified boundaries)
+
+- **`$HERMES_HOME/skills/`** — the profile-local zone. Skills here are discovered unconditionally, and it is the **only** zone an autonomous curator may write to — and only for skills carrying `created_by: "agent"`. The background curator is refused on pinned skills, anything under `skills.external_dirs`, bundled, hub-installed, and user-owned (un-managed) skills.
+- **`skills.external_dirs`, owned repositories** — canonical, git-versioned, maintainer-only. Neither the curator nor an autonomous pass writes here; every change goes through the review gate below.
+- **`skills.external_dirs`, third-party repositories** — never written at all.
+- **`curator.consolidate` ships OFF** (`DEFAULT_CONSOLIDATE = False` in `agent/curator.py`). The curator archives and prunes; it does not rewrite skill content. Content consolidation is the agent's job under these rules — never leave something behind expecting a background pass to tidy it.
+
+### Where a profile-local rule actually gets injected
+
+Hermes builds its context files from the **working-directory tree** (git root → cwd) only: `AGENTS.md` / `AGENTS.override.md`, `CLAUDE.md` (cwd), `.cursorrules`, `SOUL.md`. `$HERMES_HOME/AGENTS.md` is never read. Consequences:
+
+- Standing rules that must apply in *every* session belong in a profile-local skill, because that zone is always discovered.
+- An `AGENTS.md` works where the agent actually works inside that tree — a vault or project `AGENTS.md` is legitimate and load-bearing. A "profile `AGENTS.md`" is not a destination that exists.
+
 ## Decision Matrix: Where an Improvement Goes
 
 When self-improvement (or a user-directed patch) has a learning to capture, classify it by **generality** and **ownership**:
@@ -46,14 +60,15 @@ When self-improvement (or a user-directed patch) has a learning to capture, clas
 |---|---|---|
 | **Generic** (true for any user of the skill) | Own | **The skill itself** (this is the only "shared" tier — the git-versioned skill IS the shared artifact) |
 | **Generic** | Third-party | **Never the skill** → an explicitly maintained profile-local adaptation or sidecar |
-| **Project-specific** (reusable within one project, not across) | Own | **A project skill** (name starts with `project-`) or project content |
-| **Agent-/environment-specific** (this profile, this machine, this setup) | Any | **Profile `AGENTS.md`** or an explicitly maintained profile-local sidecar |
+| **Project-specific** (reusable within one project, not across) | Own | **A project skill** (`project-*`), including lessons that only make sense with that project's context |
+| **Agent-/environment-specific** (this profile, this machine, this setup) | Any | **A profile-local skill** under `$HERMES_HOME/skills/`, declared `metadata.scope: standalone` or `metadata.adapted_from` |
+| **A rule discovered while working** (pitfall, correction, new technique) | Any | Classified and routed in the session it arises: generic → the owning skill (review gate); project-only → the **project skill**; profile/environment → **profile-local skill**. Never a diary entry — see Capture Discipline |
 | **Project fact** (architecture, current state, system brief) | Any | **Project repository content** — never a skill |
 | **A new skill that narrows, specializes, or extends one existing skill** | Own or third-party | **The owning skill (owned only) or a `<source>-adaptation`** — never a standalone sibling; see the routing gate below |
 
 ### The simplification that matters
 
-There is **no separate "shared improvements" tier**. The only generic home for an owned skill is the skill itself. Profile-specific and environment-specific learnings go to profile `AGENTS.md` or an explicitly maintained profile-local sidecar. This keeps the model to two ownership classes and explicit route targets.
+There is **no separate "shared improvements" tier**. The only generic home for an owned skill is the skill itself. Profile-specific and environment-specific learnings go to a profile-local skill under `$HERMES_HOME/skills/`. This keeps the model to two ownership classes and explicit route targets.
 
 ## Routing Gate Before Creating a Skill
 
@@ -76,6 +91,32 @@ The prohibitions that apply to adaptations apply to any profile-local skill that
 
 An adaptation that accumulates generic rules leaks: the owning skill never learns them and other profiles never receive them. When a finding turns out to be generic (true for any user of the source skill), promote it into the source skill in the same session and leave only the local delta behind. See `references/profile-adaptations.md`.
 
+## Review Gate Before Writing to a Canonical Skill
+
+A **substantive generic change** to an owned canonical skill is proposed before it is written. The repository is the shared artifact; the review is the point, not a formality after the fact.
+
+Write the proposal as a delta, not a summary:
+
+1. **Target** — skill and file, plus the current section the rule lands in or replaces.
+2. **Rule text** — verbatim, imperative plus one clause of why.
+3. **Generality** — why this is true for any user of the skill, not only for this profile or project.
+4. **Dedupe evidence** — the search showing the rule is not already in the target (see Capture Discipline).
+5. **Retirement** — what is removed or replaced, and where the rule is retired from after promotion.
+
+Wait for approval, then write, validate (`skills-ref.sh`), bump the version, and commit.
+
+**Direct, no proposal needed:** fixing a broken command or path, a typo, frontmatter or metadata repair, a version bump, or deleting content that was already agreed. When in doubt, propose — an unwanted proposal costs one message; an unwanted repository write costs a review cycle and a revert.
+
+## Capture Discipline — No Staging Areas
+
+The failure this rule exists for: a profile-local skill that grows one dated `new-pitfalls-<date>-batch.md` file per session beside its own SKILL.md and ends up with ~1 MB of unclassified sediment, in which the same lesson appears many times and almost nothing is generic. It happened because the skill declared itself a staging area and released the agent from consolidating.
+
+- **Classify and route in the session where the finding arises.** No staging file, batch diary, or "collect now, sort later" pile. A pile has no owner, outlives its context, and is never reviewed.
+- **Search before writing.** Before adding a rule to any skill, search the target for the same rule — its imperative verb plus domain nouns, with `search_files`. A rule stated twice is a defect, not redundancy insurance. The observed cost of skipping this step: ~22 restatements of rules that were already in the target.
+- **Write the rule, not the incident.** Dates, booking or ticket IDs, handles, and session narration are not knowledge. If a finding only makes sense together with its story, it is project content → the project skill.
+- **One home per rule.** After promotion, delete the source statement; a rule living in two places drifts.
+- **Keep the shape.** `SKILL.md` carries always-on rules, depth goes to `references/`. Respect the repository budget (~500 lines) and the runtime budget (~24k chars — the whole body is loaded for the rest of the session). Route content out rather than growing the file.
+
 ## Promotion From Sidecars
 
 A sidecar is not a mandatory staging area for improvements to owned skills. Use one only when direct editing is prohibited, the finding is profile-specific, or the owning repository has explicitly chosen a review queue.
@@ -88,7 +129,7 @@ Before promoting an existing sidecar entry into a stable skill:
 - obtain explicit maintainer approval when the sidecar or repository requires it;
 - migrate the rule once, then retire the duplicate sidecar entry.
 
-For an owned skill, a newly discovered generic rule may be written directly to the skill when the user has authorized the change and the repository workflow permits it.
+For an owned skill, a newly discovered generic rule goes through the review gate above: propose the delta, obtain approval, then write it. "The user authorized the change" is satisfied by approving that specific delta — not by a general mandate to keep a repository tidy.
 
 For the normative profile-local storage layout, naming, delta rules, and promotion signals, load `references/profile-adaptations.md`.
 
@@ -126,7 +167,10 @@ Never leave the version unchanged after editing.
 - Do not route a generic rule only into one domain skill — put it in the generic core so every skill inherits it.
 - Do not edit a third-party skill directly just because you loaded it; being in play does not make it editable.
 - Do not store project facts in skills — they belong in the project repository content.
-- Do not mix agent-specific/environment quirks into a shared generic skill; keep them in profile `AGENTS.md` or an explicitly maintained profile-local sidecar.
+- Do not mix agent-specific/environment quirks into a shared generic skill; keep them in a profile-local skill under `$HERMES_HOME/skills/`.
+- Do not create a staging area, batch diary, or dated pitfall file — not in a skill, not in `references/`. Classify in the session, or lose the finding.
+- Do not route anything to a profile `AGENTS.md`: Hermes never loads `$HERMES_HOME/AGENTS.md`. Use a profile-local skill.
+- Do not write a rule into a canonical repository skill without the review gate, and do not assume the curator will consolidate the result — consolidation ships off and the curator never touches `skills.external_dirs`.
 - Do not promote from a sidecar without explicit maintainer approval and full abstraction.
 - Do not skip the version bump after an edit.
 - Do not treat `skill_manage(action="create")` as a routing decision — it writes to the profile-local directory by default, which is where unnamed adaptations accumulate.
@@ -140,6 +184,9 @@ Never leave the version unchanged after editing.
 - Read-before-write honored (fresh `skill_view` before any edit).
 - Version bumped to match change magnitude.
 - New skill: the overlap search ran, and the outcome is one of the three declared forms — a delta in the owning skill, a `<source>-adaptation`, or an explicit `metadata.scope: standalone`.
+- Canonical write: the delta proposal (target, rule text, generality, dedupe evidence, retirement) was approved before the write.
+- Capture: the rule was searched against the target first, and no staging, batch, or diary file was created.
+- Route: a project-only finding landed in the project skill, not in a generic one.
 - Saved file re-read and consistent with intent.
 
 ## Generic-scope and self-improvement rule
@@ -150,7 +197,7 @@ Do not fold project-specific conventions, one-off repository rules, local termin
 
 Route such content to the correct place instead:
 - the relevant project skill or project repository content for project-specific material
-- profile `AGENTS.md` or an explicitly maintained profile-local sidecar for agent- or environment-specific quirks
+- a profile-local skill under `$HERMES_HOME/skills/` for agent- or environment-specific quirks (never `$HERMES_HOME/AGENTS.md`, which Hermes does not load)
 
 When improving this skill:
 - keep only reusable cross-domain governance here

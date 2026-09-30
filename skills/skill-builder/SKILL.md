@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.4.1"
+  version: "0.4.2"
   author: Olaf Geibig
   hermes:
     category: personal
@@ -145,6 +145,7 @@ Hermes-specific nested metadata and Hermes-native top-level fields are documente
 - Do not include invented output, incomplete command placeholders, or untested claims.
 - Use the scripting language and tool policy of the owning repository. This repository prefers Python for Hermes-adjacent tooling; that is not an Agent Skills specification rule.
 - Keep `SKILL.md` under 500 lines; aim for roughly 150–200 when practical.
+- Write rules, not incidents: imperative plus one clause of why. Never add a dated batch or diary file to hold findings for later sorting — classify each finding in the session it arises (`skill-governance` → Capture Discipline).
 
 See `references/skill-best-practices.md` and `references/skill-quality-gates.md`. For repository-approved Python helpers, see `references/python-and-cli-patterns.md`.
 
@@ -220,6 +221,8 @@ Before finishing:
 - Frontmatter uses one documented convention.
 - Client extensions are explicitly labeled.
 - Any new profile-local skill declares `metadata.scope: standalone` or `metadata.adapted_from`; no unnamed adaptation was created.
+- No staging, batch, or diary file was created, and any added rule was first searched against its target.
+- Substantive changes to a canonical repository skill were proposed as a delta and approved before the write.
 - The entire changed package is internally consistent.
 - `skills-ref` validation passes.
 - Client loading and source resolution pass.

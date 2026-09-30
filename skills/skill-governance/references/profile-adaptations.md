@@ -40,7 +40,9 @@ An adaptation contains only the local delta:
 
 Do not copy the source skill. Link it through `related_skills` and write only what differs.
 
-Simple standing preferences or paths belong in profile `AGENTS.md`, not an adaptation skill. Use an adaptation only for reusable multi-step behavior that benefits from skill activation.
+No staging area. Never add a dated batch or diary file (`new-pitfalls-<date>-batch.md` in the skill's own directory) to hold findings for later sorting — classify each finding in the session it arises and route it. Chronology of discovery is not knowledge; the rule must stand without the story.
+
+Simple standing preferences or paths belong in a plain profile-local skill (`$HERMES_HOME/skills/<name>/`, `metadata.scope: standalone`), not in an adaptation. Use an adaptation only for a delta against a source skill; use either only for reusable multi-step behavior that benefits from skill activation. A profile `AGENTS.md` is not a destination: Hermes loads `AGENTS.md` from the working-directory tree only and never reads `$HERMES_HOME/AGENTS.md`.
 
 ## Frontmatter
 
@@ -74,9 +76,9 @@ Before promotion:
 
 1. Confirm that the rule is no longer profile-specific.
 2. Remove names, local paths, dates, incidents, and environment-only assumptions.
-3. Check whether the target skill already contains the rule.
-4. Obtain required maintainer approval.
-5. Update and validate the canonical skill.
+3. Search the target skill for the rule; a restatement of an existing rule is not a promotion.
+4. Propose the delta — target file, verbatim rule text, why it is generic, the dedupe search, and what gets retired — and wait for approval. See the review gate in `skill-governance`.
+5. Write, validate, and bump the canonical skill's version.
 6. Remove the duplicated rule from every affected adaptation after verification.
 7. A generic rule must not stay in the adaptation merely because that is where it was discovered. Promotion is part of writing the finding down, not a later cleanup.
 
@@ -91,3 +93,4 @@ Before promotion:
 - The source skill appears in `related_skills`.
 - The body contains only local deltas.
 - No same-name shadow exists in another skill root.
+- No dated batch or diary file was created here, and any promoted rule was removed from this adaptation after the canonical write.
