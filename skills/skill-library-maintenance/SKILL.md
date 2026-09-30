@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or restructuring a skill library."
 license: MIT
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -111,6 +111,16 @@ When migrating a skill:
 4. Remove the old copy only after ownership and path verification.
 5. Load the skill and confirm `_source_path` resolves to the destination.
 6. Search all configured roots for remaining duplicates.
+
+## Archived Skills
+
+`hermes curator archive <name>` moves a skill to `$HERMES_HOME/skills/.archive/<name>/` and marks its record `state: archived`. Treat that directory as live inventory whenever a capability is requested or a name looks missing:
+
+- `.archive/` is excluded from discovery (`_SCAN_SKIP_PARTS` in `agent/skill_commands.py`), so `skills_list` and `skill_view` never see it and `hermes curator status` does not count those skills.
+- `hermes curator list-archived` is the inventory; `hermes curator restore <name>` is the only way back — CLI-only, ledgered as actor `user`. No pass, job, or `skill_manage` action restores anything.
+- `restore` refuses a hub-installed name, and a bundled name unless `curator.prune_builtins: true`; a restored bundled skill cannot be pinned, so it is archived again once idle past `archive_after_days` — it survives only while it keeps being used.
+- A record that still reads `state: active` while the directory lives only under `.archive/` is cosmetic: report rows are guarded on a locally resolvable directory, so such a record never re-enters the state machine.
+- Prefer `restore` over re-creation — the archive copy is the complete artifact, a new skill is a thinner duplicate with a new provenance.
 
 ## Protect Existing Work
 

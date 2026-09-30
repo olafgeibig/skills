@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.6.0"
+  version: "0.7.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -74,10 +74,12 @@ There is **no separate "shared improvements" tier**. The only generic home for a
 
 The matrix above routes a **learning**; a new skill needs the same decision *before* it exists, because the default write goes to the wrong place. `skill_manage(action="create")` creates in the profile-local skills directory unless `skills.create_dir` points elsewhere — creating a skill is therefore not a routing decision, it is the absence of one.
 
-1. **Search for an overlapping skill** across the profile-local directory and every `skills.external_dirs` root. Compare topics and trigger phrases, not only names:
+1. **Search for an overlapping skill** across the profile-local directory, every `skills.external_dirs` root, and the curator archive. Compare topics and trigger phrases, not only names:
    ```bash
    python3 skills/skill-library-maintenance/scripts/audit-skill-declarations.py --strict
+   hermes curator list-archived
    ```
+   Include the archive because `.archive/` is skipped by discovery: an archived skill is invisible to `skills_list` and `skill_view`, and `skill_manage(action="create")` refuses only a name that exists in the **active** tree. Nothing restores automatically — curator transitions only run forward (active → stale → archived) and `hermes curator restore <name>` is the sole way back — so a capability that "used to exist" is recovered, never re-created. A consolidated umbrella names its archived members in `umbrella_of`; mechanics in `skill-library-maintenance` ‣ Archived Skills.
 2. **If the new skill narrows, specializes, or extends an existing skill**, exactly two outcomes are allowed:
    - **Generic rule → the owning skill.** Write the delta into the owning skill (owned repositories only, never a third-party source tree).
    - **Local delta → an adaptation.** `<source-skill>-adaptation` with `metadata.adapted_from`, `metadata.scope: profile-local`, `metadata.hermes.category: adaptations`, and the source listed in `related_skills`.
@@ -176,6 +178,7 @@ Never leave the version unchanged after editing.
 - Do not treat `skill_manage(action="create")` as a routing decision — it writes to the profile-local directory by default, which is where unnamed adaptations accumulate.
 - Do not rely on a name convention to keep the rules honest: an undeclared improvement bundle escapes every adaptation rule. The prohibitions bind the artifact, not the label.
 - Do not leave a generic rule in a profile-local adaptation because that is where it was discovered — promote it to the owning skill in the same session.
+- Do not answer a request for a capability that "used to exist" by creating a new skill — run `hermes curator list-archived` first; archived skills are invisible to discovery, and nothing restores them automatically.
 
 ## Verification
 
