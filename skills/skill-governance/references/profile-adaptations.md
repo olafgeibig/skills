@@ -42,7 +42,7 @@ Do not copy the source skill. Link it through `related_skills` and write only wh
 
 No staging area. Never add a dated batch or diary file (`new-pitfalls-<date>-batch.md` in the skill's own directory) to hold findings for later sorting — classify each finding in the session it arises and route it. Chronology of discovery is not knowledge; the rule must stand without the story.
 
-Simple standing preferences or paths belong in a plain profile-local skill (`$HERMES_HOME/skills/<name>/`, `metadata.scope: standalone`), not in an adaptation. Use an adaptation only for a delta against a source skill; use either only for reusable multi-step behavior that benefits from skill activation. A profile `AGENTS.md` is not a destination: Hermes loads `AGENTS.md` from the working-directory tree only and never reads `$HERMES_HOME/AGENTS.md`.
+Simple standing preferences or paths belong in a plain profile-local skill (`$HERMES_HOME/skills/own/<name>/`, `metadata.scope: standalone`, as a real directory — a symlinked skill directory is not discovered), not in an adaptation. Use an adaptation only for a delta against a source skill; use either only for reusable multi-step behavior that benefits from skill activation. A profile `AGENTS.md` is not a destination: Hermes loads `AGENTS.md` from the working-directory tree only and never reads `$HERMES_HOME/AGENTS.md`.
 
 ## Frontmatter
 

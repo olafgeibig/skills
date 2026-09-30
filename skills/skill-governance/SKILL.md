@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.8.0"
+  version: "0.9.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -61,7 +61,7 @@ When self-improvement (or a user-directed patch) has a learning to capture, clas
 | **Generic** (true for any user of the skill) | Own | **The skill itself** (this is the only "shared" tier — the git-versioned skill IS the shared artifact) |
 | **Generic** | Third-party | **Never the skill** → an explicitly maintained profile-local adaptation or sidecar |
 | **Project-specific** (reusable within one project, not across) | Own | **A project skill** (`project-*`) mirroring the project's own folder — same name, same scope; including lessons that only make sense with that project's context |
-| **Agent-/environment-specific** (this profile, this machine, this setup) | Any | **A profile-local skill** under `$HERMES_HOME/skills/`, declared `metadata.scope: standalone` or `metadata.adapted_from` |
+| **Agent-/environment-specific** (this profile, this machine, this setup) | Any | **A profile-local skill** in a real directory at `$HERMES_HOME/skills/own/<name>/` (standalone) or `$HERMES_HOME/skills/adaptations/<source>-adaptation/`; declared `metadata.scope: standalone` or `metadata.adapted_from` |
 | **A rule discovered while working** (pitfall, correction, new technique) | Any | Classified and routed in the session it arises: generic → the owning skill (review gate); project-only → the **project skill**; profile/environment → **profile-local skill**. Never a diary entry — see Capture Discipline |
 | **Project fact** (architecture, current state, system brief) | Any | **Project repository content** — never a skill |
 | **A new skill that narrows, specializes, or extends one existing skill** | Own or third-party | **The owning skill (owned only) or a `<source>-adaptation`** — never a standalone sibling; see the routing gate below |
@@ -69,6 +69,17 @@ When self-improvement (or a user-directed patch) has a learning to capture, clas
 ### The simplification that matters
 
 There is **no separate "shared improvements" tier**. The only generic home for an owned skill is the skill itself. Profile-specific and environment-specific learnings go to a profile-local skill under `$HERMES_HOME/skills/`. This keeps the model to two ownership classes and explicit route targets.
+
+### Where a profile-local skill lives
+
+The own skills of a profile live in the `own/` directory, and the directory decides the category — the loader derives it from the path, so `own/<name>/SKILL.md` is category `own` with nothing to declare. Standing user preferences, environment quirks, and tool knowledge about one setup all land here.
+
+- **Real directories, never symlinks.** The discovery walk uses `rglob("SKILL.md")` and does not descend into symlinked directories: a symlinked skill directory is invisible to `skills_list` and to the Telegram command scan while `skill_view` still loads it — the most confusing "missing skill" there is.
+- **Create with `category="own"`.** `skill_manage(action="create", category="own")` writes to `own/<name>/`; without a category it writes to the profile root. Do **not** additionally point `skills.create_dir` at `own/` — the two combine into `own/own/<name>`.
+- **An adaptation stays in `adaptations/`.** `own/` is for standalone profile-local skills; a delta against a third-party source belongs in `adaptations/<source>-adaptation/`, which is what the audit script looks for.
+- **Declare it anyway.** `metadata.hermes.category: own` plus `metadata.scope: standalone` keeps the frontmatter honest for humans and audits; only the path decides discovery.
+- **Description budget: 60 characters.** `skill_manage(action="create")` refuses longer descriptions, because the skill index truncates them to 57 chars plus an ellipsis and the routing signal is destroyed. A long description is a routing defect — the detail belongs in the body.
+- **Frontmatter dialect.** `metadata.version` and `metadata.author` (the strict agentskills validator rejects top-level `version`/`author`, and flow-style lists such as `tags: [a, b]`); `platforms:` stays top-level because Hermes gates on it even though the strict spec does not know the field.
 
 ### The project route: one skill per project
 
