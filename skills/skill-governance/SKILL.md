@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.7.0"
+  version: "0.7.1"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -105,7 +105,7 @@ Write the proposal as a delta, not a summary:
 4. **Dedupe evidence** — the search showing the rule is not already in the target (see Capture Discipline).
 5. **Retirement** — what is removed or replaced, and where the rule is retired from after promotion.
 
-Wait for approval, then write, validate (`skills-ref.sh`), bump the version, and commit.
+Wait for approval, then write, validate (`./skills/skill-builder/scripts/skills-ref.sh validate ./skills/<name>` from the repository root), bump the version, and commit.
 
 **Direct, no proposal needed:** fixing a broken command or path, a typo, frontmatter or metadata repair, a version bump, or deleting content that was already agreed. When in doubt, propose — an unwanted proposal costs one message; an unwanted repository write costs a review cycle and a revert.
 
