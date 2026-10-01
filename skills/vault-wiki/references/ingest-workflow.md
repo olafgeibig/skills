@@ -23,22 +23,12 @@ the target wiki. Route using the hub abstracts (explicit naming → abstract mat
      - Ask them to provide the full text via inbox, PDF, or alternative method
      - Do NOT create entity/concept pages based on a truncated summary — the synthesis would be unreliable
 
-③ **Stamp the raw source with a content hash** — after writing, calculate a SHA256
-   checksum to enable future drift detection and freshness checks:
-
-   ```bash
-   sha256sum /path/to/vault/wiki/<target>/raw/articles/<name>.md
-   ```
-
-   Then update the raw source's frontmatter via `mcp_turbovault_update_frontmatter`:
-   ```yaml
-   sha256: a3f2c8b1...  # first 16 chars — enables drift detection AND freshness checks
-   ```
-
-   The hash enables two detection methods:
-   - **Local drift** (lint check ⑱): re-hash the file on disk, compare — detects manual edits or sync conflicts
-   - **Remote freshness** (source freshness check): re-extract the URL, hash the fresh content, compare — detects upstream updates
-   Both use the same stored sha256. See `./references/source-freshness-check.md`.
+③ **Record provenance, not a hash** — raw frontmatter carries `source_url` and
+   `ingested` (step ② already requires this); no hash is stored, deliberately:
+   raw sources are immutable, and re-extraction is never byte-identical. Freshness
+   checks compare freshly extracted text against the stored raw body (see
+   `./references/source-freshness-check.md`); local edits are caught by `mtime`
+   vs the frontmatter ingest date.
 
 ④ **Discuss takeaways** with the user — what's interesting, what matters for
    the domain. (Skip this in automated/cron contexts — proceed directly.)

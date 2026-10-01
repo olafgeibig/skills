@@ -152,31 +152,19 @@ Check that root `wiki/index.md` hub sections match what's on disk (directory
 names under `wiki/`). Flag domain directories on disk not listed in the hub,
 and hub sections with no matching domain directory.
 
-### ⑱ Source Drift (sha256)
+### ⑱ Source Drift (mtime vs ingest date)
 
-For every raw source file that has a `sha256` frontmatter field, verify the
-content has not changed since ingest:
-
-```bash
-sha256sum /path/to/vault/wiki/<target>/raw/articles/<file>.md
-```
-
-Compare the first 16 characters against the stored `sha256` value in frontmatter.
-- **Match** → content is unchanged. Skip.
-- **Mismatch** or **missing sha256 field** → content has drifted.
+Raw sources are immutable by policy — a raw file whose on-disk `mtime` is
+materially newer than its frontmatter ingest date (`ingested`, or
+`created`/`updated` where present) may have changed after ingest (sync
+conflict, manual edit, agent error).
 
 **For each drift found, report:**
-- Path to the drifted raw source
-- Old hash (if present) vs new hash
-- Ask the user: "This raw source has changed since ingest. Should I re-read it
-  and update the wiki pages derived from it?"
+- Path to the raw source, plus the frontmatter date vs on-disk `mtime`
+- Ask the user whether to re-read it and update the derived pages
 
-**Do NOT automatically re-ingest.** A changed hash doesn't mean the new content
-is better — the user decides.
+**Do NOT automatically re-ingest** — the user decides.
 
-**Implementation notes:**
-- `mcp_turbovault_search_by_frontmatter(key="sha256")` discovers all raw sources
-  that have a hash on file
-- Raw sources without a `sha256` field are pre-existing (prior to this feature)
-  — report them once as un-hashed sources, do not flag them every lint
-- The terminal command runs on the local filesystem path, not an MCP tool
+A sanctioned raw edit refreshes the frontmatter date so the check stays quiet
+afterwards. Raw sources without a frontmatter date cannot be date-checked —
+report them once as un-datable, not on every lint.

@@ -1,8 +1,8 @@
 # Source Freshness Check
 
-Re-extract remote sources (git repos, articles) and compare content against
-the stored sha256 to detect updates. Works for all source types that have
-a retrievable `source_url`.
+Re-extract remote sources (git repos, articles) and compare the fresh text
+against the stored raw body to detect updates. Works for all source types that
+have a retrievable `source_url`.
 
 ## How It Works
 
@@ -10,9 +10,8 @@ a retrievable `source_url`.
 |------|------|------|
 | ① | Find raw sources with a `source_url` field | `search_by_frontmatter` |
 | ② | Re-extract the current content from the remote URL | `web_extract` |
-| ③ | Compute sha256 of the fresh content | `terminal: sha256sum` |
-| ④ | Compare against stored sha256 in frontmatter | Manual comparison |
-| ⑤ | Report drift → user decides on re-ingest | Report + ask |
+| ③ | Compare fresh extraction against stored raw body (normalized) | Manual comparison |
+| ④ | Report drift → user decides on re-ingest | Report + ask |
 
 Unlike `git ls-remote` (which only tells you if there are new commits), this
 compares **actual content** — a commit that only changes the CI config won't
@@ -20,17 +19,16 @@ trigger a false positive, but a README update will.
 
 ## Prerequisites
 
-Raw sources must have `source_url` and `sha256` in frontmatter:
+Raw sources must have a `source_url` in frontmatter:
 
 ```yaml
 ---
 source_url: https://github.com/owner/repo   # or https://example.com/article.html
 ingested: 2026-05-28
-sha256: a3f2c8b1...   # REQUIRED — set at ingest time
 ---
 ```
 
-Sources without `source_url` or `sha256` cannot be checked — report them once.
+Sources without `source_url` cannot be checked — report them once.
 
 ## Workflow
 
@@ -60,33 +58,41 @@ For GitHub repos, the raw README URL may differ. Try these in order:
 ### ③ Re-extract and compare
 
 1. Extract fresh content from the URL using `web_extract`
-2. Save the result to a temp file via `mcp_turbovault_write_note`
-3. Hash it via terminal: `sha256sum /tmp/fresh-source-check.md`
-4. Compare with stored `sha256` in the raw source's frontmatter
+2. Normalize both texts (strip frontmatter, collapse whitespace, drop
+   boilerplate/navigation), then compare the fresh extraction against the
+   stored raw body — a scratch copy outside the vault if a mechanical `diff`
+   is easier than reading both texts
 
-Compare the new sha256 (first 16 chars) against the stored `sha256` in the
-raw source's frontmatter:
-- **Match** → content is identical. Skip.
-- **Mismatch** → content has changed since ingest.
+Verdict per source:
+- **materially changed** → the normalized texts differ
+- **unchanged** → the normalized texts match
+- **unreachable** → re-extract failed (404, rate limit)
+
+Extraction-format noise (link/table/navigation rendering) can differ even for
+unchanged content — inspect the actual diff before reporting `materially
+changed`.
 
 ### ④ Report and offer action
 
-For each drifted source, report:
+For each **materially changed** or **unreachable** source, report:
 
 > **Source:** `wiki/<domain>/raw/articles/<file>.md`
 > **URL:** `<source_url>`
-> **Stored sha256:** `a3f2c8b1...`
-> **Current sha256:** `def789a0...`
+> **Verdict:** **materially changed**
 >
 > This source has changed since it was last extracted. Should I re-ingest it
 > and update the wiki pages derived from it?
 
+For an **unreachable** source the last line becomes: *"This source could not
+be re-extracted (404, rate limit) — no comparison was possible. Should I
+re-check it later, or retire the raw source?"*
+
 ### ⑤ Re-ingest (if user confirms)
 
-1. Update the raw source content (`write_note` with fresh content)
-2. Update `sha256` in frontmatter (`update_frontmatter`)
-3. Update existing wiki pages with new information
-4. Update `<name>-wiki.md` and `log.md`
+1. Update the raw source content (`write_note` with fresh content) — the
+   sanctioned exception, only on explicit user request
+2. Update existing wiki pages with new information
+3. Update `<name>-wiki.md` and `log.md`
 
 **Clean update, not full re-ingest** — existing pages are updated in place,
 not re-created. This preserves cross-references and avoids duplicates.
