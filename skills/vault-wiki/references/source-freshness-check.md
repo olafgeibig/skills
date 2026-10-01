@@ -83,14 +83,17 @@ For each **materially changed** or **unreachable** source, report:
 > This source has changed since it was last extracted. Should I re-ingest it
 > and update the wiki pages derived from it?
 
-For an **unreachable** source the last line becomes: *"This source could not
-be re-extracted (404, rate limit) — no comparison was possible. Should I
-re-check it later, or retire the raw source?"*
+For an **unreachable** source the **Verdict** line reads **unreachable**, and
+the last line becomes: *"This source could not be re-extracted (404, rate
+limit) — no comparison was possible. Should I re-check it later, or retire
+the raw source?"*
 
 ### ⑤ Re-ingest (if user confirms)
 
 1. Update the raw source content (`write_note` with fresh content) — the
-   sanctioned exception, only on explicit user request
+   sanctioned exception, only on explicit user request — and refresh the raw
+   frontmatter date (`ingested`, or `updated` where present) to the re-ingest
+   date, so the mtime drift check (lint ⑱) stays quiet
 2. Update existing wiki pages with new information
 3. Update `<name>-wiki.md` and `log.md`
 
