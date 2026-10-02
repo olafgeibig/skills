@@ -24,6 +24,8 @@ Reuse templates from skill/references: note-template, moc-template
 | moc     | Map of Content hub page                                                                    | Agent                      | moc                 |
 | article | Distilled synthesis, analysis, or narrative — the user's own thinking                      | User with agent assistance | article             |
 
+Never invent a type — map to the nearest type above; if a genuinely new type is required, extend this table in the same change.
+
 ## Additional frontmatter properties
 
 ### article

@@ -2,7 +2,7 @@
 name: vault-ops
 description: "Use when managing Obsidian vault structure and notes."
 metadata:
-  version: "0.10.0"
+  version: "0.11.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
@@ -28,6 +28,7 @@ Use this skill as the default workflow for working with markdown note vaults. Va
 - Read VAULT.md when deeper understanding of the vault is needed. It contains context for understanding vault content, such as a glossary of vault-specific terms or additional structure notes.
 - Load the reference file that matches the user intent before acting.
 - Load `./references/source-verification.md` when the source is claim-heavy (headline numbers, availability claims, model cards).
+- Before creating, editing, or moving notes under `projects/<dir>/` or `area/<dir>/`, load the project skill (`project-<dir>`) if one exists.
 
 ## Before starting to work on a vault
 
@@ -93,6 +94,7 @@ Language: EN.
 Use default templates unless AGENTS.md defines different templates
 - ./assets/note-template.md base template for all note types
 - ./assets/moc-template.md for MoCs
+- Never invent a note type — map to the nearest canonical type from the AGENTS.md type table; if a genuinely new type is required, extend that table in the same change.
 
 ### Language and publication constraints
 - Project documentation must follow the repository or vault language rules. Do not infer the language from the current chat language.
@@ -139,6 +141,7 @@ topics: ["[[+related-moc]]"]
   - [[+vault-ops]]
   ```
   `topics` enables token‑efficient parent lookup (Note→MoC) from frontmatter. Body `Topics:` links enable `get_backlinks` discovery (MoC→Notes) and Obsidian graph view.
+  Optionally, a `Related:` label in the same plain style (no heading) may follow with bullet wikilinks to related notes.
 
 ### Common mistakes (avoid)
 - Writing bare names in frontmatter: `topics: ["+Dataflows"]` ❌ — must be `topics: ["[[+Dataflows]]"]` ✅
@@ -181,6 +184,7 @@ Always check if you need to read references matching your intent. Use the descri
 - Understanding the vault graph: `./references/vault-graph.md`
 - Navigating the vault: `./references/vault-navigation.md`
 - Changing a shared value or status (search → classify → one diff → verify): `./references/propagation-audits.md`
+- Refactoring workflows (promote a sub-MoC, rename a note type): `./references/refactoring-workflows.md`
 - Task management: `./references/task-management.md`
 - Task overview dashboards (aggregated `tasks` blocks): `./references/wf-task-overview-dashboard.md`
 - Verifying claims in a source (primary-source hierarchy, availability claims, model cards): `./references/source-verification.md`

@@ -43,3 +43,11 @@ Rationale: nested MoCs are only useful if they are discoverable through the grap
 - Start from MoCs for exploration and update links as needed.
 - Do not restructure the vault without approval.
 - Verify that edges resolve, not that link text is present: a bare link (e.g. `[[INDEX]]`) resolves in the graph (`is_valid: true`) but is not listed by forward-link queries.
+
+## Post-Refactor Consistency Checks
+
+After a multi-note restructuring (split, merge, rename, move), verify the MoC against disk — a quick health check catches note counts and broken links, but not MoC-level residue:
+
+- **Duplicates and phantom entries:** parse each `##` section's wikilinks; flag any note listed twice (often under two different category headings) and any link whose `.md` file is missing on disk; compare each category's count against the expected post-refactor size.
+- **Body concatenation:** a file-size anomaly — the MoC body repeats 2-3× mid-file, with the same H1 heading appearing again after the `Topics:` footer. Each copy has identical links, so wikilink counting misses it; detect via a size check first (`wc -l` / `ls -la` far above expected), then confirm by reading the tail.
+- **Recovery:** read the full file, keep the canonical single copy (usually the LAST copy — appended duplicates are more recent), write it back with overwrite mode, then verify exactly one H1 and one `Topics:` footer.

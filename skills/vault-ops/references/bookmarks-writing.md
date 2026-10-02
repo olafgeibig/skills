@@ -31,7 +31,7 @@ topics:
 ## {Category}
 
 ### {Resource Title}
-- description: {What is it? One concise paragraph}
+- description: {What it is and what sets it apart — 2-4 sentences for tools/repos}
 - Link: {URL}
 - Date: {date added}
 
@@ -40,6 +40,10 @@ topics:
 Topics:
 - [[+AreaMoC]]
 ```
+
+## Entry Descriptions
+
+Default `- description:` to 2-4 comparison-ready sentences for tool/repo entries, not terse one-liners — what it is / what problem it solves, the differentiating claim (benchmark, architecture, unique feature), and maturity signals (stars, version, license) when relevant. Keep `Install:` a separate field when installation is non-trivial; frontmatter `description:` rules elsewhere stay unchanged. For articles, videos, and other non-tool entries, keep to 1–2 sentences.
 
 ## Workflow
 
@@ -75,6 +79,14 @@ Always:
 - Cite the canonical repo, not a dead mirror: when the API `description` says `MOVED TO …` with `archived: true` and a years-old `pushed_at`, those numbers are frozen — don't quote them.
 - Frozen numbers often sit above the real ones — query the forge named in `homepage` instead.
 - If the project explicitly asks not to back-fork there, keep the mirror as a remark in the entry, not as a link.
+
+## Multi-Category Sectioning
+
+At 3+ entries across meaningfully different sub-topics — or when a new file is built for a multi-tool domain — split a `*-bookmarks.md` into peer-level `## <Sub-Category>` headings, not one lumped `## Tools` H2. Name sub-categories by consumer purpose, not tool type ("Evaluation Harnesses" > "Eval Tools" — what is the user trying to do with these tools?); a single entry under a new sub-category is fine. Insert new sub-categories before an existing `## Tasks` section — Tasks is always last.
+
+## Tasks in Bookmark Files
+
+Attach a task to a bookmark file only on explicit user request ("add a task to the bookmark: …") — never as a proactive suggestion. Home is a `## Tasks` section after all bookmark entries and sub-categories, not a `- Task:` line inside an entry. This is the deliberate exception to the general inline rule in `task-management.md`. Use Obsidian Tasks syntax (`- [ ] <description> — <context> 📅 YYYY-MM-DD ⏫`), reference the entry in the task only if it adds clarity, and bump `updated:`.
 
 ## Capturing an Entry from a Shared Link
 

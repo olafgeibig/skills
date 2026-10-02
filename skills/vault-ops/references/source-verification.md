@@ -11,6 +11,12 @@
 - Establish the currently-effective state (effective dates, transitional rules) and recheck the source's own arithmetic; name its assumptions — the classic error is mixing two vintages in one calculation.
 - On cross-border topics research the home side too — residence, place of management, CFC and exit-tax rules, treaty — not only the destination side the source argues about.
 
+## Derived figures: no fabrication
+
+- Every derived figure or table cell needs a source — the underlying note, a linked reference, or a citable document. Without one, do not present it as fact; phrase the gap visibly ("source missing / to verify") instead of estimating.
+- Never decompose a documented sum into invented components (a linear limit into per-axis dimensions), and never restate a user-supplied value in your own interpretation — the user's number goes into the cell 1:1.
+- Estimates are allowed only in an explicitly labelled orientation block ("estimate — verify before use"), never in a definitive requirement list or data table.
+
 ## Two mandatory note sections
 - `Quoted figures — not independently verified`: everything carried from the source unreviewed.
 - `Source check`: separates right from incomplete/misleading claims, claim by claim.

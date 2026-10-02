@@ -194,7 +194,7 @@ mcp_turbovault_write_note(
 
 Where exactly the task goes depends on context — there is no required section. The task belongs in the note it is thematically related to.
 
-**CRITICAL RULE — Do NOT append tasks to MoCs:** Never append tasks to a Map of Content (MoC) or project-level MoC as a general collection. Tasks must be written inline directly next to the specific content inside the note they belong to, maintaining the rich context of the work.
+**CRITICAL RULE — Do NOT append tasks to MoCs:** Never append tasks to a Map of Content (MoC) or project-level MoC as a general collection. Tasks must be written inline directly next to the specific content inside the note they belong to, maintaining the rich context of the work. Exception: bookmark files — explicit request only; home is the file-end `## Tasks` section (see `bookmarks-writing.md`).
 
 ### Complete a Task
 
@@ -236,7 +236,7 @@ mcp_turbovault_edit_note(
 - **Recurrence is plugin-only:** Hermes can set `🔁 every week`, but the recurrence logic runs only inside Obsidian.
 - **Restart required:** New tasks won't appear in query blocks until Obsidian is restarted (plugin caches vault index at startup).
 - **No `tasks/` folder needed:** The plugin scans the entire vault. Tasks belong in their context note.
-- **Pitfall (No MoC/Central Task Lists):** Never append tasks to a Map of Content (MoC) or collect them in central lists. Tasks must always be written inline, directly next to the specific content in the note they belong to, to preserve context.
+- **Pitfall (No MoC/Central Task Lists):** Never append tasks to a Map of Content (MoC) or collect them in central lists. Tasks must always be written inline, directly next to the specific content in the note they belong to, to preserve context. Exception: bookmark files (explicit request only, file-end `## Tasks` section) — see `bookmarks-writing.md`.
 - **Prefer `mcp_turbovault_write_note(path, ..., mode="append")`** over `edit_note` for adding new tasks — simpler and avoids SEARCH/REPLACE complexity.
 - **Pitfall — Delimiter Format:** `mcp_turbovault_edit_note` requires the git-diff style delimiters: `<<<<<<< SEARCH` (opening), `=======` (separator), `>>>>>>> REPLACE` (closing). Plain `SEARCH`/`REPLACE` without angle brackets will fail with "Parse error: No SEARCH/REPLACE blocks found in input." This is the #1 failure cause.
 

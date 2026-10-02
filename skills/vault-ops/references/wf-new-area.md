@@ -1,6 +1,6 @@
 When creating a new area:
 
-1. Create the area directory: `mkdir -p <vault-path>/area/<name>` (nicht nötig wenn mit TurboVault — `write_note` erstellt dirs automatisch)
+1. Create the area directory: `mkdir -p <vault-path>/area/<name>` (not necessary with TurboVault — `write_note` creates directories automatically)
 2. Create a MoC with `+` prefix: `<name>/+<Name>.md`
 3. Add bi-directional links in `<vault-path>/area/INDEX.md` and the new MoC
 

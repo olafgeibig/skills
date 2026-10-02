@@ -9,7 +9,7 @@ For edit requests against existing notes where the request describes an outcome 
 | Describes a problem or outcome — "go through the tasks and fix what is wrong", "check this", "clean that up", "audit" | **interpretive** → audit → diff → confirm → write |
 | Names the change — "delete line X", "change Y to Z", "add W" | **literal** → execute directly |
 
-If a request is ambiguous, treat it as interpretive; one short clarifying question is cheaper than an unwanted rewrite. Interpretive work always starts with a read-only audit, never with a write.
+If a request is ambiguous, treat it as interpretive; one short clarifying question is cheaper than an unwanted rewrite. Interpretive work always starts with a read-only audit, never with a write. A clear correction — a wrong/strip value, or a replace with an unambiguous target — is not interpretive work: execute the grep → classify → patch pass directly (see Patch scope / Correction intent) and report the inventory afterwards. Confirm applies only when scope or intent is genuinely ambiguous.
 
 ## The workflow
 
@@ -17,6 +17,31 @@ If a request is ambiguous, treat it as interpretive; one short clarifying questi
 2. **Diff (proposal, not change).** Present the intended changes as a compact before/after list or table: file path, exact before text, exact after text, one-sentence rationale. Group by file, keep it scannable. Nothing is written to disk in this step; every decision the agent made quietly belongs in the proposal.
 3. **Confirm (wait).** Stop and wait for approval, modification, or rejection. When the diff contains a genuine choice, present the options with a recommendation instead of an ambiguous diff.
 4. **Write (apply the approved diff).** Use targeted `edit_note` SEARCH/REPLACE blocks per approved change, or `write_note` overwrite where matching is fragile. Verify each write by reading the target back — a write response is not verification. Tool mechanics (dry-run preview, hash-guarded apply, the exact `edits` shape) live in the `turbovault-use` skill.
+
+## Pre-write checklist (before the first change)
+
+1. **Project skill loaded** — the skill owning the affected notes' conventions (for `projects/<dir>/` or `area/<dir>/` paths: the `project-<dir>` skill, if it exists).
+2. **Template/sibling check** — missing template → derive the shape from siblings, only after (1), which may already document the de facto template.
+3. **Patch-scope class** — sort every old-value hit into class 1/2/3 (below).
+4. **Correction intent** — strip vs replace vs forward-looking (below).
+
+## Patch scope: classify every hit
+
+- **Class 1 — direct fact** (the table/list cell holding the old value): **patch** — leaving it is an inconsistency.
+- **Class 2 — derived quantity** (computed from sub-values that all stay unchanged — not a restatement of the changed value; a restatement is class 1 and does get the new value): **keep** — the result cannot change.
+- **Class 3 — logic block** (a calculation, plan, or recommendation built on the changed value): **keep** — strict-keep when the user says the logic stays, even if a small numeric inconsistency results.
+
+Minimal-invasive default for a value patch (time, number, ID, dimension): `grep` the old value, patch class 1, keep 2–3, no confirm menu for an obvious default. Send an inventory table ("N×1, N×2, N×3 — patch N, keep N?") only when the scope exceeds ~5 locations or the classification is genuinely ambiguous; otherwise patch and report what was deliberately left untouched.
+
+## Correction intent: strip vs replace
+
+| Phrasing | Intent | Action |
+|---|---|---|
+| "X is wrong / drop it / strip it / false information / it doesn't hold" | **Wrong/strip** | Global grep for X; patch every occurrence in one pass, **no transitional language** ("formerly X"); inventory at the end as an audit trail, not up front as a question — at any hit count (the ~5-location inventory table applies to scopes with class-2/3 keeps that need sign-off, not to a clear strip). |
+| "change X to Y" / "correct to Y" / "replace X with Y" | **Replace** | Only the user-named locations; old value in parentheses is fine when structurally useful. |
+| "X no longer applies" / "we now use Y" / "from now on Y" | **Forward-looking** | Document the old value as superseded; the new value is current. |
+
+Unclear intent defaults to replace (old → new, without quoting the old). A confirm menu is only for a genuinely ambiguous request — a clear strip intent needs none.
 
 ## Phases for larger approved work
 
