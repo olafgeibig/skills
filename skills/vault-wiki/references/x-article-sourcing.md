@@ -19,6 +19,15 @@ Before assuming a URL is an X article, **resolve short URLs** (t.co, bit.ly, etc
 
 This prevents the common pattern of assuming `t.co/xyz` is an X post when it actually points to an external article.
 
+## Author Check Before Routing
+
+Never infer the author from a URL substring — near-identical handles (prefix
+collisions, typos) are often different people. Fetch the source first, verify
+the author in the response (`includes.users[].username`/`name`; README credits
+for repos), then route: same author + different content → new ingest; same
+author + same content → duplicate path; different or unknown author → new
+ingest with a new entity.
+
 ## Pointer Resolution: Find the Referenced Artifact
 
 **Signal:** the post points at an artifact ("clone GitHub below", "my repo below", "read the deep dive"), but `data.entities.urls[]` carries only media/mention links — or the only URL is the article-card link (`x.com/i/article/<article_id>`). Don't stop at the main tweet.
@@ -92,3 +101,23 @@ via TurboVault, use the full vault path:
 Add author, date, and platform in the header paragraph.
 
 **Attribution caveat:** a GitHub user search for the X handle returning 404 does not mean the repo doesn't exist — the X handle is not the GitHub owner. Take the repo owner from the thread/article links and record the deviation in the note (otherwise the note credits the artifact to the wrong author).
+
+## Companion URL Supersession
+
+If a second URL arrives in quick succession for the same author/topic and is
+substantially richer (10× content — HF Space, repo, blog post), it supersedes
+the first: ingest only the richer source; log the first as "Prior ingest not
+applied" with the reason. Never double-ingest both.
+
+## HF Space Sources — Bridge to the Companion Repo
+
+`huggingface.co/spaces/<user>/<space>` renders as a shell; `web_extract` returns
+a truncated summary. Fetch it once for topic/author + the companion repo link,
+then ingest the canonical README via
+`curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/<branch>/README.md` (HF
+Space URL stays canonical; likes/dates are freshness signals). Docs repo wins
+when two repos exist; no companion repo → the truncated extract is all there
+is, ask the user first.
+
+If the user wants the source added to an `area/` bookmarks file, load
+`references/bookmarks-bridge.md` for the cross-layer bridge.

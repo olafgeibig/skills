@@ -85,6 +85,14 @@ Examples:
 
 Do not use `[[concepts/page]]` or omit the `wiki/` prefix. Relative-looking wiki paths resolve inconsistently from nested pages and can appear as broken links.
 
+Before creating pages, inspect 3-5 existing neighbor pages (most recent first)
+to detect the link convention in use. Two conventions can coexist in one wiki —
+vault-relative (`[[<domain>/concepts/foo]]`) in some indexes vs `wiki/`-prefixed
+(`[[wiki/<domain>/concepts/foo]]`) in pages — and mixing them produces broken
+links even when source and target both exist. New links always use the canonical
+full `wiki/`-prefixed form; where neighbors still carry vault-relative links,
+report the drift (see `references/lint-workflow.md`) instead of matching it.
+
 Link directly across domains. Do not create adapter pages or duplicate content merely to avoid a cross-domain link.
 
 ## Navigation maintenance
@@ -94,5 +102,6 @@ After creating, moving, archiving, or deleting a page:
 - update the domain index;
 - update the action log;
 - verify forward links and backlinks;
-- run broken-link checks;
+- run broken-link checks (after ingest batches, use a quick health check —
+  broken-link growth is usually convention drift, not missing files);
 - refresh the hub abstract if domain scope changed.

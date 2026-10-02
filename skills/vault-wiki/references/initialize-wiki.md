@@ -2,6 +2,12 @@
 
 Two scenarios — first wiki ever vs. adding a new domain to an existing hub.
 
+**"Initialize" never means wipe or recreate** — it means create-if-missing.
+Existence check first: if `wiki/<name>/SCHEMA.md`, `<name>-wiki.md`, and
+`log.md` already exist, default to a new ingest into the existing wiki and say
+so; run the destructive variant (reinitialize/overwrite) only after explicit
+user confirmation of data loss ("rebuild", "overwrite", "from scratch").
+
 Before choosing a scenario, check whether `wiki/index.md` already exists in the
 active vault:
 

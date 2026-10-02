@@ -16,7 +16,7 @@ metadata:
       - vault-ops
       - turbovault-use
   source: https://github.com/olafgeibig/skills
-  version: "0.9.1"
+  version: "0.10.0"
 ---
 
 # Multi-Domain LLM Wiki
@@ -66,12 +66,16 @@ Load `references/wiki-architecture-and-navigation.md` for the directory model, h
 |---|---|
 | Initialize the hub or a domain wiki | `references/initialize-wiki.md` |
 | Ingest a URL, file, or inbox source | `references/ingest-workflow.md` |
+| Ingest a GitHub README or repo source | `references/ingest-workflow.md` |
 | Detect unprocessed raw articles | `references/detect-unprocessed-sources.md` |
 | Lint or audit a wiki | `references/lint-workflow.md` |
 | Check source freshness | `references/source-freshness-check.md` |
 | Remove a source and derived pages | `references/source-cascade-removal.md` |
 | Archive a page or domain wiki | `references/archiving.md` |
 | Source an X/Twitter post or article | `references/x-article-sourcing.md` |
+| Verify claims from another AI against sources | `references/ai-to-ai-verification.md` |
+| Relocate ingested content between domain wikis | `references/relocate-ingest.md` |
+| Bridge an ingested source to area bookmarks | `references/bookmarks-bridge.md` |
 
 Load only references required for the current operation.
 
@@ -79,6 +83,8 @@ Load only references required for the current operation.
 
 - For X/Twitter sources, load `references/x-article-sourcing.md` first — it
   covers articles, thin/pointer posts, and finding the referenced artifact.
+- Content handed over from another AI ("GPT said", "another AI explained") is
+  verified claim by claim before adoption — load `references/ai-to-ai-verification.md`.
 - Search the target wiki for duplicates before creating pages.
 - Preserve the source and distinguish source claims from interpretation.
 - Never use truncated content as a complete source. Mark it incomplete and obtain the full content before deriving knowledge pages.

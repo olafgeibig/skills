@@ -24,6 +24,15 @@ source paths. An old `wiki/<name>/index` link in an area note is a dead link
 there is next touched. Expected: only SCHEMA.md template examples are fine to
 leave; legacy `wiki/<name>/index` links are reported, not fixed, during the pass.
 
+**Convention drift, not missing files:** when `broken_links_count` growth
+exceeds 5% per ingest batch — or grows faster than `total_links` — the cause is
+usually mixed wikilink conventions — vault-relative (`[[<domain>/concepts/foo]]`)
+vs `wiki/`-prefixed (`[[wiki/<domain>/concepts/foo]]`) — not missing files. New
+links always use the canonical full `wiki/`-prefixed form; where neighbors still
+carry vault-relative links, report the drift instead of matching it. Run
+`mcp_turbovault_quick_health_check()` after each ingest batch to catch the
+drift early.
+
 ## ③ Outbound Link Count (wiki pages only)
 
 Every wiki page in entities/, concepts/, comparisons/, queries/ must have at

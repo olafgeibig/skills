@@ -10,18 +10,25 @@ the target wiki. Route using the hub abstracts (explicit naming → abstract mat
 ② **Capture the raw source** in the target wiki:
    - URL → use `web_extract` to get markdown, save via
      `mcp_turbovault_write_note(path="wiki/<target>/raw/articles/<name>.md", content=...)`
+   - GitHub README / raw markdown → `curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/<branch>/README.md` (web_extract silently summarizes/truncates it); save to `raw/articles/`, tag `github-readme`
    - PDF → use `web_extract` (handles PDFs), save to `wiki/<target>/raw/papers/`
    - X post or article → use xurl CLI (JS-rendered, web_extract can't reach). See `references/x-article-sourcing.md`.
    - Local file → use `web_extract` with file:// URL or copy content, save to `raw/articles/`
    - Pasted text → save to appropriate `raw/` subdirectory in the target wiki
    - Name the file descriptively: `raw/articles/karpathy-llm-wiki-2026.md`
    - **Add raw frontmatter** with `source_url` and `ingested` date for provenance.
+   - **Tag-taxonomy extension first:** if the source needs a tag missing from the target `SCHEMA.md`, add it there BEFORE this raw write — never after.
    - **⚠️ Paywall/truncated content check:** After extraction, verify the content is the FULL original text. If `web_extract` returns a short summary (<30% of expected article length), a truncated version, or an LLM-generated summary — **DO NOT silently use it as a raw source.** Instead:
      - Label the source `type: extract` and `status: incomplete` in frontmatter
      - Add a prominent warning at the top of the file
      - Tell the user immediately: the full article could not be retrieved (paywall, blocking, etc.)
      - Ask them to provide the full text via inbox, PDF, or alternative method
      - Do NOT create entity/concept pages based on a truncated summary — the synthesis would be unreliable
+
+**Substance → ingest depth:** full (>5k chars, multiple code blocks) → full
+ingest; long (2-5k chars, no code blocks) → medium; short (200-500 chars) →
+minimal; bare tweet / 404 / content-less → no-op (skip with clarify default) —
+never fabricate substance.
 
 ③ **Record provenance, not a hash** — raw frontmatter carries `source_url` and
    `ingested` (step ② already requires this); no hash is stored, deliberately:
@@ -33,9 +40,22 @@ the target wiki. Route using the hub abstracts (explicit naming → abstract mat
 ④ **Discuss takeaways** with the user — what's interesting, what matters for
    the domain. (Skip this in automated/cron contexts — proceed directly.)
 
-⑤ **Check what already exists** — search the target wiki with
-   `mcp_turbovault_search(query="<topic>")` and filter results for
-   `wiki/<target-wiki>/` prefix.
+⑤ **Check what already exists — duplicate recon before any write.** Three
+   parallel reads: the target `<name>-wiki.md` (URL/author/topic references), a
+   scoped `mcp_turbovault_search` in `wiki/<target>/`, and recent `log.md`
+   entries (prior ingests of the same source). Then branch:
+   - raw + pages + log entry all match → **no-op** (skip);
+   - raw + pages exist, cross-links lag → **enrichment** (update pages, add log entry);
+   - raw + entity exist, concept missing → **partial add** (add concept, cross-link);
+   - nothing exists → **full ingest** (raw + pages + index + log).
+   Duplicate default is **enrichment, never re-ingest** — do not write a second
+   raw source for the same URL.
+
+   **Companion URLs:** if a second URL arrives in quick succession for the same
+   author/topic and is substantially richer (10× content — HF Space, repo, blog
+   post), it supersedes the first: ingest only the richer source; record the
+   first in `log.md` as "Prior ingest not applied" with the reason. Never
+   double-ingest both.
 
 ⑥ **Write or update wiki pages** in the target wiki:
    - **New entities/concepts:** Create pages only if they meet the Page Thresholds
@@ -58,6 +78,16 @@ the target wiki. Route using the hub abstracts (explicit naming → abstract mat
 
 A single source can trigger updates across 5-15 wiki pages. This is normal
 and desired — it's the compounding effect.
+
+### Enrichment Pass (Post-Ingest)
+
+A substantial ingest (≥3 new concepts) is not done until it is more
+interconnected with related wikis. Spend a `batch_execute` on 3-5 related
+existing concepts (in this or related wikis):
+add see-also crosslinks to the new pages and bump `updated`. Add a one-sentence
+"Relationship to <new concept>" subsection only for structural connections
+(sibling pattern, offense/defense mirror, generalization, failure-mode
+instance) — topical mentions stay see-also only.
 
 ## 2. Bulk Ingest
 
