@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or dissolving a skill library."
 license: MIT
 metadata:
-  version: "0.6.0"
+  version: "0.7.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -168,7 +168,7 @@ A migration-source skill is a profile-local package whose rules were accumulated
 1. Freeze the source (hash + heading anchors) and re-verify before every batch: a live source keeps moving under other sessions.
 2. Search before carrying — an `already-in-target` row costs 0 lines; budgets stop target sprawl; a rule that contradicts a canonical convention is fixed in the target with the divergence recorded, never carried silently.
 3. Batch by target skill; for non-git targets a byte-level backup diff is the review baseline; implementer → task review → integration review → validate → bump → commit.
-4. Archive only when every row is closed: re-check the hash, `hermes curator backup`, `hermes curator archive`, verify hash + `state: archived` + empty root, re-run the declaration audit and the dangling-reference search.
+4. Archive only when every row is closed: re-check the hash, `hermes curator backup`, `hermes curator archive`, verify hash + `state: archived` + empty root, re-run the declaration audit and the dangling-reference search (names, retired numbers, deleted support files).
 
 See `./references/dissolving-source-skills.md` for the full procedure.
 
