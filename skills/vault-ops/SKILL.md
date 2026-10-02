@@ -2,7 +2,7 @@
 name: vault-ops
 description: "Use when managing Obsidian vault structure and notes."
 metadata:
-  version: "0.9.1"
+  version: "0.10.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
@@ -180,6 +180,7 @@ Always check if you need to read references matching your intent. Use the descri
 - Writing bookmarks: `./references/bookmarks-writing.md`
 - Understanding the vault graph: `./references/vault-graph.md`
 - Navigating the vault: `./references/vault-navigation.md`
+- Changing a shared value or status (search → classify → one diff → verify): `./references/propagation-audits.md`
 - Task management: `./references/task-management.md`
 - Task overview dashboards (aggregated `tasks` blocks): `./references/wf-task-overview-dashboard.md`
 - Verifying claims in a source (primary-source hierarchy, availability claims, model cards): `./references/source-verification.md`
@@ -187,6 +188,7 @@ Always check if you need to read references matching your intent. Use the descri
 ## Workflows 
 Prefixed with `wf-`
 
+- Edit existing notes from an interpretive request: `./references/wf-interpretive-edits.md` — audit → diff → confirm → write, with phase checkpoints for larger changes.
 - Create a new area: `./references/wf-new-area.md`
 - Process inbox notes: `./references/wf-inbox-processing.md` — classifies, self-links, and routes incoming notes and action items.
 - Run a vault health check: `./references/wf-vault-health.md` — starts with session pulse, escalates through cleanup and graph analysis. 

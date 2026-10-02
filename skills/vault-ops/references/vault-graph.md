@@ -78,6 +78,15 @@ Topics:
 - [[+Vault Ops]]
 ```
 
+## References vs. Citations (Backticks)
+
+Paths can appear in two valid shapes, and the choice is made per occurrence:
+
+- `[[Note Name]]` — the path is a **reference**: it points at another note of the navigable vault (content note → content note, reference note → reference note, a table cell that names a note). Make it a real wikilink; only wikilinks become graph edges and clickable links.
+- `` `path/to/file.md` `` — the path is a **citation**: information, not a link. Keep backticks for private areas (e.g. a `Background/` folder that AGENTS.md declares non-public), folder names, and example paths inside explanatory text.
+
+Never mechanically convert all backticks to wikilinks — a blanket replace would pull private areas and folder names into the link graph. Quick check per hit: private area → backtick; outline note → wikilink.
+
 ## TurboVault Graph Tools
 
 Use TurboVault graph tools directly:
