@@ -20,7 +20,7 @@ If a request is ambiguous, treat it as interpretive; one short clarifying questi
 
 ## Phases for larger approved work
 
-An approved multi-file change of roughly ten or more notes should not run as one burst:
+An approved multi-file change of ten or more notes should not run as one burst unless the request explicitly asks for one go:
 
 1. Offer phases in the audit step: propose a boundary — "I'll split this into N phases. Phase 1: X (files). Then I pause for your review."
 2. Keep phases at roughly 10–25 files; the user picks the boundary. Smaller phases mean finer review, larger phases fewer round-trips.
@@ -29,7 +29,7 @@ An approved multi-file change of roughly ten or more notes should not run as one
 
 ## After confirmation
 
-- Execute the approved changes; do not re-open the decision, re-explain rejected alternatives, or re-ask whether the user is sure.
+- Execute the approved changes; do not re-open the decision, re-explain rejected alternatives, re-survey the file, or re-ask whether the user is sure.
 - If a follow-up item truly depends on an answer, ask one short question — never return to a question that was already answered.
 - A new blocker surfaces in one line, then continue with what is unaffected.
 

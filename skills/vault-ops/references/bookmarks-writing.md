@@ -80,8 +80,8 @@ Always:
 
 When a link is dropped with "add this to the <topic> bookmarks":
 
-1. **Resolve the shortener first** — `curl -sIL -o /dev/null -w '%{url_effective}\n' <url>`. A `t.co`/`bit.ly` URL is not a bookmark target: it rots and hides provenance. The entry links to the resolved destination; the original post URL goes under `- Source:` when the file uses that field.
-2. **Mine the primary source for claims, not the post.** Post text restates marketing copy. Capability claims and the install command come from the README or project site; the numbers from the API (see the API bullet above).
+1. **Resolve the shortener first** — `curl -sIL -o /dev/null -w '%{url_effective}\n' <url>`. A `t.co`/`bit.ly` URL is not a bookmark target: it rots and hides provenance. The entry links to the resolved destination; the original post URL goes under `- Source:`, annotated with author/handle and what the post actually contains — a bare link or text that merely restates the repo description.
+2. **Mine the primary source for claims, not the post.** Post text restates marketing copy. Capability claims and the install command come from the README or project site; the numbers from the API (see the API bullet above). Record a verification date ("Verified YYYY-MM-DD: …") when the neighbouring entries use one.
 3. **Mirror a neighbour** — reuse the adjacent entries' field subset, order, spelling, and bold/plain `- description:` style. Never "harmonize" the file's other entries.
 4. **Anchor the insert on the next `##` heading.** Two SEARCH/REPLACE blocks in ONE `edit_note` call: (1) replace the following `##` heading with `### new entry` + blank line + that heading again — the entry lands inside the intended section; (2) bump `updated:`. A block anchored on a neighbouring entry can land in the wrong category.
 5. **`Date:` from the system, immediately before writing** — `date +%F`. A session header can be weeks stale, and a stale `Date:` silently reads as authoritative later.
