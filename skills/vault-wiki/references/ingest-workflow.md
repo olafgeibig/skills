@@ -11,7 +11,7 @@ the target wiki. Route using the hub abstracts (explicit naming → abstract mat
    - URL → use `web_extract` to get markdown, save via
      `mcp_turbovault_write_note(path="wiki/<target>/raw/articles/<name>.md", content=...)`
    - PDF → use `web_extract` (handles PDFs), save to `wiki/<target>/raw/papers/`
-   - X Article → use xurl CLI (JS-rendered, web_extract can't reach). See `references/x-article-sourcing.md`.
+   - X post or article → use xurl CLI (JS-rendered, web_extract can't reach). See `references/x-article-sourcing.md`.
    - Local file → use `web_extract` with file:// URL or copy content, save to `raw/articles/`
    - Pasted text → save to appropriate `raw/` subdirectory in the target wiki
    - Name the file descriptively: `raw/articles/karpathy-llm-wiki-2026.md`
