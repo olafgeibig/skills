@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Use when operating Obsidian vaults through TurboVault."
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:

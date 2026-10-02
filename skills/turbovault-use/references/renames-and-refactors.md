@@ -15,7 +15,9 @@ Use `move_note` rather than a raw filesystem move when TurboVault is available. 
 
 After the move:
 
-1. Search for the old basename and old path.
+1. Search for the old basename and old path with an explicit `grep -rn "<old-name>"` over the vault.
+   That finds prose mentions and source-list entries `get_broken_links` does not see — it checks wikilinks
+   only, so a complete-looking broken-links result is not completeness.
 2. Check backlinks and broken links.
 3. Update path-qualified wikilinks that remain.
 4. Review display aliases and surrounding prose for stale terminology.
