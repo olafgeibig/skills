@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.10.0"
+  version: "0.11.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -51,6 +51,7 @@ Hermes builds its context files from the **working-directory tree** (git root �
 
 - Standing rules that must apply in *every* session belong in a profile-local skill, because that zone is always discovered.
 - An `AGENTS.md` works where the agent actually works inside that tree — a vault or project `AGENTS.md` is legitimate and load-bearing. A "profile `AGENTS.md`" is not a destination that exists.
+- An in-tree `AGENTS.md` is simultaneously injected context and ordinary content of that tree — indexed alongside everything else and possibly an orphan note with no inbound links. Keep it scoped to rules — the whole file is injected into every session working in that tree.
 
 ## Decision Matrix: Where an Improvement Goes
 
@@ -86,6 +87,7 @@ The own skills of a profile live in the `own/` directory, and the directory deci
 A project skill is the route that is easiest to get wrong, because "project" is not a scope you can feel — either the project has an anchor or it does not.
 
 - **One skill per project, named after the project folder.** `project-<folder>` mirrors the project's canonical folder (vault project folder, work tree) one-to-one. No project skill without a project to anchor it; no actively used project without a skill.
+- **Confirm the naming bundle before the first write.** Before creating a project skill, confirm in one message: the skill name (`project-<folder>`), the project folder, and the naming elements derived from the same root (folder path, display name, note prefix, tag, MoC filename, language). The values are downstream-coupled — correcting the root after the write means rewriting every file that mirrored it, so bundle the checks; never create first and correct later.
 - **No note inventory.** The project's MoC is the single source for what exists and what is open. A skill that lists notes, tasks, or contacts duplicates the MoC and drifts from the first rename.
 - **What the skill does carry:** location and naming conventions, the load triggers, the stable situation (who/what, and which open decision shapes the work), the working rules for that project, and the methodology developed inside it.
 - **Methods discovered inside a project stay inside that project skill** as `references/` or `scripts/` until a second, independent consumer exists — see Promotion From Sidecars.
@@ -105,6 +107,8 @@ The matrix above routes a **learning**; a new skill needs the same decision *bef
    - **Generic rule → the owning skill.** Write the delta into the owning skill (owned repositories only, never a third-party source tree).
    - **Local delta → an adaptation.** `<source-skill>-adaptation` with `metadata.adapted_from`, `metadata.scope: profile-local`, `metadata.hermes.category: adaptations`, and the source listed in `related_skills`.
 3. **A standalone profile-local sibling is prohibited** when it quietly duplicates or narrows an existing skill. If the skill genuinely stands alone, say so explicitly: `metadata.scope: standalone` plus `metadata.hermes.related_skills` naming the skills it borders. Undeclared skills are indistinguishable from unnamed adaptations — that is what makes the gap invisible.
+
+- **An existing skill that needs a new name or scope is renamed or archived — never silently replaced by a parallel new skill.** Rename in place while its content stays useful (default); archive only when the content is fully superseded or migrated. A rename is create + delete plus the 5-location sweep — canonical repository, installed copy, sibling `related_skills` entries, bundles, lock files — and a check that the old name no longer resolves; mechanics in `skill-library-maintenance`.
 
 ### Self-declaration is not a precondition
 
@@ -166,6 +170,7 @@ For the normative profile-local storage layout, naming, delta rules, and promoti
 - Use `skill_manage(action="create")` only when its resolved creation directory is the intended canonical root. Otherwise create the new files explicitly in the canonical repository with filesystem tools, then validate them, load the skill, verify `_source_path`, and remove or rename any local shadow.
 - Use `skill_manage(action="write_file")` for supporting files of an existing skill. Use targeted `skill_manage(action="patch")` or `patch` edits instead of full rewrites.
 - See `references/skill-manage-external-directories.md` for the verified behavior, trade-offs, and decision table.
+- **Reference steps must be literally executable.** Write each workflow step as the exact call the agent should make; never nest a tool call inside another tool call's argument (`write(content=fetch(url))`). A pseudo-code fragment in a reference gets copied and fails at runtime — split nested operations into sequential steps.
 - Verify the saved file by re-reading the frontmatter.
 - **Never edit a third-party skill's `SKILL.md`** under any classification — route to the sidecar instead.
 
