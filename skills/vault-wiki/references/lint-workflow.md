@@ -18,8 +18,11 @@ recommendations. Filter results for `wiki/`-prefixed paths.
 mcp_turbovault_get_broken_links()
 ```
 
-Returns all broken links in the vault. Filter to `wiki/`-prefixed source paths.
-Expected: only SCHEMA.md template examples should be broken — those are fine.
+Returns all broken links in the vault. Filter to `wiki/`- and `area/`-prefixed
+source paths. An old `wiki/<name>/index` link in an area note is a dead link
+(the domain index is `<name>-wiki.md`) — repair it when the note that points
+there is next touched. Expected: only SCHEMA.md template examples are fine to
+leave; legacy `wiki/<name>/index` links are reported, not fixed, during the pass.
 
 ## ③ Outbound Link Count (wiki pages only)
 

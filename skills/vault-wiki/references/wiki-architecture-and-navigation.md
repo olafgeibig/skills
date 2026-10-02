@@ -41,6 +41,10 @@ Do not add page counts, tag inventories, or last-update dates to the hub. Those 
 
 A domain wiki is not initialized until it is registered in the hub.
 
+Do not refuse an ingest or force a new wiki solely because the hub section is stale or missing; ingest into the existing domain.
+
+Before the ingest is finished, register a missing hub section (abstract + link) or refresh a stale one.
+
 ## Routing
 
 Use this order:

@@ -16,7 +16,7 @@ metadata:
       - vault-ops
       - turbovault-use
   source: https://github.com/olafgeibig/skills
-  version: "0.8.1"
+  version: "0.9.0"
 ---
 
 # Multi-Domain LLM Wiki
@@ -71,12 +71,14 @@ Load `references/wiki-architecture-and-navigation.md` for the directory model, h
 | Check source freshness | `references/source-freshness-check.md` |
 | Remove a source and derived pages | `references/source-cascade-removal.md` |
 | Archive a page or domain wiki | `references/archiving.md` |
-| Source an X/Twitter article | `references/x-article-sourcing.md` |
+| Source an X/Twitter post or article | `references/x-article-sourcing.md` |
 
 Load only references required for the current operation.
 
 ## Ingest Rules
 
+- For X/Twitter sources, load `references/x-article-sourcing.md` first — it
+  covers articles, thin/pointer posts, and finding the referenced artifact.
 - Search the target wiki for duplicates before creating pages.
 - Preserve the source and distinguish source claims from interpretation.
 - Never use truncated content as a complete source. Mark it incomplete and obtain the full content before deriving knowledge pages.
