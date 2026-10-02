@@ -16,6 +16,7 @@ the target wiki. Route using the hub abstracts (explicit naming → abstract mat
    - Local file → use `web_extract` with file:// URL or copy content, save to `raw/articles/`
    - Pasted text → save to appropriate `raw/` subdirectory in the target wiki
    - Name the file descriptively: `raw/articles/karpathy-llm-wiki-2026.md`
+   - **Never write a second raw source for the same URL** — if one already exists, stop and follow the duplicate-recon branch in ⑤.
    - **Add raw frontmatter** with `source_url` and `ingested` date for provenance.
    - **Tag-taxonomy extension first:** if the source needs a tag missing from the target `SCHEMA.md`, add it there BEFORE this raw write — never after.
    - **⚠️ Paywall/truncated content check:** After extraction, verify the content is the FULL original text. If `web_extract` returns a short summary (<30% of expected article length), a truncated version, or an LLM-generated summary — **DO NOT silently use it as a raw source.** Instead:
@@ -40,7 +41,7 @@ never fabricate substance.
 ④ **Discuss takeaways** with the user — what's interesting, what matters for
    the domain. (Skip this in automated/cron contexts — proceed directly.)
 
-⑤ **Check what already exists — duplicate recon before any write.** Three
+⑤ **Check what already exists — duplicate recon before creating pages.** Three
    parallel reads: the target `<name>-wiki.md` (URL/author/topic references), a
    scoped `mcp_turbovault_search` in `wiki/<target>/`, and recent `log.md`
    entries (prior ingests of the same source). Then branch:
