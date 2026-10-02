@@ -123,7 +123,7 @@ Bei User-Anfrage „check X":
 
 ## Pitfall-Quelle
 
-Pitfall 27 (`ob-headless-sync`): Sync-Status-Check Workflow — siehe `vault-improvements/references/new-pitfalls-2026-07-16-batch.md` §2.
+Pitfall 27 (`ob-headless-sync`): Sync-Status-Check Workflow — der vollständige Workflow steht in dieser Datei: 7-Snapshot-Recipe, Detection Heuristic und Anti-Pattern (siehe oben).
 
 ## Worked example (Session 2026-07-15 + 2026-07-16)
 
@@ -137,5 +137,5 @@ Korrekte Antwort wäre gewesen:
 
 ## Verwandte Patterns
 
-- **Honcho-Doctor-Check:** Ähnlicher Snapshot-Style für `hermes doctor` — siehe `vault-improvements` Pitfall 25 für den Background.
+- **Honcho-Doctor-Check:** Ähnlicher Snapshot-Style für `hermes doctor` — Ampel plus auffällige Warnung in ein zwei Zeilen, nicht das vollständige Ausgabeprotokoll.
 - **Systemd-Timer-Status:** `systemctl --user status X.timer --no-pager | head -10` ist bereits ein eingebauter Snapshot-Style.

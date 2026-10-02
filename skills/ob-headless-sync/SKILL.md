@@ -2,10 +2,10 @@
 name: ob-headless-sync
 description: Obsidian Headless Sync — wrapper management, dirty-check gating, cron@1min scheduler, and recovery for the ob sync service on headless machines. Includes the `ob sync-list-local` parser pitfalls and the reusable wrapper patterns (mkdir atomic lock, pkill self-immunity, embedded Python+SQLite check).
 metadata:
-  version: "0.7.4"
+  version: "0.7.5"
   source: https://github.com/olafgeibig/skills
   origin: durin-2026-04-18
-  updated: "2026-07-08"
+  updated: "2026-10-03"
 ---
 
 # Obsidian Headless Sync — Wrapper & Cron Management
