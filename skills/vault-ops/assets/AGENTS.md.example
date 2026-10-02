@@ -35,4 +35,3 @@ Reuse templates from skill/references: note-template, moc-template
 - title: original title of the source
 - author: if available
 - published: resource date if available
-- sha256: content fingerprint (set on ingest)

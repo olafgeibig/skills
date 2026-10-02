@@ -2,7 +2,7 @@
 name: vault-ops
 description: "Use when managing Obsidian vault structure and notes."
 metadata:
-  version: "0.8.1"
+  version: "0.9.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
@@ -27,6 +27,7 @@ Use this skill as the default workflow for working with markdown note vaults. Va
 - Always read AGENTS.md.
 - Read VAULT.md when deeper understanding of the vault is needed. It contains context for understanding vault content, such as a glossary of vault-specific terms or additional structure notes.
 - Load the reference file that matches the user intent before acting.
+- Load `./references/source-verification.md` when the source is claim-heavy (headline numbers, availability claims, model cards).
 
 ## Before starting to work on a vault
 
@@ -181,6 +182,7 @@ Always check if you need to read references matching your intent. Use the descri
 - Navigating the vault: `./references/vault-navigation.md`
 - Task management: `./references/task-management.md`
 - Task overview dashboards (aggregated `tasks` blocks): `./references/wf-task-overview-dashboard.md`
+- Verifying claims in a source (primary-source hierarchy, availability claims, model cards): `./references/source-verification.md`
 
 ## Workflows 
 Prefixed with `wf-`

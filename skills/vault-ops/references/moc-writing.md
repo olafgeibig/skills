@@ -13,6 +13,8 @@ MoCs are navigation notes that emphasize relationships between notes through cur
 - Provide start-here orientation.
 - Curate links with meaningful descriptions that are like an abstract.
 - Group links by theme.
+- Register each new note in the thematically fitting section of the target MoC: bookmarks under `## Bookmarks`, zettels under their own section (e.g. `## Zettel`), not under concepts.
+- Write the description line in the MoC body's language (technical areas English, personal German — not the user's language), bump `updated:`, and set a reciprocal `Topics:` link in the zettel.
 
 ## Root MoC
 An MoC must integrate into the vault graph, see `./references/vault-graph.md`
@@ -31,6 +33,7 @@ An MoC must integrate into the vault graph, see `./references/vault-graph.md`
 When you introduce a sub-MoC:
 - The parent MoC must explicitly link to the sub-MoC in its curated link list.
 - The sub-MoC must link back to the parent MoC via `topics` and an explicit inline wikilink.
+- The parent MoC registration is the only registration — `area/INDEX.md` lists only area MoCs, never sub-MoCs.
 
 Rationale: nested MoCs are only useful if they are discoverable through the graph.
 
@@ -39,3 +42,4 @@ Rationale: nested MoCs are only useful if they are discoverable through the grap
 - Update continuously.
 - Start from MoCs for exploration and update links as needed.
 - Do not restructure the vault without approval.
+- Verify that edges resolve, not that link text is present: a bare link (e.g. `[[INDEX]]`) resolves in the graph (`is_valid: true`) but is not listed by forward-link queries.

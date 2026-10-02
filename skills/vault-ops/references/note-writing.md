@@ -45,3 +45,15 @@ After creating a zettel for a tool, concept, or entity, check for existing bookm
 **Example:** A zettel about a tool in an area may get a backlink from that area's matching tools bookmark note when the bookmark note is the user's curated overview and the zettel is the deeper note.
 
 **When to skip:** The bookmark note already covers the topic with sufficient depth directly, the zettel is only tangentially related, or adding the backlink would be a noisy side effect unrelated to the user's request.
+
+## Request Triage
+
+- A request like "where do I already have notes about X" → no new file; read and answer (prefer TurboVault search over `ls` / `grep -rli`).
+- A bare URL list or "add this to <note>" → an entry in an existing `*-bookmarks.md`, not a new note.
+- Unresolvable designation in the request: pick the most plausible referent **from the source**, disclose the interpretation in the answer ("X — I read that as the repo from your link"), and create the note; don't block with a question, don't silently guess.
+
+## Source-to-Note Rules
+
+- External source → `type: zettel` with `source:` in the frontmatter, never `article`; a bookmarks entry is no substitute for a zettel.
+- Frontmatter dates come from the `date` command, never from session context — a rebuilt context can be days old.
+- From ~10–15 KB an entity note gets unwieldy (several main sections spanning the thing + ecosystem + prices) → split the research part into its own note (e.g. `<thing>-runtime.md`, `<topic>-tools.md`) and offer the split; one entity note per thing, several links → one MoC edit.
