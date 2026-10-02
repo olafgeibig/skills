@@ -26,6 +26,16 @@ When the user provides an existing vault path that is not registered:
 
 Do not assume `add_vault` also selects the vault. Do not claim success from the registration response alone.
 
+## Pre-write orientation
+
+Before the first write in a session — and again after a long pause (>30 min) in a long session — confirm orientation, not just availability:
+
+1. Call `get_active_vault` and `get_vault_context`.
+2. Sanity-check `current_stats.total_notes` against the content you intend to touch: a count far from the expected magnitude means the wrong vault is active — stop and ask, or switch explicitly when the target vault is unambiguous.
+3. In multi-vault setups, `set_active_vault(name)` explicitly, then re-confirm with `get_active_vault`.
+
+Example: a write request clearly aimed at the large vault, but `get_vault_context` reports ~50 notes — wrong vault active; switch explicitly before writing.
+
 ## Discover vaults from Obsidian configuration
 
 When the user has not provided a path, discover local Obsidian vaults through `obsidian.json` where appropriate. Common locations:

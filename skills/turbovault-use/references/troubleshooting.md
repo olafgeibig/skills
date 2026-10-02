@@ -19,6 +19,12 @@ If tools exist but operations report no active vault:
 
 Do not guess among multiple vaults.
 
+## Empty vault registry after a restart or model switch
+
+If `list_vaults` returns an empty list (or `set_active_vault` reports "not found") although the vault worked earlier in the session, the server's in-memory registry was reset — the files on disk are untouched. Re-register immediately with `add_vault(name, path)` (the path must be absolute) instead of waiting out a cooldown; then `set_active_vault(name)` and verify with one read.
+
+Do not fall back to terminal file access, and do not tell the user the vault is broken. If `add_vault` fails with a server-unreachable error, the server is still initializing — wait ~50s and retry (reconnect backoff).
+
 ## Reconnect churn and subprocesses
 
 Repeated keepalive failures, reconnect messages, or multiple TurboVault processes are Hermes/MCP runtime symptoms, not vault-content problems.
@@ -36,6 +42,12 @@ If a verified file exists but is absent from Obsidian's file tree, the UI index 
 ## Editing errors
 
 For SEARCH/REPLACE parse or match errors, load `references/editing-and-batch-operations.md`. Do not retry an unchanged malformed edit repeatedly.
+
+## Log-based diagnosis when the user is skeptical
+
+When the user says a tool "always worked" and asks you to check the logs, drop into log-based diagnosis — do not speculate or re-run the failing call. Inspect `~/.hermes/logs/` (`mcp-stderr.log` for TurboVault), grep for the tool name and recent timestamps, read the actual error, then propose the fix.
+
+The MCP transport is stdio — there is no port to probe (`ps` and log tails, not network checks). An `Io(NotFound)` line is a caller-side path-resolution error: fix the vault-relative path (full `area/<folder>/` prefix), not the server.
 
 ## Source freshness
 

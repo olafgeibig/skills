@@ -13,6 +13,12 @@ Use this procedure for moves, renames, and changes that affect multiple links or
 
 Use `move_note` rather than a raw filesystem move when TurboVault is available. Do not assume the tool updated every reference.
 
+`move_note` does **not** update wikilinks in other notes — its warning ("Links pointing to the old path are now broken") is literal. References change only through an explicit link rewrite (`UpdateLinks` in `batch_execute`) or a content rewrite. Pick one of three patterns before starting:
+
+- **A — single note (1-2):** `read_note` old path → `write_note` new path with links updated → `delete_note` old path. Write before delete, always.
+- **B — link rewrite (file already moved):** one `UpdateLinks` op per source note in `batch_execute` (the current server exposes no standalone `update_links` call). Works even when the old note no longer exists.
+- **C — bulk (20+):** read all old notes in parallel → build the link map → `batch_execute` with one `WriteNote` per new path → separate `batch_execute` with one `DeleteNote` per old path → verify with `get_broken_links`. Never `delete_note` before the content is written at the new path.
+
 After the move:
 
 1. Search for the old basename and old path with an explicit `grep -rn "<old-name>"` over the vault.
