@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or restructuring a skill library."
 license: MIT
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -94,6 +94,11 @@ Exit code 1 on a collision; with `--strict`, also 1 when an agent-created skill 
 8. Validate affected packages and rerun the library audit.
 9. Verify resolved source paths and duplicate names in the target runtime.
 10. Stage only intended paths; commit and push only when authorized.
+
+Renaming a skill is create + delete — `skill_manage` has no rename, and the new record starts fresh in `.usage.json`: `patch_count`, `use_count`, `created_by`, and a set pin do not carry over.
+Check `pinned` before renaming: a pinned skill cannot be deleted by `skill_manage` — unpin first and re-pin under the new name afterwards.
+
+Answer questions about a skill's history with evidence from runtime telemetry and the ledger, not from memory.
 
 ## Canonical and Installed Copies
 
