@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Use when operating Obsidian vaults through TurboVault."
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -80,6 +80,8 @@ Registration and activation are separate operations. For existing-vault setup, u
 | Structural analysis | `get_broken_links`, `get_dead_end_notes`, `get_isolated_clusters`, `detect_cycles` |
 
 Use the exact tool names exposed in the current session; MCP prefixes may differ between clients.
+
+Deferred tools: call through `tool_call` with both `name` and `arguments` on every entry, and run `tool_describe` before first use. Parameter names are exact and snake_case — `read_note` takes `path`; `edit_note` takes the SEARCH/REPLACE blocks as a single `edits` string.
 
 ## Route to the Right Reference
 
