@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or dissolving a skill library."
 license: MIT
 metadata:
-  version: "0.7.0"
+  version: "0.8.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -95,9 +95,13 @@ Exit code 1 on a collision; with `--strict`, also 1 when an agent-created skill 
 8. Validate affected packages and rerun the library audit.
 9. Verify resolved source paths and duplicate names in the target runtime.
 10. Stage only intended paths; commit and push only when authorized.
+11. Re-verify content claims — including verification tables — against their sources on user signal or at least once per quarter; structural audits alone do not catch stale or false content.
 
 Renaming a skill is create + delete — `skill_manage` has no rename, and the new record starts fresh in `.usage.json`: `patch_count`, `use_count`, `created_by`, and a set pin do not carry over.
 Check `pinned` before renaming: a pinned skill cannot be deleted by `skill_manage` — unpin first and re-pin under the new name afterwards.
+Rename when the skill's content stays valid but its identity or scope changes; archive when the skill is superseded and its content lives on elsewhere.
+After any rename or dissolve, sweep the old name from all five locations: the repo skill directory, installed/profile copies, sibling skills (`related_skills` and body mentions), bundles, and lock files (`$HERMES_HOME/skills/.hub/lock.json`, `$HERMES_HOME/skills.lock.json`).
+Verify the old name no longer resolves — `skill_view` must fail — before declaring the rename complete.
 
 Answer questions about a skill's history with evidence from runtime telemetry and the ledger, not from memory.
 
