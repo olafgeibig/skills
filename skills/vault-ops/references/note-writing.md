@@ -9,6 +9,8 @@ If the selected vault's root `AGENTS.md`, `README.md` or files referenced by it 
 
 Do not omit required sections or invent new structural layouts unless the vault-local instructions allow it.
 
+Before adding a markdown construct the vault has not used yet (callout, table, admonition), search the vault for existing instances (e.g. `grep -rn '> [!' --include=*.md .`) and adopt the vault's own placement — not the Obsidian default.
+
 ## Description Methodology
 
 The `description` field in the frontmatter functions as a retrieval filter, not a content summary. Optimize it for search discoverability and progressive disclosure.
