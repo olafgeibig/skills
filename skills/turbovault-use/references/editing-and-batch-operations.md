@@ -17,7 +17,7 @@ Rules:
 - Read the note first and copy exact text into SEARCH.
 - Include enough surrounding context for uniqueness.
 - Use the complete delimiters, including `REPLACE` on the closing line.
-- End the `edits` string exactly at the `>>>>>>> REPLACE` line — no trailing XML-style closing tag. A stray `</edits>` is parsed as more block content and fails with `Incomplete SEARCH/REPLACE block (state: InReplace)`.
+- End the `edits` string exactly at the `>>>>>>> REPLACE` line — no trailing XML-style closing tag. A stray `</edits>` is parsed as more block content and fails with `Parse error: Incomplete SEARCH/REPLACE block (state: InReplace). Expected >>>>>>> REPLACE`.
 - Do not assume a partial match or regex interpretation.
 - For a large insert, use the next heading as the SEARCH anchor and place the new section before it — the following heading stays stable while content above the insertion point changes, and short heading anchors are far less fuzzy-prone than long bullet lines with quotes or em dashes.
 - After the patch, read the section back and check that no blank line sits before the inserted bullet; a SEARCH/REPLACE anchored before a heading otherwise leaves a gap.
@@ -30,7 +30,7 @@ Files that document these delimiters themselves (this reference, recipes with ex
 
 ## Dry-run and hash-guarded apply
 
-`edit_note` can preview before it writes: `dry_run: true` applies nothing and returns `blocks_applied`/`total_blocks`, `old_hash`/`new_hash`, and a `diff_preview`; the file stays byte-identical. Apply with `dry_run: false` plus `expected_hash: <old_hash from the preview>` — the guard rejects the write if the file changed in between. After the write, confirm `blocks_applied` equals `total_blocks`, then read the target back.
+`edit_note` can preview before it writes: `dry_run: true` applies nothing and returns `blocks_applied`/`total_blocks`, `old_hash`/`new_hash`, and a `diff_preview`; the file stays byte-identical. Apply with `dry_run: false` plus `expected_hash: <old_hash from the preview>`, so the write is guarded against a file that changed in between. After the write, confirm `blocks_applied` equals `total_blocks`, then read the target back.
 
 ## Appending content
 
