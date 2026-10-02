@@ -70,6 +70,18 @@ Do not synchronize adaptations automatically between profiles. Different profile
 
 The same rule appearing independently in multiple profiles is a promotion signal. Reassess whether it is actually generic and belongs in an owned canonical skill or should be proposed upstream.
 
+## Override-only discipline
+
+A profile-local skill that covers one area or topic of an owned skill stays override-only: it keeps topic- or environment-specific facts, overrides, and pitfalls, and references the owning skill for general conventions, mechanics, and pitfalls. Decision rule: if removing a fact would make the skill unusable for its purpose, it stays; if removing it only shifts a lookup to the owning skill, it goes.
+
+When an owning skill that was unavailable for a stretch becomes accessible again, audit any profile-local skill that may have absorbed duplicated content during the gap:
+
+1. Tag every section as `STAYS` (specific to this skill), `DELETES` (already covered by the owning skill), or `PENDING` (unclear).
+2. Propose the slim-down as a diff and wait for approval — the audit is interpretive.
+3. After approval: apply, state the override-only contract in the skill preamble, bump the version (minor for a discipline change, patch for content), and add a changelog entry.
+
+When the local skill happens to be the more detailed one, do not merge the two — pull the local skill back to override-only and let the owning skill be authoritative.
+
 ## Promotion
 
 Before promotion:

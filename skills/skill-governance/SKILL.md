@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when creating or maintaining reusable skills."
 metadata:
-  version: "0.9.0"
+  version: "0.9.1"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
