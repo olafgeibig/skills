@@ -1,9 +1,9 @@
 ---
 name: skill-library-maintenance
-description: "Use when auditing or restructuring a skill library."
+description: "Use when auditing or dissolving a skill library."
 license: MIT
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -31,6 +31,7 @@ Audit, consolidate, and restructure Git-backed skill libraries without losing us
 - Adopt or migrate a profile-local skill into a canonical owned repository.
 - Split a generic skill into a core and domain or project overlays.
 - Reconcile duplicate skill names across configured roots.
+- Dissolve a migration-source skill into its canonical owners and retire the shell.
 
 Use `skill-builder` for the quality rules of one skill package. Use `skill-governance` for ownership, scope, sidecars, and canonical destinations. This skill applies those rules across a library.
 
@@ -159,6 +160,17 @@ A correct extraction has all of these:
 - no duplicate normative rule remains;
 - the core links to the overlay instead of reproducing it;
 - project facts remain outside both skills.
+
+## Dissolving Migration-Source Skills
+
+A migration-source skill is a profile-local package whose rules were accumulated for later consolidation — an adaptation overlay that outgrew its owners. Dissolve it: route every rule to its canonical owner, then retire the shell. Keep a route-map ledger (plan file) with one row per rule — source anchor, target file, line budget, status — and update it after every batch.
+
+1. Freeze the source (hash + heading anchors) and re-verify before every batch: a live source keeps moving under other sessions.
+2. Search before carrying — an `already-in-target` row costs 0 lines; budgets stop target sprawl; a rule that contradicts a canonical convention is fixed in the target with the divergence recorded, never carried silently.
+3. Batch by target skill; for non-git targets a byte-level backup diff is the review baseline; implementer → task review → integration review → validate → bump → commit.
+4. Archive only when every row is closed: re-check the hash, `hermes curator backup`, `hermes curator archive`, verify hash + `state: archived` + empty root, re-run the declaration audit and the dangling-reference search.
+
+See `./references/dissolving-source-skills.md` for the full procedure.
 
 ## Verification
 
