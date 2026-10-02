@@ -2,7 +2,7 @@
 name: vault-ops
 description: "Use when managing Obsidian vault structure and notes."
 metadata:
-  version: "0.11.0"
+  version: "0.12.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
@@ -69,6 +69,8 @@ vault-root/
 ```
 
 **INDEX Convention:** Every INDEX file has `type: moc` frontmatter and `topics: ["[[INDEX]]"]` (except the root INDEX). The agent updates the relevant INDEX whenever the structure changes.
+
+**AGENTS.md vs INDEX separation:** `AGENTS.md` carries the operating rules and conventions (note types, language policy) and only points to the INDEX files; the navigable map lives in the INDEX files (`INDEX.md`, `area/INDEX.md`, `projects/INDEX.md`, `wiki/index.md`). Never duplicate the index list as a block in `AGENTS.md`.
 
 Every INDEX entry is a `##` heading with the MoC link directly in the heading, followed by an abstract paragraph and the default language. The abstract guides the agent when navigating the vault and classifying new notes:
 
@@ -148,6 +150,7 @@ topics: ["[[+related-moc]]"]
 - Forgetting the body `Topics:` footer or letting it drift out of sync with frontmatter.
 - Putting tags or paths into `topics` (e.g., `interfaces`, `analysis`, `analysis/+Dataflows`) — only MoC wikilinks belong there.
 - Descriptions that just restate the filename (e.g., `Analysis: Foo`) — write a one‑sentence content summary that adds value.
+- Extending `type:` with new values for cross-cutting distinctions (audience, export visibility): this fragments the canonical type table and breaks `WHERE type = '...'` queries — reuse a canonical `type:` and add a separate descriptive frontmatter property instead.
 
 ### Verification checklist (bulk)
 - Frontmatter topics:

@@ -76,6 +76,8 @@ group by filename
 \`\`\`
 ```
 
+**Pitfall — doubled `path` keyword:** `path includes path projects/<dir>` is a syntax error (`path` appears twice); the correct form is a single `path includes projects/<dir>` filter plus `group by filename`.
+
 Hermes does **not** resolve query blocks.
 
 **Pattern: build a “Tasks Overview” note with multiple query blocks**
