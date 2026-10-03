@@ -47,3 +47,7 @@ Use when a vault-local note type is renamed (e.g. `resource-collection` → `boo
 5. Read back one representative updated note and the governance doc.
 
 **Reporting:** old/new type note counts before and after; renamed or deleted template paths; remaining old-term hits with reason; whether the `vault-wiki` log was updated for wiki changes.
+
+## Load the Tool Skill Before Planning
+
+Before authoring a refactor plan, list every tool the plan will use (MCP tools, `edit_note`, batch writes) and load the matching tool skill — read its refactor recipe and quirks sections. Record in the plan header which tool quirks the plan accounts for. A plan built on assumed tool behavior breaks at the first tool call: `move_note` does not update wikilinks (see `turbovault-use`), and the half-migrated state costs a plan rebuild plus recovery from backup.

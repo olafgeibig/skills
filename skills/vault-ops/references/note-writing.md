@@ -17,6 +17,8 @@ Before adding a markdown construct the vault has not used yet (callout, table, a
 
 The `description` field in the frontmatter functions as a retrieval filter, not a content summary. Optimize it for search discoverability and progressive disclosure.
 
+**Keep it stable.** A description must not change when only operational details change (dates, booking codes, addresses, PNRs). Write one sentence — noun or verb phrase — and keep operational data in the body; a description that moves with every edit is a triage defect.
+
 ## Language Policy Adherence
 
 The vault's AGENTS.md defines a language per area (e.g., `agents` → EN, `gesundheit` → DE). **Write notes in the area's language, not the conversation language.** If you're conversing in German but writing a note for an English area (agents, swe, ai, devops, cybersecurity, tools), write in English. The area language overrides the conversation language.

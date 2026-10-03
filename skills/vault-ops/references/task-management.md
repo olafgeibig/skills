@@ -14,6 +14,10 @@ Obsidian Tasks uses emoji-based metadata inline in markdown checklists.
 - [/] A Half Done/In-progress task
 ```
 
+### Notation Discipline
+
+Use task syntax (`- [ ]`) only for real tasks. The Tasks plugin parses checkbox patterns anywhere in a note — a bracket pair written inside prose or an explanation becomes a phantom task. In explanatory text, write "checkbox-style" instead of the literal brackets; printable lists (packing lists, shopping lists) stay plain `- Item` bullets.
+
 ### Task Properties
 
 ```markdown
