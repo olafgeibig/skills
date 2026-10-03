@@ -20,7 +20,7 @@ When the user says "delete wiki X" or "remove wiki Y":
    `mcp_turbovault_search(query="wiki/X/")` to find all pages
 2. **Delete all files** — use the terminal tool:
    `rm -rf /path/to/vault/wiki/X/`
-   (This is faster than individual TurboVault deletes for an entire directory.)
+   Exception to `turbovault-use`: this directory removal is the named exception to "no terminal for vault edits". `delete_note` confirms per file and is the wrong tool for a whole wiki directory. Do not extend the exception to ordinary note edits. Single-page archive still uses `move_note`.
 3. **Remove the entry** from the root `wiki/index.md` (the hub):
    Read the hub, delete the `## wiki-name` section, write back.
 4. **Log the deletion** — write a short note to the wiki's `log.md` before

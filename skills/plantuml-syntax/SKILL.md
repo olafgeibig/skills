@@ -1,7 +1,9 @@
 ---
 name: plantuml-syntax
-description: Authoritative reference for PlantUML diagram syntax. Provides UML and non-UML diagram types, syntax patterns, examples, and setup guidance for generating accurate PlantUML diagrams.
+description: "Use when writing PlantUML diagram syntax."
 allowed-tools: Read, Glob, Grep
+metadata:
+  version: "0.1.1"
 ---
 
 # PlantUML Syntax Reference

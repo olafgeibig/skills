@@ -1,8 +1,8 @@
 ---
 name: skill-governance
-description: "Use when creating or maintaining reusable skills."
+description: "Use when the skill concept decides a change."
 metadata:
-  version: "0.11.0"
+  version: "0.12.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -20,7 +20,7 @@ This skill is the **generic, ownership-agnostic** rule set for creating, maintai
 
 The key stance is **scope discipline**: every improvement is routed either into the skill itself (only if generic and the skill is yours), into a project skill, or into an agent-specific improvement sidecar. Third-party skills are never edited directly.
 
-The Bosch-specific application of these rules lives in `bosch-skills`. Profile- or environment-specific rules belong in a **profile-local skill** under `$HERMES_HOME/skills/`. A profile `AGENTS.md` is not an option — Hermes never loads `$HERMES_HOME/AGENTS.md` (see "Who Maintains What"). This skill is the shared core.
+The Bosch-specific application of these rules lives in `bosch-skills`. Profile- or environment-specific rules belong in a **profile-local skill** under `$HERMES_HOME/skills/`. This skill is the shared core.
 
 ## When to Use
 
@@ -45,13 +45,9 @@ Every skill belongs to exactly one class. The class decides whether the skill it
 - **`skills.external_dirs`, third-party repositories** — never written at all.
 - **`curator.consolidate` ships OFF** (`DEFAULT_CONSOLIDATE = False` in `agent/curator.py`). The curator archives and prunes; it does not rewrite skill content. Content consolidation is the agent's job under these rules — never leave something behind expecting a background pass to tidy it.
 
-### Where a profile-local rule actually gets injected
+### Where a standing rule lives
 
-Hermes builds its context files from the **working-directory tree** (git root → cwd) only: `AGENTS.md` / `AGENTS.override.md`, `CLAUDE.md` (cwd), `.cursorrules`, `SOUL.md`. `$HERMES_HOME/AGENTS.md` is never read. Consequences:
-
-- Standing rules that must apply in *every* session belong in a profile-local skill, because that zone is always discovered.
-- An `AGENTS.md` works where the agent actually works inside that tree — a vault or project `AGENTS.md` is legitimate and load-bearing. A "profile `AGENTS.md`" is not a destination that exists.
-- An in-tree `AGENTS.md` is simultaneously injected context and ordinary content of that tree — indexed alongside everything else and possibly an orphan note with no inbound links. Keep it scoped to rules — the whole file is injected into every session working in that tree.
+Standing rules that must apply in every session belong in a profile-local skill, because that zone is always discovered. An in-tree `AGENTS.md` (vault or project) is legitimate where the agent works inside that tree — keep it scoped to rules, because the whole file is injected.
 
 ## Decision Matrix: Where an Improvement Goes
 
@@ -79,7 +75,7 @@ The own skills of a profile live in the `own/` directory, and the directory deci
 - **Create with `category="own"`.** `skill_manage(action="create", category="own")` writes to `own/<name>/`; without a category it writes to the profile root. Do **not** additionally point `skills.create_dir` at `own/` — the two combine into `own/own/<name>`.
 - **An adaptation stays in `adaptations/`.** `own/` is for standalone profile-local skills; a delta against a third-party source belongs in `adaptations/<source>-adaptation/`, which is what the audit script looks for.
 - **Declare it anyway.** `metadata.hermes.category: own` plus `metadata.scope: standalone` keeps the frontmatter honest for humans and audits; only the path decides discovery.
-- **Description budget: 60 characters.** `skill_manage(action="create")` refuses longer descriptions, because the skill index truncates them to 57 chars plus an ellipsis and the routing signal is destroyed. A long description is a routing defect — the detail belongs in the body.
+- **Description budget: 57 characters.** One trigger sentence. Hermes `create` refuses only above 60; past that the index shows 57 characters plus an ellipsis. Author to 57 so the trigger stays whole. Detail belongs in the body.
 - **Frontmatter dialect.** `metadata.version` and `metadata.author` (the strict agentskills validator rejects top-level `version`/`author`, and flow-style lists such as `tags: [a, b]`); `platforms:` stays top-level because Hermes gates on it even though the strict spec does not know the field.
 
 ### The project route: one skill per project
@@ -199,7 +195,6 @@ Never leave the version unchanged after editing.
 - Do not store project facts in skills — they belong in the project repository content.
 - Do not mix agent-specific/environment quirks into a shared generic skill; keep them in a profile-local skill under `$HERMES_HOME/skills/`.
 - Do not create a staging area, batch diary, or dated pitfall file — not in a skill, not in `references/`. Classify in the session, or lose the finding.
-- Do not route anything to a profile `AGENTS.md`: Hermes never loads `$HERMES_HOME/AGENTS.md`. Use a profile-local skill.
 - Do not write a rule into a canonical repository skill without the review gate, and do not assume the curator will consolidate the result — consolidation ships off and the curator never touches `skills.external_dirs`.
 - Do not promote from a sidecar without explicit maintainer approval and full abstraction.
 - Do not skip the version bump after an edit.
@@ -231,7 +226,7 @@ Do not fold project-specific conventions, one-off repository rules, local termin
 
 Route such content to the correct place instead:
 - the relevant project skill or project repository content for project-specific material
-- a profile-local skill under `$HERMES_HOME/skills/` for agent- or environment-specific quirks (never `$HERMES_HOME/AGENTS.md`, which Hermes does not load)
+- a profile-local skill under `$HERMES_HOME/skills/` for agent- or environment-specific quirks
 
 When improving this skill:
 - keep only reusable cross-domain governance here

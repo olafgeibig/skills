@@ -1,11 +1,11 @@
 ---
 name: container-use
-description: Use this skill when working with Apple Containers (lightweight Linux VMs) as a native Docker replacement on macOS. This includes building container images, running containers, managing container lifecycle, configuring networking, handling volumes, mounting files with SSH forwarding, or performing multi-platform builds. Invoke for tasks involving the container CLI, Apple container tool, or Linux containers on Apple Silicon macOS 26+.
+description: "Use when running Apple Containers on macOS."
 license: Apache-2.0
 compatibility: Requires Apple Container tool installed and macOS 26+ (Apple Silicon)
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.1.1"
+  version: "0.1.2"
 ---
 
 # Apple Container Usage

@@ -106,7 +106,7 @@ After all derived pages are handled:
 mcp_turbovault_delete_note(path="wiki/<domain>/raw/articles/<file>.md")
 ```
 
-Or for bulk (multiple raw sources): `terminal rm` like archiving.
+Or for bulk (multiple raw sources): terminal `rm`, the same named exception as `references/archiving.md`.
 
 ### ⑦ Update wiki metadata
 

@@ -59,7 +59,7 @@ $HERMES_HOME/skills/adaptations/<source-skill>-adaptation/SKILL.md
 
 Use `templates/adaptation-skill-template.md` and load `skill-governance/references/profile-adaptations.md` for the normative scope and promotion rules. An adaptation contains only local deltas, links the source through `related_skills`, and is not synchronized automatically across profiles.
 
-Use profile `AGENTS.md` for simple standing paths or preferences that do not need a reusable multi-step skill. Do not create an adaptation for an owned generic skill merely to avoid updating its canonical repository.
+Simple standing paths or preferences that do not need a reusable multi-step skill belong in a profile-local skill under `$HERMES_HOME/skills/own/`. Do not create an adaptation for an owned generic skill merely to avoid updating its canonical repository.
 
 ## Location and ownership
 
@@ -69,8 +69,7 @@ Before writing:
 
 1. classify the skill as owned or third-party;
 2. determine the canonical repository from profile and repository rules;
-3. read the canonical repository's `AGENTS.md`;
-4. check for same-name shadows in higher-precedence locations.
+3. check for same-name shadows in higher-precedence locations.
 
 For the full ownership and routing rules, load `skill-governance`.
 

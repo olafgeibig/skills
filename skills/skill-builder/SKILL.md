@@ -1,11 +1,11 @@
 ---
 name: skill-builder
-description: "Use when creating or maintaining Agent Skills."
+description: "Use when authoring or validating a skill package."
 license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.4.2"
+  version: "0.5.0"
   author: Olaf Geibig
   hermes:
     category: personal

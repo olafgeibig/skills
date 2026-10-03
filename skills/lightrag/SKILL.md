@@ -1,6 +1,8 @@
 ---
 name: lightrag
-description: Search and manage knowledge bases using LightRAG API. Supports multiple servers, context-aware writing, and direct information retrieval. Use when the user wants to query a LightRAG-powered knowledge base or use it as context for tasks.
+description: "Use when querying a LightRAG knowledge base."
+metadata:
+  version: "0.1.1"
 ---
 
 # LightRAG Skill

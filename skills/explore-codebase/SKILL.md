@@ -1,6 +1,8 @@
 ---
 name: explore-codebase
-description: Explore and understand codebases. Use this when analyzing source code, manifests and other config for software engineering tools like kubernetes, helm, terraform. Usually the codebases are cloned git repositories in a directory `./repos/`
+description: "Use when exploring a codebase for evidence."
+metadata:
+  version: "0.1.1"
 ---
 
 ## When to use

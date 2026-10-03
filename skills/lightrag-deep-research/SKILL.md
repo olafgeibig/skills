@@ -1,11 +1,8 @@
 ---
 name: lightrag-deep-research
-description: |
-  Deep research workflow over an internal LightRAG knowledge base (no web search). Use when you need an
-  in-depth investigation with a structured plan, iterative sub-questions, evidence gathering via LightRAG
-  queries (local/global/hybrid/mix/naive), synthesis, and KB-citations. Best for: architecture/security
-  research, incident retrospectives, design decisions, policy interpretation, and any question that should
-  be answered primarily from your organization’s knowledge base.
+description: "Use when researching via a LightRAG knowledge base."
+metadata:
+  version: "0.1.1"
 ---
 
 # LightRAG Deep Research

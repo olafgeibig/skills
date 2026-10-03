@@ -1,9 +1,9 @@
 ---
 name: yt-grab-transcription
-description: Use this skill when you need a YouTube video's transcript for AI-agent consumption — fetching auto-generated subtitles via yt-dlp, cleaning the duplicated rolling-window lines, and keeping a compact provenance record instead of a full metadata dump.
+description: "Use when fetching a YouTube transcript."
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # YT Grab Transcription

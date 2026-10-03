@@ -1,6 +1,8 @@
 ---
 name: transcript-fixer
-description: Use this skill when fixing speech-to-text transcripts, meeting transcripts, interview notes, or ASR output with misheard names, product terms, acronyms, or domain vocabulary. Uses project-local config, glossary files, deterministic corrections, and native agent review. No internal AI API calls; optional scripts only apply configured replacements and extract glossary terms.
+description: "Use when fixing speech-to-text transcripts."
+metadata:
+  version: "0.1.1"
 ---
 
 # Transcript Fixer
@@ -256,9 +258,5 @@ Do not add Anthropic/GLM-specific hidden clients or shell-profile API-key discov
 
 If the companion script is used, it should first resolve `.transcript-fixer/config.yaml` in the current working directory as the canonical path.
 An upward directory walk is acceptable only as a compatibility fallback for nested working directories, not as the primary interpretation of where project config belongs.
-
-## Legacy Skill
-
-The old implementation was renamed to `transcript-fixer-old` and kept only for reference. Do not use it by default.
 
 See `./references/legacy-methodology-mapping.md` for the mapping from the old skill's useful method to the simplified v2 workflow. Use that reference when reviewing whether a future change preserves transcript-fixing quality.

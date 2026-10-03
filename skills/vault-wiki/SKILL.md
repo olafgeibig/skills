@@ -12,11 +12,10 @@ metadata:
       - federation
     category: research
     related_skills:
-      - arxiv
       - vault-ops
       - turbovault-use
   source: https://github.com/olafgeibig/skills
-  version: "0.10.1"
+  version: "0.10.2"
 ---
 
 # Multi-Domain LLM Wiki

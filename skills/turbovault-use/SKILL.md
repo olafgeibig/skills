@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Use when operating Obsidian vaults through TurboVault."
 metadata:
-  version: "0.7.0"
+  version: "0.7.1"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -60,7 +60,7 @@ Registration and activation are separate operations. For existing-vault setup, u
 - Read the vault's `AGENTS.md` before structural or content changes.
 - Read a note before editing it.
 - Use TurboVault for external vault files when its tools are available; do not silently substitute filesystem writes.
-- Do not use `terminal` or `python3 -c` for vault edits — use the in-process tools (`read_file`, `write_file`, `patch`); keep `terminal` for installs, git, and system work.
+- Do not use `terminal` or `python3 -c` for vault edits — use the in-process tools (`read_file`, `write_file`, `patch`); keep `terminal` for installs, git, and system work. Exception: bulk removal of an entire wiki directory is `rm -rf`, named in vault-wiki under archiving, because `delete_note` confirms per file. Do not extend that exception to ordinary note edits.
 - Set fields and write modes explicitly.
 - Preserve unrelated content.
 - Prefer atomic batch operations when partial writes would leave the vault inconsistent.
