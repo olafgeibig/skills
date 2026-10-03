@@ -44,7 +44,7 @@ The Controller owns small wording micro-fixes (record them) and reconciles revie
 Other skills often cite the source by pitfall number or section title, not by name — those citations break silently when rules move or retire. Sweep referrers before close-out:
 
 - Keep surviving numbers stable. Retiring rules leaves gaps in the numbering — fine; renumbering breaks every external citation. Renumber only when no live referrer exists.
-- Grep all roots for the source name and for the names of deleted support files — *all roots* means the profile tree **plus every `external_dirs` repo** (a skill promoted from profile-local to a repo moves with its referrers and is easy to miss); fix every hit at the referrer site — re-point promoted rules to their canonical home, and for retired rules drop the number while keeping the rule name.
+- Grep all roots for the source name and for the names of deleted support files — *all roots* means the profile tree **plus every `external_dirs` repo** (a skill promoted from profile-local to a repo moves with its referrers and is easy to miss); fix every hit at the referrer site — re-point promoted rules to their canonical home, and for retired rules drop the number while keeping the rule name. Content trees that cite skills (vault READMEs, concept docs) are referrer sites too — grep them in the same pass; they dangle silently past close-out.
 - Minimal repairs only: drop a pre-existing mis-attribution rather than guessing a replacement number — never invent history. Historical texts (changelogs, session notes) keep their numbers; append a pointer to the canonical home where the reader needs to find it.
 - Record the sweep in the ledger (hits, fixes) so the integration review can verify it.
 
