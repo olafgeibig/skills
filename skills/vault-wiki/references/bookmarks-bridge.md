@@ -25,3 +25,7 @@ Find the existing `area/<topic>/<topic>-bookmarks.md` and add the wiki source as
 5. **Additive only** — never reformat existing entries; they are user-curated.
 
 **Layer check:** "bookmarks" → search `area/`, not `wiki/`; "concept"/"entity" → wiki layer.
+
+## Promotion (Area → Wiki) Is Manual
+
+A bookmark entry is not an auto-ingest candidate. Promoting an entry to a wiki note is a two-step, user-gated process: the user reviews the entry and decides it is worth a note; only then is it ingested via the wiki workflow. Never ingest from a bookmarks file unprompted.
