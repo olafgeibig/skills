@@ -21,9 +21,10 @@ If a request is ambiguous, treat it as interpretive; one short clarifying questi
 ## Pre-write checklist (before the first change)
 
 1. **Project skill loaded** — the skill owning the affected notes' conventions (for `projects/<dir>/` or `area/<dir>/` paths: the `project-<dir>` skill, if it exists).
-2. **Template/sibling check** — missing template → derive the shape from siblings, only after (1), which may already document the de facto template.
-3. **Patch-scope class** — sort every old-value hit into class 1/2/3 (below).
-4. **Correction intent** — strip vs replace vs forward-looking (below).
+2. **Search before write** — `search_files` for the filename the user named before the first change: it often already exists under a different scope. Read the target file and check its section headings before any patch/write.
+3. **Template/sibling check** — missing template → derive the shape from siblings, only after (1), which may already document the de facto template.
+4. **Patch-scope class** — sort every old-value hit into class 1/2/3 (below).
+5. **Correction intent** — strip vs replace vs forward-looking (below).
 
 ## Patch scope: classify every hit
 
