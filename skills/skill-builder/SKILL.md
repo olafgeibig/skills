@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.6.0"
+  version: "0.7.0"
   author: Olaf Geibig
   hermes:
     category: personal
@@ -196,10 +196,11 @@ The reference validator proves frontmatter and structural conformance. It does n
 Load `references/hermes-skills.md` before creating or editing a Hermes skill. It defines:
 
 - `metadata.hermes` extensions;
-- Hermes-native top-level extensions;
-- profile-local adaptations and `templates/adaptation-skill-template.md`;
-- external-directory and `skill_manage` behavior;
-- runtime validation and source-path checks.
+  Hermes-native top-level extensions;
+  profile-local adaptations and `templates/adaptation-skill-template.md`;
+  external-directory and `skill_manage` behavior;
+  runtime validation and source-path checks;
+  discovery gating for a skill that must stay out of the prompt index.
 
 ### Claude Code
 
