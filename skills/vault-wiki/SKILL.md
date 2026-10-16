@@ -15,7 +15,7 @@ metadata:
       - vault-ops
       - turbovault-use
   source: https://github.com/olafgeibig/skills
-  version: "0.10.2"
+  version: "0.11.0"
 ---
 
 # Multi-Domain LLM Wiki
