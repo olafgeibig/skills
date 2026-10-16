@@ -12,6 +12,12 @@ Do not send `field:value` expressions such as `type: analysis` to full-text sear
 
 Full-text and semantic searches can cover the entire active vault. Constrain results with path filters where supported or verify every result path before using it.
 
+## Vector Search plugin
+
+The optional `vector_search` plugin is separate from the built-in TF-IDF `semantic_search`; its tools use the `vector_search_` prefix. It requires a local Potion/Model2Vec-compatible model directory; TurboVault does not download the model. The plugin maintains a local index and has one engine per server process, bound to the vault active when first built. Switching the active vault afterwards can make its tools return `unavailable`. Do not assume it supports a dynamic multi-vault process.
+
+`vector_search_reindex` drops and rebuilds the plugin index; it does not rewrite notes, but it can be expensive. Use it only when changing models or intentionally recovering an untrusted index.
+
 ## SQL limits
 
 TurboVault's frontmatter query interface is not unrestricted SQLite. Prefer simple queries and inspect the available schema first.

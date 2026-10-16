@@ -42,6 +42,10 @@ The `patch` tool on vault notes has three recurring whitespace failure modes:
 
 `edit_note` can preview before it writes: `dry_run: true` applies nothing and returns `blocks_applied`/`total_blocks`, `old_hash`/`new_hash`, and a `diff_preview`; the file stays byte-identical. Apply with `dry_run: false` plus `expected_hash: <old_hash from the preview>`, so the write is guarded against a file that changed in between. After the write, confirm `blocks_applied` equals `total_blocks`, then read the target back.
 
+## Write preconditions and blind overwrites
+
+For writes to existing notes, read the current note and pass its current `expected_hash` when the tool supports it. `edit_note` can use the `old_hash` returned by its dry run. Do not send the removed `force` argument. Never use `expected_hash: "blind"` unless the user explicitly authorizes an intentional blind overwrite.
+
 ## Appending content
 
 Use append mode only when the new content unambiguously belongs at the end. Do not append tasks or content blindly when placement affects semantics or section structure.
@@ -54,22 +58,24 @@ Assembling a note from multiple `read_file` chunks by concatenation glues conten
 
 `patch` on an Index.md can leave both the old and the new line in place. Prefer `write_file` for Index.md; when patching, read the file first and target a unique occurrence.
 
-## Atomic batches
+## Batch operations and transaction guarantees
 
-Use `batch_execute` when creating or updating multiple files and partial completion would leave the vault inconsistent.
+Check the active write backend before planning a batch. With the `direct` backend, `batch_execute` runs sequentially and fails fast; operations completed before a later failure remain applied. It is not a transaction. Only describe a batch as all-or-nothing when the configured backend's documented contract guarantees it. Use Direct batches only when partial completion is recoverable or operations are independent; otherwise use bounded passes, verify each pass, and preserve a recovery path.
 
-Typical cases:
+Typical cases, when partial completion is acceptable or a transaction is guaranteed:
 
 - ingest that creates several connected notes;
 - coordinated note and MoC updates;
 - a structural rename requiring several link corrections;
-- repeated frontmatter updates that must succeed together.
+- repeated frontmatter updates whose recovery plan is explicit.
+
+If all operations must succeed together, do not use a Direct-backend batch; use only a backend whose transaction guarantee has been verified.
 
 Build every operation explicitly. Do not rely on provider defaults for path, mode, or merge behavior.
 
 `batch_execute` accepts only `CreateNote | CreateFile | WriteNote | WriteFile | DeleteNote | DeleteFile | MoveNote | MoveFile | UpdateLinks` — it does not accept `UpdateFrontmatter`. Run a frontmatter update (e.g. a SHA stamp) as a separate `update_frontmatter` call instead, in parallel with the batch when it touches a different file. `WriteNote` is a full overwrite, not an append: read append-only files (index, log) first and batch their merged content; `CreateNote` behaves the same way.
 
-A large rebuild (callout + new section + source list + MoC entry) belongs in ONE `edit_note` call with multiple SEARCH/REPLACE blocks — atomic and faster than sequential calls; check the response counts afterwards.
+A large single-note rebuild (callout + new section + source list + MoC entry) belongs in ONE `edit_note` call with multiple SEARCH/REPLACE blocks; this keeps the change within one note and is faster than sequential calls. Check the response counts afterwards.
 
 ## Verification
 
@@ -78,7 +84,7 @@ A successful write response is not sufficient for external-state claims:
 1. Read each changed target.
 2. Confirm the intended content and frontmatter.
 3. Check graph effects where links changed.
-4. For a batch, verify that every operation landed and no partial state remains.
+4. For a batch, verify every operation and determine whether partial state remains; do not assume completed operations were rolled back.
 5. For `edit_note`, `blocks_applied` must equal `total_blocks` in the response; a fuzzy-matched block is not a success.
 6. After any response that reports a block as fuzzy-matched, re-read the frontmatter character-exact: fuzzy matching can damage adjacent tokens (a date value can gain a stray digit). Parse date values, `topics:`, and lists as YAML after every such write — do not trust the success response.
 7. After a fuzzy-matched block, re-read with the same tool the parser uses (`read_note` — a filesystem read can normalize differently) and rebuild the SEARCH text byte-for-byte from that output before re-issuing; whitespace, typographic quotes/dashes, and invisible characters are the usual mismatch causes.

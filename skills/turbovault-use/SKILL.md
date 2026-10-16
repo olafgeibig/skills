@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Use when operating Obsidian vaults through TurboVault."
 metadata:
-  version: "0.7.2"
+  version: "0.8.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -63,7 +63,10 @@ Registration and activation are separate operations. For existing-vault setup, u
 - The only terminal exception is bulk removal of an entire wiki directory (`rm -rf`), named in vault-wiki under archiving, because `delete_note` confirms per file. Do not extend that exception to ordinary note edits.
 - Set fields and write modes explicitly.
 - Preserve unrelated content.
-- Prefer atomic batch operations when partial writes would leave the vault inconsistent.
+- Use the `direct` write backend by default. Do not enable `write_backend: git` or call Git fan-out tools unless the user explicitly authorizes it for the named vault after external-sync compatibility review and testing on a copy.
+- Never assume `batch_execute` is atomic. The Direct backend is sequential and fail-fast; completed operations are not rolled back. Claim all-or-nothing only when the selected backend's documented transaction contract guarantees it.
+- Keep read-before-write for content context. For existing notes, use the current `expected_hash` from `read_note` or an `edit_note` dry run; do not send the removed `force` argument or use a blind overwrite without explicit user authorization.
+- Treat `vector_search` as optional. Configure a local compatible model and remember that one engine per process is bound to the vault active when first built; do not assume it follows later vault switches.
 - Verify external writes by reading the exact target and checking the resulting links or metadata.
 - Inspect backlinks before moves or deletions.
 - Do not assume a move updated every inbound path, alias, heading anchor, or plain-text reference.
@@ -83,9 +86,9 @@ Before the first write of a session, orient explicitly:
 | Read and write notes | `read_note`, `write_note`, `edit_note` |
 | Register and select vaults | `list_vaults`, `add_vault`, `set_active_vault`, `get_vault_context` |
 | Move or delete notes | `move_note`, `delete_note` |
-| Atomic multi-file updates | `batch_execute` |
+| Multi-file batches | `batch_execute` (transaction guarantee depends on backend) |
 | Frontmatter | `inspect_frontmatter`, `get_metadata_value`, `search_by_frontmatter`, `update_frontmatter` |
-| Full-text discovery | `search`, `advanced_search`, `semantic_search` |
+| Full-text and semantic discovery | `search`, `advanced_search`, `semantic_search`; optional `vector_search_search` |
 | Graph traversal | `get_forward_links`, `get_backlinks`, `get_related_notes` |
 | Structural analysis | `get_broken_links`, `get_dead_end_notes`, `get_isolated_clusters`, `detect_cycles` |
 
@@ -103,7 +106,7 @@ Deferred tools: call through `tool_call` with both `name` and `arguments` on eve
 | Task | Reference |
 |---|---|
 | Install, register, activate, or diagnose basic availability | `references/vault-configuration.md` |
-| `edit_note`, full writes, or atomic batches | `references/editing-and-batch-operations.md` |
+| `edit_note`, full writes, or multi-file batches | `references/editing-and-batch-operations.md` |
 | Full-text, frontmatter, SQL, or graph discovery | `references/search-and-graph.md` |
 | Rename, move, or structural refactor | `references/renames-and-refactors.md` |
 | Apply templates or normalize frontmatter | `references/frontmatter-and-templates.md` |
@@ -118,7 +121,7 @@ After a write:
 1. Read the exact target.
 2. Confirm expected frontmatter and body changes.
 3. For structural operations, check backlinks and broken links.
-4. For batches, confirm every intended target and the absence of partial state.
+4. For batch operations, verify every intended target and explicitly resolve or report partial state.
 5. Report unresolved warnings or client refresh requirements honestly.
 
 Tool responses are the primary verification — trust a mutating call's response as the first-line signal, and never delegate a verification read to a subagent; delegation adds no signal over a direct call. Direct read-back of the exact target (steps 1-4 above, performed as plain tool calls) stays the reserved check for silent-success-risk writes: first writes in a session, registry/state changes, and structural operations. The stricter per-operation read-backs in `references/editing-and-batch-operations.md` §Verification (external-state claims, fuzzy-matched blocks) remain in force.
