@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or dissolving a skill library."
 license: MIT
 metadata:
-  version: "0.9.1"
+  version: "0.10.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -131,6 +131,22 @@ When migrating a skill:
 - `restore` refuses a hub-installed name, and a bundled name unless `curator.prune_builtins: true`; a restored bundled skill cannot be pinned, so it is archived again once idle past `archive_after_days` — it survives only while it keeps being used.
 - A record that still reads `state: active` while the directory lives only under `.archive/` is cosmetic: report rows are guarded on a locally resolvable directory, so such a record never re-enters the state machine.
 - Prefer `restore` over re-creation — the archive copy is the complete artifact, a new skill is a thinner duplicate with a new provenance.
+
+## Shared Repositories: Publishing and Sync
+
+A skill repository mounted on more than one installation needs a publisher, or review writes sit
+uncommitted until they collide with the other machine.
+
+- The background review writes into shared repos too (the curator walk does not) — an unexpected
+  change to `skill-governance`, `skill-builder`, or this skill is the review, and the
+  `<HERMES_HOME>/skills/.curator_ledger.jsonl` entry names the path. The ledger's `actor` field is
+  unreliable for attribution: review writes are recorded as `curator`.
+- `scripts/skill-repo-sync.py` (installed by `scripts/install-skill-repo-sync.py`) commits exactly
+  the ledger-named paths on `on_skill_lifecycle`, pulls at `on_session_start`, and pushes — one
+  commit per review run, gate-checked, conflict-aborting, never resolving by choosing a side.
+- Never build per-installation long-lived branches for this: a conflict is a file property, not a
+  frequency property, and long branches only enlarge the merge.
+- Procedure, cron jobs, verification and conflict handling: `references/shared-repo-sync.md`.
 
 ## Protect Existing Work
 
