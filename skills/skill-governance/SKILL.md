@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when the skill concept decides a change."
 metadata:
-  version: "0.12.0"
+  version: "0.13.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -140,6 +140,14 @@ The failure this rule exists for: a profile-local skill that grows one dated `ne
 - **One home per rule.** After promotion, delete the source statement; a rule living in two places drifts.
 - **Keep the shape.** `SKILL.md` carries always-on rules, depth goes to `references/`. Respect the repository budget (~500 lines) and the runtime budget (~24k chars — the whole body is loaded for the rest of the session). Route content out rather than growing the file.
 
+## Volatile Data Has a Note, Not a Skill
+
+Prices, caps, model lists, quota snapshots, and dated probe results are volatile instance state: a **dated note in the user's knowledge base** holds them, with a fetch-time stamp and a refresh command — never a skill body, `references/`, or memory. The skill keeps the procedure, how to read the data, and a pointer to the note. Why: a list in a skill hardens into a stale claim later sessions trust as current.
+
+- **A skill is bound by its own placement rule** — when it states where a data kind lives, its own `references/` obey it too; a convenience copy beside the note drifts from the source of truth.
+- **Re-date the note instead of appending a second one**; re-fetch rather than re-citing an older snapshot.
+- **Point generically in a shared skill.** "A dated note in the user's knowledge base" travels; a vault name, note path, or local script path is an instance pointer and lives in that setup's profile-local skill.
+
 ## Promotion From Sidecars
 
 A sidecar is not a mandatory staging area for improvements to owned skills. Use one only when direct editing is prohibited, the finding is profile-specific, or the owning repository has explicitly chosen a review queue.
@@ -193,6 +201,7 @@ Never leave the version unchanged after editing.
 - Do not route a generic rule only into one domain skill — put it in the generic core so every skill inherits it.
 - Do not edit a third-party skill directly just because you loaded it; being in play does not make it editable.
 - Do not store project facts in skills — they belong in the project repository content.
+- Do not keep a dated price, cap, or model table in a skill or its `references/` — the dated note holds the numbers, the skill holds the procedure and the pointer.
 - Do not mix agent-specific/environment quirks into a shared generic skill; keep them in a profile-local skill under `$HERMES_HOME/skills/`.
 - Do not create a staging area, batch diary, or dated pitfall file — not in a skill, not in `references/`. Classify in the session, or lose the finding.
 - Do not write a rule into a canonical repository skill without the review gate, and do not assume the curator will consolidate the result — consolidation ships off and the curator never touches `skills.external_dirs`.
@@ -214,6 +223,7 @@ Never leave the version unchanged after editing.
 - New skill: the overlap search ran, and the outcome is one of the three declared forms — a delta in the owning skill, a `<source>-adaptation`, or an explicit `metadata.scope: standalone`.
 - Canonical write: the delta proposal (target, rule text, generality, dedupe evidence, retirement) was approved before the write.
 - Capture: the rule was searched against the target first, and no staging, batch, or diary file was created.
+- Data placement: volatile reference data went to a dated note with a refresh command; the skill carries procedure and a generic pointer only.
 - Route: a project-only finding landed in the project skill, not in a generic one.
 - Project route: the skill mirrors exactly one project folder by name, carries no note inventory, and any method it holds has not been promoted on its first occurrence.
 - Saved file re-read and consistent with intent.
