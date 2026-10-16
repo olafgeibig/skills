@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or dissolving a skill library."
 license: MIT
 metadata:
-  version: "0.8.3"
+  version: "0.9.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -120,6 +120,19 @@ When migrating a skill:
 4. Remove the old copy only after ownership and path verification.
 5. Load the skill and confirm `_source_path` resolves to the destination.
 6. Search all configured roots for remaining duplicates.
+
+## Reviewing Repository Sync Automation
+
+Before installing or enabling a skill-repository publisher:
+
+1. Inspect the active checkout and fetched remote separately; fetching does not update the runtime-loaded skill. Preserve dirty work before integrating upstream changes.
+2. Test the publisher in disposable repositories with an isolated `HERMES_HOME`; syntax checks alone do not establish safe Git or cursor behavior.
+3. Require dry-run to leave cursors, configuration, index, commits, and remotes unchanged. Retain blocked or failed ledger entries for retry rather than acknowledging them as published.
+4. Check file-level staging against mixed manual and automated edits; ledger membership identifies a path, not ownership of every change inside it.
+5. Verify branch and upstream guards in code, and approve only the exact hook commands needed; documentation does not enforce a branch policy, and global hook auto-accept widens consent beyond the installer.
+6. Verify failures remain observable in unattended execution; do not treat a zero exit code or quiet hook as evidence of a successful pull or publication.
+
+Use `references/repository-sync-safety.md` for the isolation recipe and behavioral acceptance matrix. Record findings against the inspected revision; do not turn a defect in one script version into a permanent claim about the capability.
 
 ## Archived Skills
 
