@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or dissolving a skill library."
 license: MIT
 metadata:
-  version: "0.9.0"
+  version: "0.9.1"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -139,6 +139,7 @@ When migrating a skill:
 - Use `git mv` only for tracked paths.
 - Keep destructive cleanup separate from read-only validation.
 - Do not drop stashes or backups without explicit consent.
+- Quote commit messages so the shell cannot rewrite them: backticked identifiers inside double quotes are executed as command substitution and vanish from the message — single quotes or a heredoc whenever the message names code.
 - Treat `.DS_Store` and similar OS metadata as a separate cleanup decision.
 
 ## Refactoring Large Skills
