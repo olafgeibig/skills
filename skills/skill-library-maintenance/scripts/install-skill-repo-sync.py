@@ -25,7 +25,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-INSTALLER_VERSION = "1.0.0"
+INSTALLER_VERSION = "1.0.1"
 ENGINE = "skill-repo-sync.py"
 WRAPPER_NAME = "skill-repo-sync"
 STATE_NAME = "skill-repo-sync.json"
@@ -36,7 +36,24 @@ def hermes_home() -> Path:
 
 
 def git(path: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", str(path), *args], capture_output=True, text=True, timeout=60)
+    env = dict(os.environ)
+    env.setdefault("GIT_TERMINAL_PROMPT", "0")
+    env.setdefault("GIT_SSH_COMMAND", "ssh -oBatchMode=yes -oConnectTimeout=10")
+    env.setdefault("GIT_ASKPASS", "/bin/true")
+    return subprocess.run(["git", "-C", str(path), *args], capture_output=True, text=True,
+                          timeout=60, env=env)
+
+
+def resolve_interpreter(name: str) -> tuple[str, str]:
+    """Return (interpreter, note). ``python3`` on PATH; a missing one falls back to this process.
+
+    macOS ships no ``python3`` without the Xcode command line tools, and a Homebrew python lives
+    outside the default PATH a hook inherits — so a silent fallback beats a hook that never runs.
+    """
+    found = shutil.which(name)
+    if found:
+        return found, f"{name} -> {found}"
+    return sys.executable, f"WARN {name} not on PATH — using {sys.executable} (pin with --python)"
 
 
 def main() -> int:
@@ -46,6 +63,7 @@ def main() -> int:
     ap.add_argument("--python", default="python3", help="interpreter the wrapper execs (default: python3)")
     ap.add_argument("--selfcheck", action="store_true", help="report the current install and exit")
     args = ap.parse_args()
+    interpreter, interpreter_note = resolve_interpreter(args.python)
 
     home = hermes_home()
     engine = Path(__file__).resolve().parent / ENGINE
@@ -78,17 +96,22 @@ def main() -> int:
         print(f"error: the repo holding this installer has no git remote: {repo}")
         return 1
 
-    # 1) stable wrapper
+    # 1) stable wrapper — written only when its content changes, so the hook consent
+    #    (which records the script mtime) stays valid across repeated installer runs
     wrapper.parent.mkdir(parents=True, exist_ok=True)
-    wrapper.write_text(
+    wrapper_text = (
         "#!/bin/sh\n"
         f"# {WRAPPER_NAME} wrapper — INSTALLER_VERSION {INSTALLER_VERSION}\n"
         "# Stable path: the shell-hook consent pair is (event, command); update the engine in the\n"
         "# repository, not this file.\n"
-        f'exec {args.python} "{engine}" "$@"\n',
-        encoding="utf-8")
-    os.chmod(wrapper, 0o755)
-    print(f"wrapper: {wrapper} -> {engine}")
+        f'exec {interpreter} "{engine}" "$@"\n')
+    if wrapper.is_file() and wrapper.read_text(encoding="utf-8") == wrapper_text:
+        print(f"wrapper: unchanged ({wrapper})")
+    else:
+        wrapper.write_text(wrapper_text, encoding="utf-8")
+        os.chmod(wrapper, 0o755)
+        print(f"wrapper: written {wrapper} -> {engine}")
+    print(f"python:  {interpreter_note}")
 
     # 2) state file (cursor stays at 0 on purpose: pending review writes get published by the first run)
     state = {}
@@ -98,7 +121,7 @@ def main() -> int:
         except json.JSONDecodeError:
             state = {}
     state.update({"version": INSTALLER_VERSION, "hermes_home": str(home), "repos": repos,
-                  "wrapper": str(wrapper), "script": str(engine), "python": args.python,
+                  "wrapper": str(wrapper), "script": str(engine), "python": interpreter,
                   "installed_at": datetime.now(tz=timezone.utc).isoformat()})
     state.setdefault("ledger_cursor", 0)
     state_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -135,7 +158,7 @@ def main() -> int:
     print("next steps (once per machine):")
     print("  1. create the two cron jobs (see references/shared-repo-sync.md § Cron)")
     print(f"  2. verify: hermes hooks list && hermes hooks doctor")
-    print(f"  3. verify: {args.python} {engine} --selfcheck --verbose")
+    print(f"  3. verify: {interpreter} {engine} --selfcheck --verbose")
     return 0
 
 

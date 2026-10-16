@@ -34,15 +34,16 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCRIPT_VERSION = "1.0.0"
+SCRIPT_VERSION = "1.0.1"
 STATE_NAME = "skill-repo-sync.json"
 GROUP_GAP_SECONDS = 120          # entries closer than this belong to one review run
 AUDIT_MARKER = "hermes-skill-sync-audit"
 CURSOR_KEY = "ledger_cursor"     # index of the last processed ledger line
 
 # Lines that must never enter a shared (generic) skill: instance pointers.
+# Both home layouts are covered — Linux (`/home/<user>`) and macOS (`/Users/<user>`).
 INSTANCE_PATTERNS = (
-    (r"/home/[a-z0-9_.-]+", "absolute home path"),
+    (r"/(?:home|Users)/[A-Za-z0-9_.-]+", "absolute home path"),
     (r"(?<![\w/])~/(?!\.hermes/skills)", "tilde path"),
     (r"\bakademeia\b", "vault name"),
     (r"\b(durin|boromir)\b", "machine name"),
@@ -77,8 +78,18 @@ def save_state(state: dict) -> None:
 
 
 def git(repo: Path, *args: str, check: bool = False) -> subprocess.CompletedProcess:
+    """Run git without ever blocking on a prompt.
+
+    A hook runs unattended: a credential prompt or an interactive SSH key question would stall the
+    tool round until the hook timeout. BatchMode + no terminal prompt turn those into a fast,
+    reportable failure on Linux and macOS alike.
+    """
+    env = dict(os.environ)
+    env.setdefault("GIT_TERMINAL_PROMPT", "0")
+    env.setdefault("GIT_SSH_COMMAND", "ssh -oBatchMode=yes -oConnectTimeout=10")
+    env.setdefault("GIT_ASKPASS", "/bin/true")
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True,
-                          check=check, timeout=120)
+                          check=check, timeout=120, env=env)
 
 
 def repo_root(path: Path) -> Path | None:

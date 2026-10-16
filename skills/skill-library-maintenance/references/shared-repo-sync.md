@@ -33,6 +33,26 @@ are also recorded as `actor: curator`.
 | Gate before commit | instance pointers, dangling references, duplicate rules — flagged files are held back, never committed |
 | Long sessions | the skill *index* is a start-of-session snapshot (prompt-cache invariant); skill *bodies* load from disk, so `/skill-name` always yields current content. Never pull mid-session to "fix" an index |
 
+## Platforms
+
+Written for Linux and macOS alike — an installation may be either, and the two home layouts differ.
+
+- Nothing is hardcoded: the Hermes home comes from `$HERMES_HOME` (falling back to `~/.hermes`),
+  repositories are resolved with `git rev-parse --show-toplevel`, and every absolute path is
+  recorded per machine in the state file.
+- The gate's instance-pointer patterns cover `/home/<user>` **and** `/Users/<user>`, so a rule that
+  leaks a local path is caught whichever installation writes it.
+- Both hook events and the cron jobs are Hermes-level features — nothing goes into `crontab` or
+  `launchd`.
+- The wrapper execs `python3` from `PATH`; a missing one falls back to the interpreter that ran the
+  installer, and `--python` pins an explicit binary. Relevant on macOS: without the Xcode command
+  line tools there is no `python3`, and a Homebrew python may sit outside the PATH a hook inherits.
+- Every git call runs with `GIT_TERMINAL_PROMPT=0` and `GIT_SSH_COMMAND=ssh -oBatchMode=yes`, so an
+  unattended hook fails fast instead of stalling on a credential or key-passphrase prompt (the
+  common macOS case when the key is not in the ssh-agent).
+- Paths are used exactly as git reports them — no case assumptions, which matters on a
+  case-insensitive APFS volume.
+
 ## Files
 
 | Path | Role |
@@ -76,6 +96,12 @@ python3 skill-repo-sync.py --selfcheck --verbose
 `hermes config set` (idempotent; it skips an entry that already names the wrapper). Additional
 shared repos: repeat `--repo /path/to/other/repo` — the installer skips any repo without a remote,
 because a repo nobody pushes to can never conflict.
+
+The installer rewrites the wrapper only when its content actually changes: the hook consent records
+the script's mtime, so a needless rewrite would show up in `hermes hooks doctor` as "script modified
+since approval". If the wrapper *is* rewritten, refresh the consent —
+`hermes hooks revoke <wrapper>` and approve again on the next start (or re-record the pair
+programmatically) — and re-run `doctor` until it reports all hooks healthy.
 
 The engine is stdlib-only Python 3.9+; the wrapper defaults to `python3` (pin a different
 interpreter with `--python`).
