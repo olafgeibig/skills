@@ -87,6 +87,17 @@ After editing:
 6. Inspect the repository diff and status.
 7. Commit or publish only when authorized.
 
+## Save and hand off changes across installations
+
+Use this sequence when several installations develop the same skill repository and another checkout may contain unpublished commits:
+
+1. Inspect `git status --short --branch`, `git diff --name-status`, `git diff --cached --name-status`, and `git remote -v`. Resolve unrelated staged changes before committing; do not sweep them into a skill commit.
+2. Record the starting commit with `git rev-parse HEAD`. Create the requested branch with `git switch -c <branch>` before committing; preserve main and the existing worktree changes. Do not reset, rebase, or force-push another installation's work.
+3. Validate each changed skill package. Stage only that skill's explicit paths with `git add -- <paths>`, including additions and deletions; run `git diff --cached --check` and inspect `git diff --cached --name-status` before each commit. Keep one skill's SKILL.md, version bump, and supporting files in the same commit.
+4. Verify the resulting commit range from the recorded starting commit with `git log --oneline <base>..HEAD`, inspect `git show --stat <commit>` for each commit, and check `git status --short --branch`. Report unrelated remaining changes instead of claiming a clean worktree.
+5. Push only when publication is authorized: `git push -u origin <branch>`. Verify the exact remote branch with `git ls-remote origin refs/heads/<branch>` and compare its SHA to `git rev-parse HEAD`. A request to create a branch and commit, or confirmation that the remote is correct, does not by itself authorize pushing or opening a PR.
+6. Hand off the branch, commit IDs by skill, validation results, worktree state, and publication state. Distinguish tracked canonical changes from profile-local adaptations outside the repository. Let the receiving installation fetch and integrate the branch against its own unpublished work; do not claim that work has been synchronized or merged without verification there.
+
 ## Stop conditions
 
 Do not edit when:

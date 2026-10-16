@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.6.0"
+  version: "0.7.0"
   author: Olaf Geibig
   hermes:
     category: personal
@@ -161,7 +161,9 @@ For existing skills:
 4. Remove contradictory legacy guidance.
 5. Bump the skill version according to `skill-governance` and the repository convention.
 
-See `references/editing-skills-guide.md`.
+When saving changes across several skills, stage each skill's complete package explicitly and make one commit per skill when requested; keep its version bump and supporting-file changes together. If another installation has unpublished work on the shared main branch, preserve the local work on a feature branch before committing rather than rebasing or resetting main. Treat commit, push, and PR creation as separate authorization scopes: confirmation of a remote URL is not permission to publish.
+
+See `references/editing-skills-guide.md` for the multi-installation handoff sequence.
 
 ### 8. Validate both layers
 
