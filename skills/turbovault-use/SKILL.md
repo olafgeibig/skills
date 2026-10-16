@@ -60,6 +60,10 @@ Registration and activation are separate operations. For existing-vault setup, u
 - Read the vault's `AGENTS.md` before structural or content changes.
 - Read a note before editing it.
 - Vault note reads and writes go through TurboVault (`read_note`, `write_note`, `edit_note`, `move_note`, `delete_note`). A missing tool is a blocker, not a reason to write the file directly. Do not substitute `write_file`, `patch`, or `terminal`.
+- A failed TurboVault call — including a malformed `edits`/content payload that cannot be encoded in the tool call — is not a licence to switch tools: fix the payload and retry the same TurboVault tool (`write_note` with `mode=overwrite` after a `read_note`, or `edit_note` with smaller SEARCH/REPLACE blocks).
+- **Anchor `edit_note` blocks on complete lines.** The tool falls back to fuzzy (Levenshtein) matching when an exact match fails, and a fuzzy match that catches only the *prefix* of a line replaces the prefix while **concatenating the remainder of the old line onto your new text**. Seen twice in practice: a date became `2026-10-019`, and a MoC bullet ended up carrying two descriptions glued together. So pull the whole line into SEARCH (or several whole lines), and after any `edit_note` whose response reports fuzzy matching, read the touched region back and confirm no orphaned tail remains.
+- **Keep the `=======` separators out of the payload text.** A stray marker copied into the REPLACE half is not a syntax hint, it is content: it gets written into the note verbatim, where it shows up as `=======### Next Heading` and silently breaks heading parsing — entries look deleted (`^### ` counts drop) even though every line is still there. Check any multi-block edit with `grep -c '^======='` on the file plus a heading count before/after; a count that fell while the byte size grew is this bug, not data loss.
+- **Out-of-band writes leave the link index stale.** A note created or edited with `write_file`/`patch` is readable through TurboVault but its edges are not extracted: `get_backlinks` on the new note returns empty and the linking note's `get_forward_links` silently omits it, so `success: true` on the surrounding edits looks correct while the graph does not connect. Repair by writing through TurboVault once (e.g. `edit_note`, or `update_frontmatter` with a merge) and then re-check `get_backlinks` — link extraction happens on the TurboVault write pass, not on read.
 - The only terminal exception is bulk removal of an entire wiki directory (`rm -rf`), named in vault-wiki under archiving, because `delete_note` confirms per file. Do not extend that exception to ordinary note edits.
 - Set fields and write modes explicitly.
 - Preserve unrelated content.
@@ -95,6 +99,12 @@ Before the first write of a session, orient explicitly:
 Use the exact tool names exposed in the current session; MCP prefixes may differ between clients.
 
 Deferred tools: call through `tool_call` with both `name` and `arguments` on every entry, and run `tool_describe` before first use. Parameter names are exact and snake_case — `read_note` takes `path`; `edit_note` takes the SEARCH/REPLACE blocks as a single `edits` string.
+
+**Pass `calls` as a real array, never as a JSON string.** The bridge tolerates a stringified envelope (it parses it and reports `tool_call 'calls' is not valid JSON: ...` on failure — see `tools/tool_search_validation.py`), but a long, quote-heavy note body then has to survive two levels of quoting, and one slip invalidates the whole payload before any MCP call:
+
+- the failure is caught by Hermes's own argument validation, so the tool is never invoked — no server-side symptom to diagnose, and retrying the identical payload reproduces nothing;
+- keep single-payload writes moderate: write the skeleton first and add the long sections as separate `edit_note` blocks instead of one 15 KB content string full of escaped quotes and `"*..."*` emphasis;
+- on this failure, fix the payload and re-issue the *same* TurboVault tool. Switching to `write_file`/`patch` trades an encoding error for a stale link index (see the out-of-band write rule above).
 
 ### Paths
 

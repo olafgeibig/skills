@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or dissolving a skill library."
 license: MIT
 metadata:
-  version: "0.9.0"
+  version: "0.11.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -115,11 +115,12 @@ Answer questions about a skill's history with evidence from runtime telemetry an
 When migrating a skill:
 
 1. Validate the source package.
-2. Create the destination explicitly in the canonical repository.
-3. Validate the destination before removing the source.
-4. Remove the old copy only after ownership and path verification.
-5. Load the skill and confirm `_source_path` resolves to the destination.
-6. Search all configured roots for remaining duplicates.
+2. Sweep the content for what must not travel into a shared copy: instance pointers (vault and note paths, local script paths, machine-specific hosts or endpoints) and any data kind the skill routes to a dated note (`skill-governance` → *Volatile Data Has a Note, Not a Skill*). Procedure and mechanics travel; the pointers become a profile-local skill per setup, and the data stays in each setup's dated note — never fork the skill itself.
+3. Create the destination explicitly in the canonical repository.
+4. Validate the destination before removing the source.
+5. Remove the old copy only after ownership and path verification.
+6. Load the skill and confirm `_source_path` resolves to the destination.
+7. Search all configured roots for remaining duplicates.
 
 ## Reviewing Repository Sync Automation
 
@@ -144,6 +145,22 @@ Use `references/repository-sync-safety.md` for the isolation recipe and behavior
 - A record that still reads `state: active` while the directory lives only under `.archive/` is cosmetic: report rows are guarded on a locally resolvable directory, so such a record never re-enters the state machine.
 - Prefer `restore` over re-creation — the archive copy is the complete artifact, a new skill is a thinner duplicate with a new provenance.
 
+## Shared Repositories: Publishing and Sync
+
+A skill repository mounted on more than one installation needs a publisher, or review writes sit
+uncommitted until they collide with the other machine.
+
+- The background review writes into shared repos too (the curator walk does not) — an unexpected
+  change to `skill-governance`, `skill-builder`, or this skill is the review, and the
+  `<HERMES_HOME>/skills/.curator_ledger.jsonl` entry names the path. The ledger's `actor` field is
+  unreliable for attribution: review writes are recorded as `curator`.
+- `scripts/skill-repo-sync.py` (installed by `scripts/install-skill-repo-sync.py`) commits exactly
+  the ledger-named paths on `on_skill_lifecycle`, pulls at `on_session_start`, and pushes — one
+  commit per review run, gate-checked, conflict-aborting, never resolving by choosing a side.
+- Never build per-installation long-lived branches for this: a conflict is a file property, not a
+  frequency property, and long branches only enlarge the merge.
+- Procedure, cron jobs, verification and conflict handling: `references/shared-repo-sync.md`.
+
 ## Protect Existing Work
 
 - Inspect uncommitted changes before writing.
@@ -151,6 +168,7 @@ Use `references/repository-sync-safety.md` for the isolation recipe and behavior
 - Use `git mv` only for tracked paths.
 - Keep destructive cleanup separate from read-only validation.
 - Do not drop stashes or backups without explicit consent.
+- Quote commit messages so the shell cannot rewrite them: backticked identifiers inside double quotes are executed as command substitution and vanish from the message — single quotes or a heredoc whenever the message names code.
 - Treat `.DS_Store` and similar OS metadata as a separate cleanup decision.
 
 ## Refactoring Large Skills

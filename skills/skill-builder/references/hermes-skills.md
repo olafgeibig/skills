@@ -103,6 +103,21 @@ A Hermes advisory linter may prefer Hermes-native top-level metadata even when t
 
 Hermes may impose a stricter indexed-description budget than the Agent Skills limit. Keep the first 57 characters self-contained and trigger-focused where profile rules require it.
 
+## Discovery gating (on-demand skills)
+
+Every skill's name and description enter the system prompt's skill index on every model call, and a loaded body costs its full length. A skill that is expensive and only occasionally wanted should not be advertised there — and Hermes has no `manual-only` flag. Discovery gating comes from a dependency field instead:
+
+```yaml
+metadata:
+  hermes:
+    requires_tools:
+      - manual-invocation      # a gate, not a dependency
+```
+
+`requires_tools` names tools the skill needs; an entry matching no available tool hides the skill from the prompt index entirely, while a `/skill-name` slash command and an explicit `skill_view(name)` still reach it. What it does not hide: `skills_list` still returns the skill to an agent that actively calls it. For a skill that must appear nowhere, the hard variant is `skills.disabled: [name]` in `config.yaml` plus a plugin in `$HERMES_HOME/plugins/<name>/` registering its own command.
+
+Verify the gate by the absence it produces: confirm a comparable ungated skill is still listed in the prompt index while the gated one is gone, then confirm the slash command and `skill_view` still resolve it. A gate that hides nothing is indistinguishable from no gate until both checks are run.
+
 ## Tool and platform declarations
 
 Use Hermes-specific tool, environment, platform, or blueprint metadata only when the feature is required. Verify current Hermes documentation before adding it; do not copy stale examples from an older skill.

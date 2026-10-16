@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when the skill concept decides a change."
 metadata:
-  version: "0.12.0"
+  version: "0.15.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -38,10 +38,14 @@ Every skill belongs to exactly one class. The class decides whether the skill it
 1. **Own skills** — the maintainer's personal, Bosch, and project skills, kept in their own git repositories. The maintainer wants the agent to keep developing these, but only within these rules and the intended scope of each repository.
 2. **Third-party skills** — checked out from another author's git repository and mounted as their own `external_dirs` entry. The maintainer does **not** want the skill itself touched: any change is overwritten on the next `git pull`. These are **never edited directly** — improvements go only to an agent-specific improvement sidecar.
 
+### Taking a third-party skill over as a maintained fork
+
+The sidecar is not the only outcome for the second class. When the maintainer wants the skill itself kept and maintained, it is **forked into the canonical owned repository**, where it becomes an own skill: the source client's execution layer is rewritten for this runtime, upstream is reached only through a separate read-only reference checkout (never a `git remote` of the canonical repository), and a provenance file records the upstream URL, the sync revision, and a per-file class — `verbatim` (byte-identical, listed with its hash, safe to copy over wholesale), `rewritten` (port the upstream diff, never copy), `pending rewrite` (still upstream text, treat as `rewritten`). The class table is what turns a later sync into a per-file decision instead of a remembered one, so a class claim must be true of the file it labels. Layout and sync procedure live in the fork's own provenance file beside the skill.
+
 ## Who Maintains What (verified boundaries)
 
 - **`$HERMES_HOME/skills/`** — the profile-local zone. Skills here are discovered unconditionally, and it is the **only** zone an autonomous curator may write to — and only for skills carrying `created_by: "agent"`. The background curator is refused on pinned skills, anything under `skills.external_dirs`, bundled, hub-installed, and user-owned (un-managed) skills.
-- **`skills.external_dirs`, owned repositories** — canonical, git-versioned, maintainer-only. Neither the curator nor an autonomous pass writes here; every change goes through the review gate below.
+- **`skills.external_dirs`, owned repositories** — canonical, git-versioned. The curator walk is refused here, but the **background review fork is not**: it patches any skill it can name, including these, with direct `skill_manage` calls that land in the mutation ledger. This zone is therefore not writer-free — attribute unexpected changes here to the review via the ledger first, and route substantive agent-initiated changes through the review gate below.
 - **`skills.external_dirs`, third-party repositories** — never written at all.
 - **`curator.consolidate` ships OFF** (`DEFAULT_CONSOLIDATE = False` in `agent/curator.py`). The curator archives and prunes; it does not rewrite skill content. Content consolidation is the agent's job under these rules — never leave something behind expecting a background pass to tidy it.
 
@@ -137,8 +141,16 @@ The failure this rule exists for: a profile-local skill that grows one dated `ne
 - **Classify and route in the session where the finding arises.** No staging file, batch diary, or "collect now, sort later" pile. A pile has no owner, outlives its context, and is never reviewed.
 - **Search before writing.** Before adding a rule to any skill, search the target for the same rule — its imperative verb plus domain nouns, with `search_files`. A rule stated twice is a defect, not redundancy insurance. The observed cost of skipping this step: ~22 restatements of rules that were already in the target.
 - **Write the rule, not the incident.** Dates, booking or ticket IDs, handles, and session narration are not knowledge. If a finding only makes sense together with its story, it is project content → the project skill.
-- **One home per rule.** After promotion, delete the source statement; a rule living in two places drifts.
+- **One home per rule.** After promotion, delete the source statement; a rule living in two places drifts. A cross-reference only counts as a home when it resolves — verify the named file carries the content before writing "see X for details"; a pointer at a missing section sends the next agent hunting.
 - **Keep the shape.** `SKILL.md` carries always-on rules, depth goes to `references/`. Respect the repository budget (~500 lines) and the runtime budget (~24k chars — the whole body is loaded for the rest of the session). Route content out rather than growing the file.
+
+## Volatile Data Has a Note, Not a Skill
+
+Prices, caps, model lists, quota snapshots, and dated probe results are volatile instance state: a **dated note in the user's knowledge base** holds them, with a fetch-time stamp and a refresh command — never a skill body, `references/`, or memory. The skill keeps the procedure, how to read the data, and a pointer to the note. Why: a list in a skill hardens into a stale claim later sessions trust as current.
+
+- **A skill is bound by its own placement rule** — when it states where a data kind lives, its own `references/` obey it too; a convenience copy beside the note drifts from the source of truth.
+- **Re-date the note instead of appending a second one**; re-fetch rather than re-citing an older snapshot.
+- **Point generically in a shared skill.** "A dated note in the user's knowledge base" travels; a vault name, note path, or local script path is an instance pointer and lives in that setup's profile-local skill.
 
 ## Promotion From Sidecars
 
@@ -193,6 +205,7 @@ Never leave the version unchanged after editing.
 - Do not route a generic rule only into one domain skill — put it in the generic core so every skill inherits it.
 - Do not edit a third-party skill directly just because you loaded it; being in play does not make it editable.
 - Do not store project facts in skills — they belong in the project repository content.
+- Do not keep a dated price, cap, or model table in a skill or its `references/` — the dated note holds the numbers, the skill holds the procedure and the pointer.
 - Do not mix agent-specific/environment quirks into a shared generic skill; keep them in a profile-local skill under `$HERMES_HOME/skills/`.
 - Do not create a staging area, batch diary, or dated pitfall file — not in a skill, not in `references/`. Classify in the session, or lose the finding.
 - Do not write a rule into a canonical repository skill without the review gate, and do not assume the curator will consolidate the result — consolidation ships off and the curator never touches `skills.external_dirs`.
@@ -214,6 +227,7 @@ Never leave the version unchanged after editing.
 - New skill: the overlap search ran, and the outcome is one of the three declared forms — a delta in the owning skill, a `<source>-adaptation`, or an explicit `metadata.scope: standalone`.
 - Canonical write: the delta proposal (target, rule text, generality, dedupe evidence, retirement) was approved before the write.
 - Capture: the rule was searched against the target first, and no staging, batch, or diary file was created.
+- Data placement: volatile reference data went to a dated note with a refresh command; the skill carries procedure and a generic pointer only.
 - Route: a project-only finding landed in the project skill, not in a generic one.
 - Project route: the skill mirrors exactly one project folder by name, carries no note inventory, and any method it holds has not been promoted on its first occurrence.
 - Saved file re-read and consistent with intent.
