@@ -67,9 +67,13 @@ Hermes can discover skills from profile-local storage and configured `skills.ext
 
 Before writing:
 
-1. classify the skill as owned or third-party;
-2. determine the canonical repository from profile and repository rules;
-3. check for same-name shadows in higher-precedence locations.
+1. Classify the skill as owned or third-party.
+2. Read the target profile's live roots with `hermes -p <profile> config get skills.external_dirs` and `hermes -p <profile> config get skills.create_dir`; substitute the selected profile explicitly rather than relying on the shell's active profile.
+3. Check the proposed directory's existence and resolve its repository with `git -C <directory> rev-parse --show-toplevel`. Keep existence, Git ownership, and Hermes discovery as separate checks: none implies the other two.
+4. Search the confirmed roots for overlap and higher-precedence same-name shadows. If a file search returns unrelated directories instead of matching files, narrow it to a confirmed root or inspect a known candidate directly; do not repeat the unchanged query as evidence of absence.
+5. If configured roots and an older skill's path disagree, use verified live configuration to present the destination choices. Do not silently create a missing shelf, initialize a repository, or alter discovery configuration merely to satisfy the older path.
+
+For a skill shared across installations, verify discovery separately on each installation when accessible. Creation in one machine's external repository proves neither synchronization nor discovery on the other machine; report an unchecked consumer as unverified.
 
 For the full ownership and routing rules, load `skill-governance`.
 

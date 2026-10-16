@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.5.0"
+  version: "0.6.0"
   author: Olaf Geibig
   hermes:
     category: personal
@@ -59,6 +59,8 @@ Before writing:
 5. Decide whether the result targets portable Agent Skills, Hermes, Claude Code, or a documented combination.
 
 Do not infer ownership from a frontmatter category. Do not create a profile-local shadow of a canonical external skill.
+
+For an external target, verify three independent properties before writing: the directory exists, its Git root is the intended canonical repository, and the target profile actually discovers it. A familiar project shelf is not necessarily a repository or a configured skill source. Resolve conflicting paths from live configuration rather than copying a path from an older skill; use `references/hermes-skills.md` for the checks. If the destination remains a user decision, ask once with the verified alternatives and do not treat a timeout as approval.
 
 ### 2. Define the skill boundary
 
