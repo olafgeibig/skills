@@ -35,7 +35,7 @@ The canonical home can move between sessions. Do not patch from memory of where 
 
 ## Patch and verify
 
-- Apply all changes for one value in one pass (an atomic batch where possible) so the vault never rests half-propagated.
+- Apply all changes for one value in one controlled pass. Use atomic batching only when the active backend guarantees it; TurboVault's Direct backend is sequential and fail-fast, so use bounded passes with verification and a recovery plan when atomicity is unavailable.
 - Show the consolidated diff when the hits span multiple files or when any hit needs interpretation; obvious 1:1 substitutions can be patched directly, then reported per file.
 - Re-run the original searches afterwards: the old value must return zero hits except deliberate historical mentions.
 - Status changes have one extra check: no line may show the old status next to the new one, and a completed item must not remain in an open-items list — phantom rows like this are the classic propagation defect. Conversely, a genuinely unresolved state keeps its open marker; do not "fix" a truthful open status to done.

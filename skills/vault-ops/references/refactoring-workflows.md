@@ -1,6 +1,6 @@
 # Refactoring Workflows
 
-Staged, user-directed structural refactors — both workflows below change many files, so run them as explicit work with verification, never as a quick patch.
+User-directed structural refactors and note retirement. Scope the affected files before writing; run multi-file structural changes as explicit work with verification, never as a quick patch.
 
 ## Promote a Sub-MoC to a Top-Level Project
 
@@ -47,6 +47,17 @@ Use when a vault-local note type is renamed (e.g. `resource-collection` → `boo
 5. Read back one representative updated note and the governance doc.
 
 **Reporting:** old/new type note counts before and after; renamed or deleted template paths; remaining old-term hits with reason; whether the `vault-wiki` log was updated for wiki changes.
+
+## Retire an Obsolete Note
+
+Use when the user asks whether a note is obsolete and authorizes deletion if it is. This is conditional authorization for that note, not permission to redesign the surrounding documentation.
+
+1. **Resolve the target before mutation.** Read the candidate note and enclosing MoC. If “this note” could refer to multiple recent notes, ask for the intended path before deleting; do not choose an unrelated older note solely because its topic matches the proposed replacement.
+2. **Test complete supersession.** Separate the note's problem, proposed mechanism, and independent requirements. Check the replacement against current primary documentation. For tool-access notes, distinguish schema discovery/context cost from authorization and work isolation: on-demand schemas do not by themselves enforce read/write permissions. Preserve or update a note with surviving independent value instead of deleting it as wholly obsolete.
+3. **Inventory incoming references.** Use backlinks plus text search for the filename, wikilink target, and title; metadata and prose mentions may not appear in the backlink graph. Read actual referring passages before deciding which edits are necessary.
+4. **Keep the change bounded.** Remove or replace dead MoC/list links and directly invalidated recommendations. Do not turn a link cleanup into a rewrite of sibling architectures. If a related note needs substantive redesign, report it as separate work. When changing a recommendation, also check its configuration example and verdict for contradictions; do not claim a read-only boundary while leaving write tools in the example, or infer a security boundary from tool labels alone.
+5. **Apply the decision.** If the note is completely superseded and the user already authorized deletion on that condition, delete the exact resolved path using TurboVault's confirmation and hash guards. Otherwise report the surviving value and propose the narrower update.
+6. **Verify the result.** Read back the deleted path and expect absence; search for remaining references, and read back every edited referring note. A title search returning zero is not enough to establish that links were cleaned up. Report the deleted path, the reason for retirement, and any intentionally retained material.
 
 ## Load the Tool Skill Before Planning
 
