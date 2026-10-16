@@ -55,12 +55,10 @@ Secrets scanning:
   - gating behavior (fail build? quality gate?)
   - reporting/notification behavior (PR comment? Teams?)
 
-## Session example (DFT)
+## Illustrative path patterns (placeholders, not claims about a particular project)
 
-Concrete examples observed in DFT repos (file paths):
-- Trivy FS scan in portal PR checks: `repos/dft-portal/.github/workflows/pr-checks.yaml`
-- Trivy FS scan in reusable Java PR checks: `repos/dft-github-actions/.github/workflows/java-pr-checks.yaml`
-- Trivy config scan for deploy manifests: `repos/dft-deploy/.github/workflows/manifest-scan.yml`
-- Pluto deprecation scan for deploy manifests: `repos/dft-deploy/.github/workflows/manifest-scan.yml`
-- OWASP ZAP API scan: `repos/*/.github/workflows/owasp-dast-passive.yaml` + shared action in `repos/dft-github-actions/actions/owasp/api-scan/action.yaml`
-- OWASP ZAP authenticated full frontend scan: `repos/dft-portal/.github/workflows/owasp-zap-full-frontend.yml`
+- Application workflow: `repos/<application-repo>/.github/workflows/<pull-request-workflow>.yml`
+- Shared action: `repos/<automation-repo>/actions/<security-check>/action.yaml`
+- Deployment scan: `repos/<deployment-repo>/.github/workflows/<manifest-scan>.yml`
+
+Inspect the actual workflow and shared action before concluding which control is implemented.

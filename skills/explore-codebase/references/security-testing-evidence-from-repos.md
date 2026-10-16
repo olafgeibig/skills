@@ -1,4 +1,4 @@
-# Security testing evidence discovery in DFT repos (SAST/DAST/scanning)
+# Security testing evidence discovery in repositories (SAST/DAST/scanning)
 
 Purpose: A repeatable checklist to collect **hard evidence** from repos/ about what security testing and scanning is *actually implemented*.
 
@@ -62,11 +62,12 @@ For each workflow:
 - **Notification**:
 - **Artifacts/Reports**:
 
-## 5) Session examples (typical for DFT)
+## 5) Illustrative examples (Project A; placeholders only)
 
-Examples to look for in DFT-class repos:
-- SonarQube workflow files (SAST; quality gate waiting)
-- OWASP ZAP API scan using OpenAPI specs (scheduled; uses Keycloak client credentials)
-- OWASP ZAP full frontend scan (scheduled; authenticated scan plan; enforces blocking risk codes)
-- Registry/ECR-related workflows (mirror/publish) — note: presence of ECR workflows is not proof of vulnerability scanning
-- OSS/license scanning workflows (e.g. Fosslens) — note: this is not a container scan
+- An application repo may run static analysis and wait for a quality gate.
+- A scheduled workflow may scan an API using an OpenAPI definition.
+- A frontend scan may use an authenticated test plan and enforce blocking thresholds.
+- A registry publish workflow is not, by itself, evidence of vulnerability scanning.
+- An OSS/license scan is distinct from container-image scanning.
+
+These are example patterns, not claims about any repository. Confirm each control in the actual workflow, action, or configuration.

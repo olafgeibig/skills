@@ -18,7 +18,7 @@ When the user asks to review or fix `AGENTS.md`, treat it as an operational docu
 
 4) Evidence model language
 - Avoid overclaiming: `context/` is curated input, but not “hard evidence”.
-- Explicitly separate hard evidence (repos, Bosch KB) vs soft (DFT KB/wiki/analysis).
+- Explicitly separate hard evidence (source repositories and authoritative standards) from softer project context (knowledge-base pages, wikis, and derived analyses).
 
 5) Keep the doc easy to execute
 - Use consistent directory notation (`dir/`).

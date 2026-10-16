@@ -2,13 +2,13 @@
 name: explore-codebase
 description: "Use when exploring a codebase for evidence."
 metadata:
-  version: "0.1.1"
+  version: "0.3.2"
 ---
 
 ## When to use
 
 - Use this skill when exploring a repository under `./repos/` in a security analysis project.
-- Use `./REPOS.jsonl` to decide whether the repo is a software project (`is_software_project: true`).
+- Use the project's authoritative repo inventory, as identified by local `AGENTS.md` or a project skill, to determine repository paths and software-vs-infrastructure classification. Do not assume a filename or serialization format.
 
 ## Required / companion skills
 
@@ -21,7 +21,7 @@ When the repo is a software project, load these skills first:
 
 The `./repos/` directory containing the git repos to analyze is in .gitignore.
 
-./REPOS.jsonl contains a list of the repositories to be analyzed. The jsonl file shall be well formatted that it is human readable. The format of a list entry:
+The repository inventory is project-defined. Inspect local instructions and the file itself before parsing; inventory formats and metadata fields vary. Use it to identify repo paths and classifications, not to assume that every in-scope repository belongs in the CRG workset.
 ```
 {
   "repo_dir": "string. The exact directory name or path of the repository.",
@@ -144,12 +144,8 @@ Important Bosch-specific pattern observed in practice:
   - feature-specific UI/code that is directly evidenced
   - shared/general product functionality that merely coexists in the same app
   - missing backend evidence that still prevents end-to-end attribution
-- For onboarding/import analysis, do not infer a manual file-upload workflow from words like "onboarding" or from VIN fields alone. Prove it by finding concrete browser-side evidence such as `<input type="file">`, `FileReader`, CSV/XLSX parsing, upload handlers, or a dedicated import endpoint. If the frontend only triggers generic backend calls like `POST /vehicles`, describe that as backend-triggered onboarding, not user-side list upload.
-- Treat backend route names such as `/vehicles-onboarding`, `/mass-onboarding`, `/registered-vehicles`, or `/tesla/specs` as distinct ingestion mechanisms until proven otherwise. Do not collapse them into one story. For each candidate path, identify:
-  - required request fields
-  - which collections are written
-  - whether a fixed `fleetId` is injected server-side
-  - whether the path creates base vehicle records, enriches existing ones, or both
+- Do not infer user-supplied file upload from an operation label or identifier field. Prove browser-side file handling through file inputs, file readers/parsers, upload handlers, or a dedicated upload request. If the UI only sends structured API requests, describe the flow as backend-triggered ingestion.
+- Treat candidate ingestion endpoints as distinct until source evidence establishes their relationship. For each, identify required inputs, records written, tenant markers, and whether it creates or enriches records.
 - If a private backend service is visible only indirectly, reconstruct the public-to-private chain explicitly:
   - user-facing frontend/API endpoints
   - orchestration/backend endpoint names
@@ -157,25 +153,14 @@ Important Bosch-specific pattern observed in practice:
   - storage/download handoff such as presigned S3 URLs
   This keeps "download happens in the UI" separate from "file is actually served by object storage via backend-generated URL".
 - When a newly added repo is expected to be rich but CRG indexes only one or very few files, do not treat the graph as authoritative yet. Record the partial-index symptom, use direct file search/reads first, and only rely on CRG again after a fuller rebuild/verification.
-- For shared frontends/API landscapes, distinguish carefully between three evidence levels when the user asks whether a feature-specific interface "really exists":
-  - code capability exists (e.g. shared webapp contains certificate download UI and calls)
-  - backend/API capability exists (e.g. endpoints and orchestration routes exist)
-  - operational/project interface status is confirmed by stakeholders
-  Do not collapse these into one claim. If code shows a feature in a shared UI but stakeholder input says only API + a dedicated app are intended interfaces, report the code capability as real while explicitly marking operational relevance/scope as unconfirmed.
-- When the user decides to trust stakeholder clarification for scope/interface selection, update the architecture output to the narrowed relevant component set instead of preserving superseded shared-UI speculation. In practice for DFT CSL overview notes: remove de-scoped shared frontend discussion from the main architecture narrative and keep the overview centered on the currently accepted interfaces/components.
-- For Tesla or other external-data ingestion analysis, trace the full normalization chain rather than stopping at the outbound API call:
-
-  - separate identities/clients per tenant
-  - tenant-scoped authorization checks on retrieval routes
-  - storage isolation (bucket/prefix/service split)
-  - object lookup keys that include tenant context rather than only business identifiers
-  If the code only shows fleet- or company-based branching inside shared collections/services, describe that as logical tenant separation, not hard technical isolation.
-- For Tesla or other external-data ingestion analysis, trace the full normalization chain rather than stopping at the outbound API call:
-  - find the external client/token flow
-  - find the route that accepts the input identifiers (for example VIN lists)
-  - prove how returned fields are mapped into local collections/fields
-  - then prove which downstream API endpoints and certificate-generation paths read those same local fields
-  This is the defensible way to answer "how do identifiers reach the provider" and "how do provider data become certificate inputs".
+- For shared frontend/API landscapes, distinguish three evidence levels:
+  - capability evidenced in source code
+  - component or capability evidenced in deployment
+  - interface confirmed as approved or operationally in scope
+  Do not infer deployment or approved scope from source-code presence alone. Confirm project scope with authoritative project evidence or stakeholders, and keep unresolved alternatives explicit.
+- After stakeholders confirm a scope change, align the analysis with the accepted component set; keep superseded alternatives only as explicit open questions when they remain unresolved.
+- For external-data integrations, trace the complete evidence chain: client authentication, submitted identifiers, response-to-storage mapping, and downstream consumers. Verify each field transformation in code rather than inferring it from route or field names.
+- For tenant isolation, examine authorization checks, tenant markers, storage boundaries, and object lookup keys. Distinguish logical filtering from technical isolation; do not describe shared collections or company-based branching as hard isolation without evidence.
 - When a system mixes tenant/fleet metadata with ingestion routes, distinguish carefully between:
   - evidence that a fleet/company object exists and names a logical tenant
   - evidence that a given ingestion path writes records with a fixed fleet ID
@@ -297,14 +282,11 @@ Rule:
 
 This avoids false “not found” conclusions when ignore-handling changes.
 
-2) `REPOS.jsonl` format gotcha (DFT workspace)
+2) Inventory format must be verified
 
-In this workspace, `REPOS.jsonl` is **not strict JSONL** (one JSON object per line). It is a concatenation of pretty-printed JSON objects spanning multiple lines.
-
-Rule:
-- Do NOT parse it with `json.loads(line)` per line.
-- If you need to parse it programmatically, use a streaming JSON decoder to read consecutive objects.
-- Otherwise, treat it as a human navigation file and use `read_file` / `rg '"repo_dir"'` to locate entries.
+- Do not infer a file's serialization format from its name or extension.
+- Strict JSONL contains one complete JSON value per line; arrays and multi-line object streams require a matching parser.
+- Inspect the actual file and choose a parser that matches its structure; for uncertain or human-maintained inventories, read or search the text directly rather than forcing line-wise parsing.
 
 4) Git baseline selection pitfall (IMPORTANT)
 
@@ -357,11 +339,11 @@ Validate with:
 
 When inferring external interfaces from config:
 - Queue/topic names (e.g., containing a partner name) are **hints**, not proof of the external publisher.
-- Document as “inbound interface consumed by DFT” unless you have publisher-side evidence.
+Document an inbound queue as consumed by the application or service under analysis unless publisher-side evidence identifies its source.
 
 ### Steps
 
-1. Identify repo type using `./REPOS.jsonl`.
+1. Identify repo type using the authoritative project inventory and local instructions.
 
 2. **Hard-evidence workflow discovery (security testing / CI controls)**
 
@@ -390,9 +372,7 @@ Pitfall:
 4. Else: follow the “Non-software repo (file tools)” flow below.
 ### Steps
 
-1. Identify repo type using `./REPOS.jsonl`.
-   - Note: in this workspace, `REPOS.jsonl` is **not strict JSONL**. It is a concatenation of pretty-printed JSON objects spanning multiple lines. Treat it as human navigation unless you implement a streaming decoder (see references).
-   - Quick validation (optional): `python3 -c 'import json; [json.loads(l) for l in open("REPOS.jsonl") if l.strip()] ; print("ok")'`
+1. Identify repo type using the authoritative project inventory and local instructions.
 2. If `is_software_project: true`: follow the “Software repo (CRG)” flow below.
 3. Else: follow the “Non-software repo (file tools)” flow below.
 
@@ -437,14 +417,12 @@ Pitfall:
 
 - `references/security-testing-evidence-from-repos.md` — checklist/template to collect hard evidence of implemented SAST/DAST/scanning from repo artifacts (workflows/actions/config).
 - `references/repos-search-crosscheck.md` — why `search_files` may yield false negatives under `./repos/` and when to cross-check with `rg --no-ignore`.
-- `references/repos-jsonl-format-gotcha.md` — DFT workspace nuance: `REPOS.jsonl` is not strict JSONL; parsing guidance.
+- `references/repo-inventory-format-gotcha.md` — verify inventory serialization before parsing; do not assume strict JSONL.
 - `references/reflog-based-change-sets.md` — reconstruct multi-repo change sets after batch `git pull` (use reflog-based baselines; avoid `--since` traps).
-- `references/dft-interfaces-and-dataflows-doc-workflow.md` — DFT-specific doc workflow notes (interfaces, dataflows, SFTP/SQS, api-viewer, ingress evidence).
-- `references/dft-interface-docs-consistency-checklist.md` — checklist to keep interface docs consistent with architecture/diagrams.
+- Project-specific interface, dataflow, and document-impact procedures belong in the matching project skill or local project guidance.
 - `references/reviewing-and-patching-agents-md.md` — checklist/workflow for keeping `AGENTS.md` consistent with the actual repo layout and toolchain.
 - `references/reviewing-agents-md-during-layout-changes.md` — session notes: directory drift, `read_file` dedupe bypass, and skill-name gotchas.
-- `references/dft-repo-diff-to-doc-changelog.md` — how to turn a multi-repo diff report into an evidence-led, doc-impact changelog (agent-facing).
-- `references/dft-repo-diff-to-doc-changelog-2026-06-session.md` — session note: practical checklist + verification pattern to avoid misplaced outputs.
+
 
 (Updated 2026-06: includes a verification step to ensure the file is written under the correct workspace `repo-util/` path before reporting success.)
 
@@ -453,6 +431,7 @@ Pitfall:
 - Use `find_large_functions` to identify complex code.
 
 ## Token Efficiency Rules
-- For CRG: ALWAYS start with `get_minimal_context(task="<your task>")` before any other graph tool.
+- For CRG exploration and analysis, start with `get_minimal_context(task="<your task>")` before graph-query or overview tools.
+- For routine index maintenance, follow `references/crg-multirepo-update-and-verify.md`: inspect stats, update incrementally when the indexed SHA differs, and verify against the snapshot commit. Do not run broad graph exploration solely to rebuild an index.
 - Only pass `detail_level="minimal"` to tools that accept it (e.g. `list_communities`, `list_flows`, `query_graph`, `get_impact_radius`). Do NOT pass `detail_level` to `get_minimal_context`.
 - Target: complete any review/debug/refactor task in ≤5 tool calls and ≤800 total output tokens.

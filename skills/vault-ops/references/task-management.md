@@ -186,6 +186,16 @@ mcp_turbovault_search(query="<task-topic>")
 mcp_turbovault_advanced_search(query="2026-05", exclude_paths=["wiki/"])
 ```
 
+### Capture Deferred Work
+
+When the user asks for a note to park a change rather than implement it:
+
+1. Read the destination project's MoC and relevant existing note; reuse an existing contextual note when it already owns the subject.
+2. Create or update the requested note in the project's documentation language. Record enough context to resume: the current approach, the proposed change, and the decisions still open. Label proposals as proposals rather than silently adopting them as policy.
+3. Add one actionable open task in that note. Leave due dates, priorities, and schedules unset unless supplied by the user; parking work is not authorization to implement it or schedule automation.
+4. Link the note from its MoC. If a project task overview is requested, reuse or add a `tasks` query with `not done`, `path includes projects/<dir>/`, and `group by filename`; use the trailing slash to avoid matching sibling project names. Do not copy the task line into the MoC.
+5. Read back each changed note and MoC, and verify the new navigation link resolves. Report the saved location and that the underlying change remains open; distinguish verified Markdown/query text from plugin rendering, which a note read cannot prove.
+
 ### Create a Task
 
 Append to the end of the relevant note using `mcp_turbovault_write_note` with `mode="append"`:
@@ -200,7 +210,7 @@ mcp_turbovault_write_note(
 
 Where exactly the task goes depends on context — there is no required section. The task belongs in the note it is thematically related to.
 
-**CRITICAL RULE — Do NOT append tasks to MoCs:** Never append tasks to a Map of Content (MoC) or project-level MoC as a general collection. Tasks must be written inline directly next to the specific content inside the note they belong to, maintaining the rich context of the work. Exception: bookmark files — explicit request only; home is the file-end `## Tasks` section (see `bookmarks-writing.md`).
+**CRITICAL RULE — Do NOT append tasks to MoCs:** Never append task checkbox lines to a Map of Content (MoC) or project-level MoC as a general collection. A query-only task overview is allowed because it aggregates the original tasks without creating a second source of truth. Tasks must be written inline directly next to the specific content inside the note they belong to, maintaining the rich context of the work. Exception: bookmark files — explicit request only; home is the file-end `## Tasks` section (see `bookmarks-writing.md`).
 
 ### Complete a Task
 

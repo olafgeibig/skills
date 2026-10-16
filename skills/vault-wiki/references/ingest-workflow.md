@@ -102,7 +102,7 @@ When ingesting multiple sources at once, batch the updates:
 6. Cross-wiki search if topics might exist in other wikis
 7. Create/update pages in one pass per wiki (avoids redundant updates)
 
-   For atomic batch execution, use `mcp_turbovault_batch_execute`:
+   For grouped writes, first check the active backend and transaction guarantees in `turbovault-use`. The Direct backend runs sequentially and fail-fast; earlier successful operations are not rolled back. Use bounded passes and verify after each when atomicity is unavailable. Only call a batch atomic when the selected backend guarantees all-or-nothing. Use `mcp_turbovault_batch_execute` for grouped operations where partial completion is recoverable:
    ```
    mcp_turbovault_batch_execute(operations=[
      {type: "WriteNote", path: "wiki/<target>/entities/foo.md", content: "..."},
@@ -111,7 +111,7 @@ When ingesting multiple sources at once, batch the updates:
      {type: "WriteNote", path: "wiki/<target>/log.md", content: "..."},
    ])
    ```
-   This ensures all operations succeed or fail atomically.
+   This example is not inherently atomic. On the Direct backend, a later failure can leave earlier operations applied.
 
 8. Update each wiki's `<name>-wiki.md` once at the end
 9. Write a single log entry per wiki covering the batch
