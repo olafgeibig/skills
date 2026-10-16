@@ -1,4 +1,4 @@
-# Reflog-based change-set reconstruction (DFT multi-repo)
+# Reflog-based change-set reconstruction
 
 Use this when you ran a batch `git pull` over many repos and need a defensible “what changed” baseline.
 

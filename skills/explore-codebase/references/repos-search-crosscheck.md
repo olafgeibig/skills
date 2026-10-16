@@ -1,18 +1,13 @@
-# repos/ search cross-check: search_files vs rg --no-ignore
+# Cross-check searches in gitignored repositories
 
-Context: In this DFT CSL workspace, `./repos/` is gitignored. Hermes `search_files` may or may not respect ignore rules consistently across versions/config.
+Some projects place `repos/` under ignore rules. Search tools may handle ignored content differently, so a zero or unexpectedly small result set is not proof that a pattern is absent.
 
 Durable rule:
-- You can start with `search_files` for convenience.
-- If `search_files` returns 0 results (or fewer than expected) for a query under `./repos`, **do not treat that as evidence of absence**.
-- Cross-check with ripgrep:
+- Start with `search_files` for convenience.
+- If results are empty or narrower than expected, cross-check with ripgrep:
 
-  rg --no-ignore -n "<pattern>" repos/<repo_dir>/
+  `rg --no-ignore -n "<pattern>" repos/<repo>/`
 
-Example sanity check:
-- Query: cps-dft-sqs-toyota
-- `search_files` may return only a subset.
-- `rg --no-ignore` provides a reliable ground truth search for gitignored paths.
+Example (placeholders only): for `repos/<application-repo>/`, compare `search_files` with `rg --no-ignore` for `<example-pattern>`.
 
-Why:
-- Avoids writing documentation based on false negative searches.
+Use the actual repository path and query; do not infer absence from one search tool.

@@ -1,4 +1,4 @@
-# repo-diff-vs-clone (DFT) — reconstruct change set after batch git pull
+# Recover a repository change set from its clone baseline
 
 ## Why
 
@@ -9,20 +9,12 @@ When you forgot to record pre-pull SHAs, or when `git log --since=<date>` is mis
 
 This yields a stable “what changed since original clone point” view.
 
-## Helper script (in this workspace)
+## Optional helper pattern
 
-Path:
-- `bin/repo-diff-vs-clone.sh`
-
-Output:
-- `analysis/git-diff-vs-clone-report.txt`
-
-Usage:
-- `bin/repo-diff-vs-clone.sh`
-- `bin/repo-diff-vs-clone.sh --repos-dir ./repos --out analysis/git-diff-vs-clone-report.txt`
+If Project A provides a helper, pass the repository directory and output path explicitly (for example, `--repos-dir <repos-dir> --out <report-path>`). Do not assume a helper script exists in every project; the reusable method is the reflog baseline and commit-range comparison.
 
 ## Notes / pitfalls
 
 - Requires reflog retention; if the clone entry is missing, baseline cannot be reconstructed.
-- The report truncates `git diff --name-status` per repo to keep the file readable.
+- If a generated report caps long path lists, mark that as truncation and preserve a way to retrieve the full commit-range diff.
 - For “what did the last pull change”, prefer `git diff HEAD@{1}..HEAD` when reflog includes the pull entry.
