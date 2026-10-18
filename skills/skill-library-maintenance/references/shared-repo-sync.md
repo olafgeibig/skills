@@ -23,14 +23,14 @@ are also recorded as `actor: curator`.
 
 | Piece | Rule |
 |---|---|
-| `main` | the only long-lived branch; no per-installation branches |
+| `main` | the only long-lived automation branch; every write operation requires `main` tracking `origin/main` |
 | Publish trigger | `on_skill_lifecycle` shell hook → seconds after a successful skill mutation |
 | Refresh trigger | `on_session_start` shell hook (`--pull-only`) + the hourly safety cron |
-| What gets committed | **only paths named by the mutation ledger**; hand-written work in progress is never swept in |
-| Commit granularity | one commit per review run (writes grouped by ≤120 s gap) so `git revert <sha>` is surgical |
-| Commit message | names the skills whose files actually changed, plus `Review-Run: <timestamp>` |
-| Conflict | `git rebase --abort`, a note in `.git/hermes-skill-sync-conflict.json`, report — **never** resolve by choosing a side |
-| Gate before commit | instance pointers, dangling references, duplicate rules — flagged files are held back, never committed |
+| What gets committed | only ledger paths whose before/after SHA-256 chain matches the `HEAD` blob and worktree; staged or unrelated changes stop the run |
+| Commit granularity | one commit per review run when each path has one pending run; multiple pending runs touching the same file are held because the ledger has no intermediate content snapshots |
+| Commit message | names the skills whose files actually changed, plus `Review-Run: <timestamp>` and `Ledger-Entries: <ids>` for retry/recovery |
+| Conflict | fetch, rebase onto `origin/main`, abort an actual conflicted rebase, write a marker — never resolve by choosing a side; ordinary fetch/push errors are not conflicts |
+| Gate before commit | instance pointers, dangling references, duplicate rules, and exact ledger hash validation; a blocked run stays pending |
 | Long sessions | the skill *index* is a start-of-session snapshot (prompt-cache invariant); skill *bodies* load from disk, so `/skill-name` always yields current content. Never pull mid-session to "fix" an index |
 
 ## Platforms
@@ -62,8 +62,8 @@ Written for Linux and macOS alike — an installation may be either, and the two
 | `<hermes home>/bin/skill-repo-sync` | stable wrapper the hooks call (a shell script that execs the engine) |
 | `<hermes home>/skill-repo-sync.json` | state: repos, wrapper, engine path, ledger cursor, versions |
 | `<hermes home>/skills/.curator_ledger.jsonl` | mutation ledger (written by Hermes, read here) |
-| `<repo>/.git/hermes-skill-sync-report.json` | gate findings of the last blocked run |
-| `<repo>/.git/hermes-skill-sync-conflict.json` | marker of an aborted rebase |
+| `<repo git-dir>/hermes-skill-sync-report.json` | gate/hash findings of the last blocked run |
+| `<repo git-dir>/hermes-skill-sync-conflict.json` | marker of an aborted conflicted rebase |
 
 The wrapper path must stay constant: the hook consent pair is `(event, command)`, so changing the
 command needs fresh consent. Update the engine in the repository — never the wrapper.
@@ -73,10 +73,11 @@ command needs fresh consent. Update the engine in the repository — never the w
 ```bash
 python3 scripts/skill-repo-sync.py --version      # engine version
 python3 scripts/skill-repo-sync.py --selfcheck    # install state, repos, wrapper, ledger cursor
-python3 scripts/skill-repo-sync.py --safety       # default: commit ledger paths, pull --rebase, push
-python3 scripts/skill-repo-sync.py --pull-only    # session-start refresh (fast-forward only)
+python3 scripts/skill-repo-sync.py --safety       # default: verify ledger hashes, commit, fetch origin, rebase if needed, push
+python3 scripts/skill-repo-sync.py --pull-only    # session-start refresh (main/origin/main, fast-forward only)
 python3 scripts/skill-repo-sync.py --audit        # report only: review commits since the last audit + defect scan
-python3 scripts/skill-repo-sync.py --dry-run --verbose
+python3 scripts/skill-repo-sync.py --selfcheck --verbose
+python3 scripts/skill-repo-sync.py --dry-run --verbose  # no state, index, commit, report, or remote writes
 ```
 
 Exit codes: `0` ok/no-op · `10` gate findings (flagged files held back) · `11` rebase conflict
@@ -84,18 +85,24 @@ Exit codes: `0` ok/no-op · `10` gate findings (flagged files held back) · `11`
 
 ## Install (once per machine)
 
+Treat installation as a separate approval from fetching, merging, or reviewing the repository.
+First pass the disposable-repository acceptance checks in `repository-sync-safety.md` against
+this revision. Inspect installer configuration writes before running it; do not enable global
+hook auto-accept merely to approve this publisher. Resolve historical-ledger bootstrap explicitly
+so first activation cannot publish old or mixed manual edits by surprise.
+
 ```bash
 cd <repo>/skills/skill-library-maintenance/scripts
-python3 install-skill-repo-sync.py --apply-config          # wrapper + state + config entries
-hermes hooks list                                          # both entries, consent status
-hermes hooks doctor                                        # exec bit, allowlist, stdout cleanliness
+python3 install-skill-repo-sync.py --bootstrap-current-ledger --apply-config
+hermes hooks list
+hermes hooks doctor
 python3 skill-repo-sync.py --selfcheck --verbose
+python3 -m pytest ../tests -q
 ```
 
-`--apply-config` writes `hooks_auto_accept: true` plus the two hook entries through
-`hermes config set` (idempotent; it skips an entry that already names the wrapper). Additional
-shared repos: repeat `--repo /path/to/other/repo` — the installer skips any repo without a remote,
-because a repo nobody pushes to can never conflict.
+For a fresh install, `--bootstrap-current-ledger` explicitly places the cursor at the current ledger end; it skips historical entries rather than publishing them. Review any old uncommitted work separately. On an existing install, omit this flag so the saved cursor is preserved. The installer refuses repositories not on `main` tracking `origin/main`.
+
+`--apply-config` writes only the two hook entries through `hermes config set`; it never changes `hooks_auto_accept`. Approve the exact `(event, command)` pairs through Hermes' normal consent flow. For headless setup, use a verified exact-pair allowlist; do not enable global auto-accept. Additional shared repos: repeat `--repo /path/to/other/repo` — each must be on `main` tracking `origin/main` and have a remote.
 
 The installer rewrites the wrapper only when its content actually changes: the hook consent records
 the script's mtime, so a needless rewrite would show up in `hermes hooks doctor` as "script modified
@@ -127,16 +134,21 @@ interpreter with `--python`).
       marker file `<repo>/.git/hermes-skill-sync-audit` with the current HEAD."
    ```
 
-## When it stops: resolving a conflict
+## Integrating remote lessons and resolving conflicts
 
-A conflict means two installations changed the same region of the same file. The procedure:
+Use this sequence for an explicit manual integration; keep automated conflict handling abort-only.
+A temporary existing work branch is not a reason to create a permanent per-installation branch.
 
-1. `git fetch` and read both sides: `git log --oneline HEAD..origin/main` and the conflicting hunks.
-2. Merge so **both lessons land** — one home per rule, order by what the rule governs. Never
-   `-X ours`/`-X theirs`, never a force-push: that deletes the other installation's lesson silently.
-3. Verify: `python3 scripts/audit-skill-declarations.py --strict`, the `skills-ref` validator for
-   every touched skill, the fork's tests where one exists, and a re-read of the merged file.
-4. Commit, push, delete the marker file, and re-run `--selfcheck`.
+1. Inspect `git status --short --branch`, staged and unstaged diffs, upstream, and local identity. Commit authorized local work in coherent, explicitly staged groups before merging; do not sweep unrelated edits into a checkpoint.
+2. `git fetch origin`; inspect `git log --oneline HEAD..origin/main` and the incoming diff. Merge `origin/main` into the existing work branch when preserving local commits is intended; fetching alone does not integrate remote lessons.
+3. Resolve each conflict so both valid lessons land, with one home per rule. Never use `-X ours`/`-X theirs` or a force-push. Compare both package versions and choose a SemVer increment beyond both when the result combines their changes.
+4. Stage resolved paths explicitly. Require an empty `git diff --name-only --diff-filter=U` and a clean `git diff --cached --check`. Enumerate changed packages from `git diff --cached --name-only`; validate every affected package and run its bundled tests. Separate compatibility findings from merge regressions.
+5. Complete the merge with `git commit --no-edit`. Verify `git status --short --branch`, `git rev-list --parents -n 1 HEAD`, and `git merge-base --is-ancestor origin/main HEAD`. Reload changed skills to confirm runtime resolution.
+6. Push only when authorized; verify the exact remote branch SHA afterward. Report local integration, remote publication, and automation activation as separate outcomes.
+
+### Recovering a publisher conflict
+
+The engine aborts a conflicted rebase and leaves its local review commit plus a conflict marker. Manually fetch and inspect both sides; merge both lessons, validate the affected skills, and commit the resolution. Then rerun `skill-repo-sync.py --safety`: it recognizes the committed ledger-entry IDs, skips replaying the review content, fetches `origin`, and pushes the resolved merge. A successful push clears the conflict marker and allows the ledger cursor to advance. Verify the marker is gone, the remote SHA matches local `HEAD`, and `--selfcheck` passes. Do not remove the marker or force-push to conceal an unresolved conflict.
 
 Optional softening for the meta-skills only (`skill-governance`, `skill-builder`,
 `skill-library-maintenance`): `.gitattributes` with `merge=union` makes purely additive list

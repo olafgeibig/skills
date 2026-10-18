@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or dissolving a skill library."
 license: MIT
 metadata:
-  version: "0.11.0"
+  version: "0.13.1"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -91,7 +91,7 @@ Exit code 1 on a collision; with `--strict`, also 1 when an agent-created skill 
 5. Select the smallest coherent migration or refactor.
 6. Update the main skill, references, templates, and scripts together.
 7. Bump each changed package version.
-8. Validate affected packages and rerun the library audit.
+8. Validate affected packages and rerun the library audit against the final edited tree; rerun affected checks after subsequent edits so earlier results do not certify a different artifact. Report schema validation, library audit, runtime loading, and behavioral tests separately: none substitutes for another. Expand wildcard support-file references before calling them dangling; inspect client-specific metadata compatibility before changing a package merely to satisfy a generic validator.
 9. Verify resolved source paths and duplicate names in the target runtime.
 10. Stage only intended paths; commit and push only when authorized.
 11. Re-verify content claims — including verification tables — against their sources on user signal or at least once per quarter; structural audits alone do not catch stale or false content.
@@ -141,6 +141,7 @@ Use `references/repository-sync-safety.md` for the isolation recipe and behavior
 
 - `.archive/` is excluded from discovery (`_SCAN_SKIP_PARTS` in `agent/skill_commands.py`), so `skills_list` and `skill_view` never see it and `hermes curator status` does not count those skills.
 - `hermes curator list-archived` is the inventory; `hermes curator restore <name>` is the only way back — CLI-only, ledgered as actor `user`. No pass, job, or `skill_manage` action restores anything.
+- Verify a requested archive by matching the complete package's before/after file hashes, checking that the active source is gone, confirming the name in `hermes curator list-archived`, and reading `hermes curator ledger --skill <name> --limit 5`. Expect `skill_view` to fail; do not require an archived row in `hermes curator usage --json`, because that report can omit archived packages.
 - `restore` refuses a hub-installed name, and a bundled name unless `curator.prune_builtins: true`; a restored bundled skill cannot be pinned, so it is archived again once idle past `archive_after_days` — it survives only while it keeps being used.
 - A record that still reads `state: active` while the directory lives only under `.archive/` is cosmetic: report rows are guarded on a locally resolvable directory, so such a record never re-enters the state machine.
 - Prefer `restore` over re-creation — the archive copy is the complete artifact, a new skill is a thinner duplicate with a new provenance.
@@ -150,16 +151,13 @@ Use `references/repository-sync-safety.md` for the isolation recipe and behavior
 A skill repository mounted on more than one installation needs a publisher, or review writes sit
 uncommitted until they collide with the other machine.
 
-- The background review writes into shared repos too (the curator walk does not) — an unexpected
-  change to `skill-governance`, `skill-builder`, or this skill is the review, and the
-  `<HERMES_HOME>/skills/.curator_ledger.jsonl` entry names the path. The ledger's `actor` field is
-  unreliable for attribution: review writes are recorded as `curator`.
-- `scripts/skill-repo-sync.py` (installed by `scripts/install-skill-repo-sync.py`) commits exactly
-  the ledger-named paths on `on_skill_lifecycle`, pulls at `on_session_start`, and pushes — one
-  commit per review run, gate-checked, conflict-aborting, never resolving by choosing a side.
-- Never build per-installation long-lived branches for this: a conflict is a file property, not a
-  frequency property, and long branches only enlarge the merge.
-- Procedure, cron jobs, verification and conflict handling: `references/shared-repo-sync.md`.
+- The background review can write into shared repos too. Correlate unexpected changes with
+  paths, timestamps, and mutation details in `<HERMES_HOME>/skills/.curator_ledger.jsonl`;
+  neither the changed skill's name nor `actor: curator` alone establishes review provenance.
+- `scripts/skill-repo-sync.py` publishes only a file whose ledger before/after SHA-256 chain matches `HEAD` and the current worktree; it refuses staged or unrelated changes and only operates on `main` tracking `origin/main`.
+- A new install requires the explicit `--bootstrap-current-ledger` choice, which skips historical entries. Gate findings and Git failures leave the ledger cursor pending and return a visible nonzero status; global `hooks_auto_accept` is not changed.
+- Multiple pending review runs touching the same file are held for manual reconciliation because the ledger records hashes, not intermediate file contents.
+- Procedure, retry/bootstrap semantics, cron jobs, verification and conflict recovery: `references/shared-repo-sync.md`.
 
 ## Protect Existing Work
 
@@ -202,7 +200,7 @@ A migration-source skill is a profile-local package whose rules were accumulated
 1. Freeze the source (hash + heading anchors) and re-verify before every batch: a live source keeps moving under other sessions.
 2. Search before carrying — an `already-in-target` row costs 0 lines; budgets stop target sprawl; a rule that contradicts a canonical convention is fixed in the target with the divergence recorded, never carried silently.
 3. Batch by target skill; for non-git targets a byte-level backup diff is the review baseline; implementer → task review → integration review → validate → bump → commit.
-4. Archive only when every row is closed: re-check the hash, `hermes curator backup`, `hermes curator archive`, verify hash + `state: archived` + empty root, re-run the declaration audit and the dangling-reference search (names, retired numbers, deleted support files).
+4. Archive only when every row is closed: re-check the hash, `hermes curator backup`, `hermes curator archive`, verify complete-package hashes + archive inventory + absent active source as described under Archived Skills, then re-run the declaration audit and the dangling-reference search (names, retired numbers, deleted support files).
 
 See `./references/dissolving-source-skills.md` for the full procedure.
 

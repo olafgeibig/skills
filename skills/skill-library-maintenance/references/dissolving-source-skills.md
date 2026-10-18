@@ -52,6 +52,6 @@ Other skills often cite the source by pitfall number or section title, not by na
 
 - Every row closed — nothing left `open`.
 - Re-verify the source hash; take `hermes curator backup --reason "<context>"`.
-- `hermes curator archive <name>`; verify the archived copy: hash unchanged, `.usage.json` reads `state: archived`, the source directory is gone from its root.
+- `hermes curator archive <name>`; verify every archived file against the pre-archive hash manifest, confirm the source directory is gone, and check the name in `hermes curator list-archived` plus the archive entry in `hermes curator ledger --skill <name> --limit 5`. Confirm `skill_view` no longer resolves the active skill. Do not require a row in `hermes curator usage --json`: archived packages can be omitted from that report.
 - Re-run the declaration audit — the source's gap/overlap must disappear — and re-grep the roots for the retired name (excluding `.usage.json`, the ledger, and the archive itself): zero dangling references.
 - Close the ledger: mark rows, add a version entry, list deferred items for the user.

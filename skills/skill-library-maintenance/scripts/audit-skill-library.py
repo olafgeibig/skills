@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import re
 from pathlib import Path
@@ -11,7 +12,7 @@ from typing import TypedDict
 
 SKIPPED_DIRECTORIES = {".git", ".venv", "node_modules"}
 REFERENCE_PATTERN = re.compile(
-    r"(?<![A-Za-z0-9_/-])(?:\./)?(?:references|scripts|assets|templates)/[A-Za-z0-9_./-]+"
+    r"(?<![A-Za-z0-9_/-])(?:\./)?(?:references|scripts|assets|templates)/[A-Za-z0-9_.*?\[\]/-]+"
 )
 
 
@@ -69,6 +70,12 @@ def referenced_files(content: str) -> list[str]:
     )
 
 
+def reference_exists(skill_dir: Path, target: str) -> bool:
+    if glob.has_magic(target):
+        return any(skill_dir.glob(target))
+    return (skill_dir / target).exists()
+
+
 def inspect_skill(root: Path, path: Path) -> SkillResult:
     content = path.read_text(encoding="utf-8")
     match = re.match(r"^---\n([\s\S]*?)\n---\n?", content)
@@ -80,7 +87,7 @@ def inspect_skill(root: Path, path: Path) -> SkillResult:
     missing_references = [
         target
         for target in referenced_files(content)
-        if not (path.parent / target).exists()
+        if not reference_exists(path.parent, target)
     ]
     errors: list[str] = []
     warnings: list[str] = []

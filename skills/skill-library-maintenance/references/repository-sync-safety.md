@@ -33,17 +33,24 @@ A minimal cursor probe needs only one committed file, one appended change, one l
 
 | Case | Required result |
 |---|---|
-| Dry-run with a pending entry | Reports intended actions without changing cursor, config, index, HEAD, or remote refs. |
-| Validation or safety gate blocks an entry | Leaves the entry retryable, either by retaining its cursor position or recording it in a durable pending queue. |
-| Earlier blocked entry followed by a valid entry | Does not lose the blocked entry when acknowledging later work. |
-| Manual and ledgered edits share a file | Stops for review or isolates approved changes; staging a whole path must not silently publish manual hunks. |
-| Unrelated staged file exists | Refuses or isolates it; an ordinary commit can include pre-existing staged content outside the publisher's selected paths. |
-| Unexpected branch or upstream | Stops before committing or pushing; enforces the configured policy rather than relying on prose. |
-| Commit succeeds, push fails | Preserves retry information and reports publication as incomplete. |
-| Pull fails in quiet or hook mode | Leaves an observable failure status or durable diagnostic; quiet output must not erase failure evidence. |
-| No prior sync cursor exists | Makes backlog handling explicit before processing historical entries; old path membership does not authorize today's dirty content. |
+| Dry-run with a pending entry | Reports intended actions without changing cursor, config, index, report files, HEAD, fetch state, or remote refs. |
+| Missing sync state | Installer refuses unless the operator explicitly chooses `--bootstrap-current-ledger`; that baseline skips all historical entries. |
+| Ledgered file change | Before/after SHA-256 chain matches the current `HEAD` blob, every intervening ledger entry, and the current worktree. |
+| Validation or safety gate blocks an entry | Leaves the cursor unchanged, writes a diagnostic report only outside dry-run, and returns a visible failure. |
+| Corrected blocked entry | Re-run proves the original entry remains pending and the corrected ledger chain can publish. |
+| Multiple pending runs touch one file | Fails closed; hashes cannot reconstruct the intermediate file snapshots needed for one commit per run. |
+| Manual and ledgered edits share a file | Refuses the file when the worktree hash differs from the ledger's final after-hash. |
+| Unrelated staged file exists | Refuses before staging or committing any path. |
+| Unexpected branch or upstream | Stops before committing, fetching, rebasing, or pushing; requires `main` tracking `origin/main`. |
+| Commit succeeds, push fails | Preserves the local commit and cursor for retry; reports incomplete publication. |
+| Real rebase conflict | Aborts the rebase, keeps the local review commit, and writes a conflict marker; no side is selected automatically. |
+| Conflict recovery | Manual merge retains both lessons; a subsequent safety run recognizes `Ledger-Entries`, pushes the resolution, then clears the marker and advances the cursor. |
+| Fetch/pull/push failure in hook mode | Returns nonzero and emits stderr diagnostics; network/auth failures do not create conflict markers. |
+| No prior sync cursor exists | Historical path membership never authorizes today's dirty content; bootstrap is an explicit skip-history choice. |
 
-Repeat a blocked case after correcting the fixture to verify actual retry, not just preservation of an integer cursor.
+Repeat a blocked case after correcting the fixture to verify actual retry, not just preservation of an integer cursor. For push failure and conflict recovery, assert that the retry creates no duplicate review commit, the remote reaches the resolved local HEAD, and the cursor advances only after publication succeeds.
+
+Preserve successful disposable-repository probes as bundled regression tests rather than leaving them as scratch commands; retry and cursor defects require a repeatable sequence of runs. Run `python3 -m pytest skills/skill-library-maintenance/tests -q` from the repository root after the final engine or installer edit. Treat the passing suite as behavioral evidence only; run the package validator and library audit separately before declaring the skill change complete.
 
 ## 4. Consent and unattended operation
 
