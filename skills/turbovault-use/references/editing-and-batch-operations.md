@@ -75,7 +75,9 @@ Build every operation explicitly. Do not rely on provider defaults for path, mod
 
 `batch_execute` accepts only `CreateNote | CreateFile | WriteNote | WriteFile | DeleteNote | DeleteFile | MoveNote | MoveFile | UpdateLinks` — it does not accept `UpdateFrontmatter`. Run a frontmatter update (e.g. a SHA stamp) as a separate `update_frontmatter` call instead, in parallel with the batch when it touches a different file. `WriteNote` is a full overwrite, not an append: read append-only files (index, log) first and batch their merged content; `CreateNote` behaves the same way.
 
-A large single-note rebuild (callout + new section + source list + MoC entry) belongs in ONE `edit_note` call with multiple SEARCH/REPLACE blocks; this keeps the change within one note and is faster than sequential calls. Check the response counts afterwards.
+A large single-note rebuild (callout + new section + source list + MoC entry) belongs in ONE `edit_note` call with multiple SEARCH/REPLACE blocks: a multi-block call is fail-fast and **all-or-nothing** on a match failure — the error names only the first failing block and nothing is applied, so interdependent changes never land half-done. Check the response counts afterwards.
+
+Independent section refreshes (one data note updated in several separate places) flip the trade-off: issue one block per `edit_note` call, chaining `expected_hash` from each response's `new_hash`, so every landed block survives a later failure and one stale SEARCH text costs only its own section. On `Could not find search text (tried 4 strategies)` the SEARCH text no longer matches the file byte-for-byte (drafted from an earlier read, or paraphrased) — rebuild it from a fresh `read_note` output instead of iterating on the draft; splitting into per-call blocks also reveals which block mismatched, since the multi-block error names only the first failure.
 
 ## Verification
 
