@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or dissolving a skill library."
 license: MIT
 metadata:
-  version: "0.13.1"
+  version: "0.14.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -159,6 +159,16 @@ uncommitted until they collide with the other machine.
 - Multiple pending review runs touching the same file are held for manual reconciliation because the ledger records hashes, not intermediate file contents.
 - Procedure, retry/bootstrap semantics, cron jobs, verification and conflict recovery: `references/shared-repo-sync.md`.
 
+## Background Review During Library Work
+
+The background review (`auxiliary.background_review`, on by default) runs after every turn with the instruction to update the skill library, and it writes into the same files — shared repositories included. During larger work it turns each edit into a two-writer race: files change mid-pass, versions bump on their own, routing rows appear, and both sides' additions duplicate in the same region.
+
+- **Before a larger pass — refactoring or splitting a skill, dissolving an adaptation into its canonical owner — disable it and tell the user:** `hermes config set auxiliary.background_review.enabled false`. Say why, so the missing review updates later are not a surprise.
+- **After verifying and committing, turn it back on:** `hermes config set auxiliary.background_review.enabled true`. Leaving it off silently stops the review-driven updates the library otherwise receives.
+- Small, single-file edits do not need the toggle; re-read the file immediately before patching instead.
+- If a pass ran with the review on, check `<HERMES_HOME>/skills/.curator_ledger.jsonl` for `actor: curator` entries whose `evidence.session_id` matches the session before treating a change as your own.
+- A missed toggle is diagnosable afterwards: multiple review runs touching one file are held by the publisher (`ledger-integrity … intermediate snapshots are unavailable`), and pull/push stays blocked until worktree and ledger chain agree again.
+
 ## Protect Existing Work
 
 - Inspect uncommitted changes before writing.
@@ -179,7 +189,7 @@ Use the thresholds from `skill-builder/references/skill-quality-gates.md`:
 - 351–500: require an explicit reason;
 - over 500: split unless a documented exception applies.
 
-Do not split by line count alone. Keep activation-critical decisions in `SKILL.md`; move conditional procedures, client-specific behavior, long examples, and troubleshooting into focused references.
+Do not split by line count alone. Keep activation-critical decisions in `SKILL.md`; move conditional procedures, client-specific behavior, long examples, and troubleshooting into focused references. Disable the background review for the pass — see §Background Review During Library Work.
 
 ## Domain Extraction
 
@@ -201,6 +211,8 @@ A migration-source skill is a profile-local package whose rules were accumulated
 2. Search before carrying — an `already-in-target` row costs 0 lines; budgets stop target sprawl; a rule that contradicts a canonical convention is fixed in the target with the divergence recorded, never carried silently.
 3. Batch by target skill; for non-git targets a byte-level backup diff is the review baseline; implementer → task review → integration review → validate → bump → commit.
 4. Archive only when every row is closed: re-check the hash, `hermes curator backup`, `hermes curator archive`, verify complete-package hashes + archive inventory + absent active source as described under Archived Skills, then re-run the declaration audit and the dangling-reference search (names, retired numbers, deleted support files).
+
+Disable the background review for the pass before the first batch — see §Background Review During Library Work.
 
 See `./references/dissolving-source-skills.md` for the full procedure.
 
