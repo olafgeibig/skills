@@ -111,6 +111,8 @@ jq -r '.data[]
 - **Partial free-tier coverage**: in one full catalog snapshot (689 models) the
   intelligence index was present on 680, coding on 258, economics 213, engineering 205,
   agentic 164, healthcare 80. `null` means "not in this tier".
+- **No vision index in the free tier at all** — visual capability is simply not measured
+  here; probe the model with a generated test image instead of citing an index.
 - **No raw benchmark results**: only the aggregated `artificial_analysis_*_index` fields;
   MMLU/HumanEval-style raw scores are not part of the free shape.
 - **Small quota**: 100 requests per window. One `models list` plus `jq` beats many
