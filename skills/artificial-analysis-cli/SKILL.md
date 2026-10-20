@@ -117,7 +117,9 @@ jq -r '.data[]
   `models get` calls. A spent quota surfaces as a failing tool — check `remaining` first.
 - **`compare` wants JSON on the command line** (`'{"model_slugs":[…] }'`), not a list of plain
   arguments; unescaped quotes break it.
-- **Do not invent scores**: if a slug is missing from the catalog, say so instead of mapping a
+- **Do not invent scores**: if a slug is missing from the catalog, say so instead of mapping a similarly named model.
+- **Catalog slugs are not plan model IDs.** The catalog writes version dots as dashes (`glm-5-3-flash`, `grok-4-7`, `mimo-v2-6-pro`) and appends release suffixes (`deepseek-v4-1-flash-1017`); a jq filter on the plan's dotted ID returns nothing with no error. Normalize dots → dashes before filtering, or scan by substring and confirm the exact slug from the hit — an empty result set is almost always a slug mismatch, not a missing model.
+- **Median TTFT is a property of the benchmark harness, not of the model's API.** Effort-heavy variants report a median TTFT in the hundreds of seconds while the same model answers in single-digit seconds on the provisioning endpoint. Never call a model slow on AA TTFT alone; latency claims need an own probe against the actual endpoint (throughput medians transfer better than TTFT but stay harness-dependent).
   similarly named model.
 
 ## Verification
