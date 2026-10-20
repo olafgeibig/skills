@@ -7,7 +7,7 @@ The vault graph is the navigable structure created by MoCs, wikilinks, and front
 Vault Ops uses two complementary link layers:
 
 1. **Body wikilinks** — real Obsidian links parsed by TurboVault into the graph.
-   - Used by `mcp_turbovault_get_forward_links`, `mcp_turbovault_get_backlinks`, `mcp_turbovault_get_related_notes`, the `links` SQL table, hub detection, centrality, and Obsidian graph view.
+   - Used by `mcp_turbovault_get_links(direction="outgoing")`, `mcp_turbovault_get_links`, `mcp_turbovault_get_related_notes`, the `links` SQL table, hub detection, centrality, and Obsidian graph view.
 2. **Frontmatter `topics`** — token-efficient parent/related MoC hints.
    - Used for quick Note → MoC routing and structured filtering.
    - `topics` values are YAML strings, not real wikilinks; they do not create backlinks by themselves.
@@ -89,17 +89,17 @@ Never mechanically convert all backticks to wikilinks — a blanket replace woul
 
 ## TurboVault Graph Tools
 
-Use TurboVault graph tools directly:
+Use TurboVault graph tools directly (paths are vault-relative; list results page at 50, so loop on `meta.pagination.next_offset` for a full count):
 
-- `mcp_turbovault_get_forward_links(path)` — links from a note/MoC to other notes.
-- `mcp_turbovault_get_backlinks(path)` — body-wikilink backlinks pointing to a note/MoC.
+- `mcp_turbovault_get_links(path, direction="outgoing")` — links from a note/MoC to other notes.
+- `mcp_turbovault_get_links(path)` — body-wikilink backlinks pointing to a note/MoC.
 - `mcp_turbovault_get_related_notes(path, max_hops=1..2)` — nearby notes in the parsed graph.
-- `mcp_turbovault_get_hub_notes(top_n)` — most connected notes; useful for finding existing hubs or overloaded notes.
-- `mcp_turbovault_get_centrality_ranking()` — global centrality ranking; useful for structural analysis, but can be large.
-- `mcp_turbovault_detect_cycles()` — circular-reference analysis.
-- `mcp_turbovault_get_dead_end_notes()` — incoming links without outgoing links.
+- `mcp_turbovault_graph_report(kind="hubs", limit=top_n)` — most connected notes; useful for finding existing hubs or overloaded notes.
+- `mcp_turbovault_graph_report(kind="centrality")` — global centrality ranking; useful for structural analysis, but can be large.
+- `mcp_turbovault_graph_report(kind="cycles")` — circular-reference analysis.
+- `mcp_turbovault_graph_report(kind="dead_ends")` — incoming links without outgoing links.
 
-For reporting and batch checks, use `mcp_turbovault_query_frontmatter_sql` against TurboVault tables after `mcp_turbovault_inspect_frontmatter`. For single-note frontmatter lookup, use `mcp_turbovault_get_metadata_value`:
+For reporting and batch checks, use `mcp_turbovault_query_frontmatter_sql` against TurboVault tables after `mcp_turbovault_inspect_frontmatter`. For single-note frontmatter lookup, use `mcp_turbovault_get_notes_info`:
 
 - `files` — one row per note with frontmatter columns (`path`, `type`, `topics`, `description`, etc.).
 - `links` — parsed graph edges (`source`, `target`, `link_type`, `is_valid`).
@@ -124,4 +124,4 @@ SELECT source, target FROM links WHERE target LIKE '%+Agents%' LIMIT 50
 SELECT path, topics FROM files WHERE path = 'area/agents/example.md'
 ```
 
-For exact frontmatter topic lookup, prefer `mcp_turbovault_search_by_frontmatter(key='topics', value='[[+Agents]]')` when it is sufficient. For comprehensive MoC → child discovery, prefer `get_backlinks` plus `get_forward_links`, because those operate on actual body wikilinks.
+For exact frontmatter topic lookup, prefer `mcp_turbovault_search(frontmatter_filters=[{"key": "topics", "value": "[[+Agents]]"}])` when it is sufficient. For comprehensive MoC → child discovery, prefer `get_links` plus `get_links(direction="outgoing")`, because those operate on actual body wikilinks.

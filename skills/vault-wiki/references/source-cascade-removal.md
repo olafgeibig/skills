@@ -23,7 +23,7 @@ must be manually reviewed.
 
 | Evidence | Reliability | Method |
 |----------|-------------|--------|
-| `sources:` in frontmatter references the source | ✅ High — explicit attribution | `search_by_frontmatter` for the source path |
+| `sources:` in frontmatter references the source | ✅ High — explicit attribution | `search` with `frontmatter_filters` for the source path |
 | Page title/text matches source filename/title | ⚠️ Medium — heuristic | Full-text search for source-related terms |
 | Page created on same date as source was ingested | ⚠️ Medium — assume correlation | Cross-reference `log.md` entries with page `created` dates |
 | No evidence at all | ❌ Low — skip | Report for manual review |
@@ -53,7 +53,7 @@ Filter results for `wiki/<domain>/entities/`, `concepts/`, `comparisons/`,
 Also check `sources:` via frontmatter:
 
 ```bash
-mcp_turbovault_advanced_search(
+mcp_turbovault_search(
   query="sources",
   frontmatter_filters=[{key: "sources", value: "<filename>"}]
 )

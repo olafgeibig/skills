@@ -33,7 +33,7 @@ The health tools are organised in three escalation levels.
 
 Run at session start or as a periodic cron job. Fast, low-overhead overview.
 
-1. `mcp_turbovault_full_health_analysis()` → 0–100 score + aggregate counts
+1. `mcp_turbovault_vault_health(depth="full")` → 0–100 score + aggregate counts
 2. If score **≥ 80**: "Vault is healthy — X Broken Links, Y Orphans (see Exclusion Zones)" — no further action
 3. If score **< 80**: present a short summary and offer to escalate to Tier 2
 
@@ -47,11 +47,13 @@ Before starting: define which directories to include/exclude for this pass. Defa
 
 #### Broken Links
 
-`mcp_turbovault_get_broken_links()` — lists every broken `[[wikilink]]` with:
+`mcp_turbovault_graph_report(kind="broken_links")` — lists every broken `[[wikilink]]` with:
 - `source_file` — the note containing the link
 - `target` — the missing target name
 - `line` — line number in source
 - `suggestions` — alternative target names TurboVault could match
+
+**Paging (4.0):** the list comes back 50 at a time. Loop on `meta.pagination.next_offset` until `truncated` is false before you claim a count; a single call under-reports a large vault.
 
 **Filter by directory** — entries in `sources/`, `wiki/`, `system/templates/` are typically 🟡 expected:
 - `sources/Clippings/[[@handle]]` → external Twitter/X references, don't fix
@@ -62,11 +64,11 @@ Before starting: define which directories to include/exclude for this pass. Defa
 1. Read the source note at the relevant line
 2. If `suggestions` exist, pick the best match and update the link
 3. If no suggestion, either create the missing note or remove the link
-4. For batch review: `mcp_turbovault_export_broken_links()`
+4. For batch review: `mcp_turbovault_export(report="broken_links", format="json")`
 
 #### Dead-End Notes
 
-`mcp_turbovault_get_dead_end_notes()` — notes with incoming links but **no outgoing links**. Likely incomplete.
+`mcp_turbovault_graph_report(kind="dead_ends")` — notes with incoming links but **no outgoing links**. Likely incomplete.
 
 - **🔴** in `area/` or `projects/`: add relevant outgoing `[[wikilinks]]` or a "See also" section
 - **🟡** `wiki/*/raw/articles/*`: leaf notes, expected dead-ends (referenced by index and concept notes)
@@ -76,7 +78,7 @@ Before starting: define which directories to include/exclude for this pass. Defa
 
 Sources in `sources/` are only valuable if they have incoming links from the main graph.
 
-1. `mcp_turbovault_get_broken_links()` — filter by `sources/`
+1. `mcp_turbovault_graph_report(kind="broken_links")` — filter by `sources/`
 2. For each source without incoming links: check if it has a placeholder `[[wikilink]]` (`Unknown`, `@handle`, ...)
 3. Result: list of sources **with no connection** to the vault graph → suggest archiving or linking
 
@@ -98,7 +100,7 @@ Sources in `sources/` are only valuable if they have incoming links from the mai
 
 #### Optional: Full Quality Report
 
-`mcp_turbovault_vault_quality_report()` — per-note quality scores across readability, structure, completeness, and staleness dimensions. Useful for a systematic improvement pass on low-scoring notes.
+`mcp_turbovault_note_quality()` — per-note quality scores across readability, structure, completeness, and staleness dimensions. Useful for a systematic improvement pass on low-scoring notes.
 
 ### Tier 3 — Graph Analysis (Architecture)
 
@@ -106,11 +108,11 @@ Use when evaluating the vault's overall structure and navigation design.
 
 | Goal | Tool | Exclusion Hint |
 |---|---|---|
-| Are the right notes acting as hubs? | `get_hub_notes(top_n: 10)` | Compare against expected hubs (INDEX, area-MoCs) |
-| Which notes bridge knowledge domains? | `get_centrality_ranking()` (betweenness) | High betweenness in `wiki/` = normal (siloed domains) |
-| Are there disconnected subgraphs? | `get_isolated_clusters()` | ⚠️ **Every** `wiki/*/` domain is an isolated cluster by design. Only check clusters outside `wiki/`. |
-| Are there circular reference chains? | `detect_cycles()` | Rare, always 🔴 |
-| All metrics in one call | `full_health_analysis()` | Use as entry point, then drill down |
+| Are the right notes acting as hubs? | `graph_report(kind="hubs", limit=10)` | Compare against expected hubs (INDEX, area-MoCs) |
+| Which notes bridge knowledge domains? | `graph_report(kind="centrality")` (betweenness) | High betweenness in `wiki/` = normal (siloed domains) |
+| Are there disconnected subgraphs? | `graph_report(kind="isolated_clusters")` | ⚠️ **Every** `wiki/*/` domain is an isolated cluster by design. Only check clusters outside `wiki/`. |
+| Are there circular reference chains? | `graph_report(kind="cycles")` | Rare, always 🔴 |
+| All metrics in one call | `vault_health(depth="full")` | Use as entry point, then drill down |
 
 **For isolated clusters:** check each subgraph.
 - 🟡 Wiki domains (`wiki/ai/`, `wiki/camp/`, …) are intentionally self-contained — no action needed.
@@ -123,10 +125,10 @@ Use when evaluating the vault's overall structure and navigation design.
 
 | Check | Command | Effort |
 |---|---|---|
-| Pulse | `full_health_analysis()` | ~0ms |
-| Broken Links | `get_broken_links()` → fix in `area/`+`projects/` | ~5-30min |
-| Dead Ends | `get_dead_end_notes()` → supplement | ~5-15min |
-| Source Orphans | `get_broken_links()` filtered + `get_backlinks()` | ~2min |
+| Pulse | `vault_health(depth="full")` | ~0ms |
+| Broken Links | `graph_report(kind="broken_links")` → fix in `area/`+`projects/` | ~5-30min |
+| Dead Ends | `graph_report(kind="dead_ends")` → supplement | ~5-15min |
+| Source Orphans | `graph_report(kind="broken_links")` filtered + `get_links()` | ~2min |
 | Duplicates | `find_duplicates(0.8)` → merge/delete | ~5-10min |
 | Stale (180d) | `find_stale_notes(180)` → review | ~5-15min |
-| Graph | `get_isolated_clusters()` + `get_hub_notes()` | ~5min |
+| Graph | `graph_report(kind="isolated_clusters")` + `graph_report(kind="hubs")` | ~5min |

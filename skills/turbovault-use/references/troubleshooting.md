@@ -9,6 +9,10 @@ Distinguish two layers:
 
 If `list_vaults` is unavailable, check the current Hermes MCP configuration and connection before declaring TurboVault disconnected. If runtime checks pass, reload the MCP/session binding or start a fresh session.
 
+## A tool the skill names is missing
+
+`tools/list` is the whole contract: a tool that is not listed cannot be called in that session, even though the server has it. TurboVault 4.0 leaves 22 advanced tools unlisted by default (`inspect_frontmatter`, `query_frontmatter_sql`, `audit_log`, `export`, `compare_notes`, `find_duplicates`, `find_stale_notes`, `suggest_links`, `note_quality`, `analyze_grounding`, `rollback_*`, `move_file`, `diff_notes`, `fanout`, …). Enable them with `tool_visibility.show_advanced_tools: true` in `~/.turbovault/config.yaml` (or `--show-advanced-tools`), then reload the MCP binding. Do not conclude the server is old or broken before checking that setting.
+
 ## No active vault
 
 If tools exist but operations report no active vault:

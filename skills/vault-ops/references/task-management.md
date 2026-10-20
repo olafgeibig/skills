@@ -144,7 +144,7 @@ sort by due
 - Keep the dashboard based on **queries**, not manually copied task lines.
 - If you want to exclude generated/agent-only areas, add `path does not include wiki/` etc.
 
-For programmatic search/enumeration (outside Obsidian), use ripgrep pattern search or TurboVault search tools (`mcp_turbovault_search`, `mcp_turbovault_advanced_search`).
+For programmatic search/enumeration (outside Obsidian), use ripgrep pattern search or TurboVault search tools (`mcp_turbovault_search`).
 
 ---
 
@@ -183,7 +183,7 @@ rg --no-heading -e '- \[[ ?/]\]' <vault-path> --glob '!wiki/**' --glob '!system/
 
 ```bash
 mcp_turbovault_search(query="<task-topic>")
-mcp_turbovault_advanced_search(query="2026-05", exclude_paths=["wiki/"])
+mcp_turbovault_search(query="2026-05", exclude_paths=["wiki/"])
 ```
 
 ### Capture Deferred Work

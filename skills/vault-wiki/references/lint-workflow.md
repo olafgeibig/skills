@@ -6,7 +6,7 @@ TurboVault's built-in analysis tools and manual scoped checks.
 ## ① Quick Health Overview
 
 ```bash
-mcp_turbovault_full_health_analysis()
+mcp_turbovault_vault_health(depth="full")
 ```
 
 Returns broken links, orphan analysis, link density, cluster analysis, and
@@ -15,7 +15,7 @@ recommendations. Filter results for `wiki/`-prefixed paths.
 ## ② Broken Wikilinks
 
 ```bash
-mcp_turbovault_get_broken_links()
+mcp_turbovault_graph_report(kind="broken_links")
 ```
 
 Returns all broken links in the vault. Filter to `wiki/`- and `area/`-prefixed
@@ -30,7 +30,7 @@ usually mixed wikilink conventions — vault-relative (`[[<domain>/concepts/foo]
 vs `wiki/`-prefixed (`[[wiki/<domain>/concepts/foo]]`) — not missing files. New
 links always use the canonical full `wiki/`-prefixed form; where neighbors still
 carry vault-relative links, report the drift instead of matching it. Run
-`mcp_turbovault_quick_health_check()` after each ingest batch to catch the
+`mcp_turbovault_vault_health()` after each ingest batch to catch the
 drift early.
 
 ## ③ Outbound Link Count (wiki pages only)
@@ -39,11 +39,11 @@ Every wiki page in entities/, concepts/, comparisons/, queries/ must have at
 least 2 outbound wikilinks to OTHER wiki pages (not raw/ sources). Raw sources
 are exempt.
 
-Use `mcp_turbovault_get_dead_end_notes()` to find pages with 0 outbound links.
+Use `mcp_turbovault_graph_report(kind="dead_ends")` to find pages with 0 outbound links.
 For pages with 1 outbound link, manually check forward links:
 
 ```bash
-mcp_turbovault_get_forward_links(path="wiki/<target>/entities/<page>")
+mcp_turbovault_get_links(path="wiki/<target>/entities/<page>", direction="outgoing")
 ```
 
 **This is the most common failure mode.** Add missing "Verwandte Konzepte"
@@ -72,7 +72,7 @@ Find pages with `contested: true` or `contradictions:` in frontmatter:
 
 ```bash
 # Pages explicitly marked as contested
-mcp_turbovault_search_by_frontmatter(key="contested", value="true")
+mcp_turbovault_search(frontmatter_filters=[{"key": "contested", "value": "true"}])
 
 # Pages with contradictions field set (existence check)
 mcp_turbovault_query_metadata(pattern="contradictions: *")
@@ -87,7 +87,7 @@ for user review.
 Find pages with `confidence: low`:
 
 ```bash
-mcp_turbovault_search_by_frontmatter(key="confidence", value="low")
+mcp_turbovault_search(frontmatter_filters=[{"key": "confidence", "value": "low"}])
 ```
 
 These are candidates for either finding corroboration or demoting to
@@ -99,7 +99,7 @@ all — consider whether they should have one.
 Pages with no inbound links from other wiki pages. For each wiki page, check:
 
 ```bash
-mcp_turbovault_get_backlinks(path="wiki/<target>/entities/<page>")
+mcp_turbovault_get_links(path="wiki/<target>/entities/<page>")
 ```
 
 Pages in entities/, concepts/, comparisons/, queries/ with 0 backlinks from
@@ -154,7 +154,7 @@ Append to the domain wiki's `log.md`:
 
 ### ⑯ Broken Cross-wiki Links
 
-`mcp_turbovault_get_broken_links()` catches all broken wikilinks across the
+`mcp_turbovault_graph_report(kind="broken_links")` catches all broken wikilinks across the
 entire vault, including `[[wiki/other-wiki/...]]` links pointing to
 non-existent pages.
 

@@ -33,7 +33,7 @@ Use when you already have a note and need to understand where it belongs.
 Preferred tools:
 
 - If the note is already read, inspect its `topics` frontmatter directly.
-- Otherwise use `mcp_turbovault_get_metadata_value(file, 'topics')` for a cheap lookup.
+- Otherwise use `mcp_turbovault_get_notes_info(file, 'topics')` for a cheap lookup.
 - For batch/reporting, use `mcp_turbovault_query_frontmatter_sql` against the `files` table.
 
 Steps:
@@ -49,8 +49,8 @@ Use when you have a MoC and need its curated or related notes.
 
 Preferred tools:
 
-1. `mcp_turbovault_get_forward_links(moc_path)` — curated links explicitly listed in the MoC.
-2. `mcp_turbovault_get_backlinks(moc_path)` — notes that body-link back to the MoC.
+1. `mcp_turbovault_get_links(moc_path, direction="outgoing")` — curated links explicitly listed in the MoC.
+2. `mcp_turbovault_get_links(moc_path)` — notes that body-link back to the MoC.
 3. `mcp_turbovault_get_related_notes(moc_path, max_hops=1..2)` — nearby graph context when exploring.
 4. SQL against the `links` table for batch/reporting.
 
@@ -67,9 +67,9 @@ Use structured metadata queries when you know the property you need.
 1. Inspect schema once per vault/session when writing SQL:
    - `mcp_turbovault_inspect_frontmatter`
 2. Exact frontmatter lookup:
-   - `mcp_turbovault_search_by_frontmatter(key, value)`
+   - `mcp_turbovault_search(frontmatter_filters=[{"key": mcp_turbovault_, "value": key}])`
 3. Single-note metadata lookup:
-   - `mcp_turbovault_get_metadata_value(file, key)`
+   - `mcp_turbovault_get_notes_info(paths=[file], frontmatter_keys=[key])`
 4. Reporting and filtering:
    - `mcp_turbovault_query_frontmatter_sql`
 
@@ -103,9 +103,9 @@ Use search when:
 Tools:
 
 - `mcp_turbovault_search(query)` — BM25 full-text search. Use 2–5 distinctive terms.
-- `mcp_turbovault_advanced_search(...)` — full-text search with tags/frontmatter/path filters.
-- `mcp_turbovault_semantic_search(query, limit)` — conceptual similarity search.
-- `mcp_turbovault_recommend_related(path)` — ML-powered recommendations for a known note.
+- `mcp_turbovault_search(...)` — full-text search with tags/frontmatter/path filters.
+- `mcp_turbovault_find_similar(query, limit)` — conceptual similarity search.
+- `mcp_turbovault_search(related_to=path)` — ML-powered recommendations for a known note.
 - `mcp_turbovault_suggest_links(file, limit)` — link suggestions for improving a note.
 
 After selecting a candidate note from search, validate it through the graph:
@@ -118,11 +118,11 @@ After selecting a candidate note from search, validate it through the graph:
 
 Use these for architecture and cleanup tasks, not for ordinary lookup:
 
-- `mcp_turbovault_get_hub_notes(top_n)` — notes with the most graph connections.
-- `mcp_turbovault_get_centrality_ranking()` — centrality metrics across the vault; can return large output.
-- `mcp_turbovault_get_isolated_clusters()` — disconnected subgraphs.
-- `mcp_turbovault_get_dead_end_notes()` — notes with backlinks but no outgoing links.
-- `mcp_turbovault_detect_cycles()` — circular reference chains.
+- `mcp_turbovault_graph_report(kind="hubs", limit=top_n)` — notes with the most graph connections.
+- `mcp_turbovault_graph_report(kind="centrality")` — centrality metrics across the vault; can return large output.
+- `mcp_turbovault_graph_report(kind="isolated_clusters")` — disconnected subgraphs.
+- `mcp_turbovault_graph_report(kind="dead_ends")` — notes with backlinks but no outgoing links.
+- `mcp_turbovault_graph_report(kind="cycles")` — circular reference chains.
 
 Hub interpretation:
 
@@ -137,10 +137,10 @@ For a vault-wide refactor, normalization, cleanup, rename set, or other multi-no
 1. Start read-only. Inventory affected paths, counts, patterns, broken links, and relevant INDEX/MoC relationships before proposing writes.
 2. Define scope, exclusions, and rollback strategy before multi-file writes or moves. Ask for approval when the requested scope does not already authorize those side effects.
 3. Prefer minimal deltas. Do not reformat unrelated content or move notes without a concrete navigation benefit.
-4. Run `mcp_turbovault_quick_health_check` and inspect backlinks for every note that will move.
+4. Run `mcp_turbovault_vault_health()` and inspect backlinks for every note that will move.
 5. Apply changes in bounded passes so failures and link drift remain attributable.
 6. After each pass, verify changed notes, relevant INDEX/MoC entries, backlinks, forward links, and broken links.
-7. For large changes, finish with `mcp_turbovault_full_health_analysis` or a targeted report and compare it with the initial inventory.
+7. For large changes, finish with `mcp_turbovault_vault_health(depth="full")` or a targeted report and compare it with the initial inventory.
 
 The selected vault's `AGENTS.md` overrides these defaults. A healthy aggregate score does not replace targeted checks for the affected paths.
 

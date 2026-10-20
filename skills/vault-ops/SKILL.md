@@ -144,7 +144,7 @@ topics: ["[[+related-moc]]"]
   - [[+agents]]
   - [[+vault-ops]]
   ```
-  `topics` enables token‑efficient parent lookup (Note→MoC) from frontmatter. Body `Topics:` links enable `get_backlinks` discovery (MoC→Notes) and Obsidian graph view.
+  `topics` enables token‑efficient parent lookup (Note→MoC) from frontmatter. Body `Topics:` links enable `get_links` discovery (MoC→Notes) and Obsidian graph view.
   Optionally, a `Related:` label in the same plain style (no heading) may follow with bullet wikilinks to related notes.
 
 ### Common mistakes (avoid)

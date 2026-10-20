@@ -8,7 +8,7 @@ have a retrievable `source_url`.
 
 | Step | What | Tool |
 |------|------|------|
-| ① | Find raw sources with a `source_url` field | `search_by_frontmatter` |
+| ① | Find raw sources with a `source_url` field | `search` with `frontmatter_filters` |
 | ② | Re-extract the current content from the remote URL | `web_extract` |
 | ③ | Compare fresh extraction against stored raw body (normalized) | Manual comparison |
 | ④ | Report drift → user decides on re-ingest | Report + ask |

@@ -17,7 +17,7 @@ Not triggered for literal edits with no restated copies (one file, exact text) �
 Before the first patch:
 
 1. Collect search keys: the old value in its common spellings and fragments, the entity's ID or name, the old status string, and the titles of affected notes. Include variant typography (em dash vs hyphen, spaced vs unspaced separators).
-2. Search the whole vault for every key — TurboVault `search`/`advanced_search` plus any MoC, index, or overview that enumerates the affected notes.
+2. Search the whole vault for every key — TurboVault `search` plus any MoC, index, or overview that enumerates the affected notes.
 3. Classify every hit before touching it:
    - **canonical** — the one place that holds the authoritative value; it gets the actual new value;
    - **restated** — a restatement of the value in tables, checklists, dashboards; each needs the new value;

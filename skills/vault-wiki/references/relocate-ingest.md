@@ -24,7 +24,7 @@ mcp_turbovault_move_note(from="wiki/<source>/concepts/<file>.md", to="wiki/<targ
 
 **④ Update the target wiki:** add entries to the correct index sections, alphabetically; increment the page count; bump "Last updated"; append a standard ingest log entry.
 
-**⑤ Verify:** moved pages load via `read_note`; `get_backlinks` shows appropriate backlinks; source index count decreased and target count increased.
+**⑤ Verify:** moved pages load via `read_note`; `get_links` shows appropriate backlinks; source index count decreased and target count increased.
 
 ## Pitfalls
 

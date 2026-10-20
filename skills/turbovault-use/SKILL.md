@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Use when operating Obsidian vaults through TurboVault."
 metadata:
-  version: "0.8.0"
+  version: "0.9.2"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -28,7 +28,7 @@ Division of responsibility:
 
 ## When to Use
 
-Load this skill whenever a task calls TurboVault tools or another skill enters a TurboVault-backed operation.
+Load this skill whenever a task calls TurboVault tools, another skill enters a TurboVault-backed operation, or a task upgrades or replaces the TurboVault server.
 
 ## Establish Availability
 
@@ -63,7 +63,7 @@ Registration and activation are separate operations. For existing-vault setup, u
 - A failed TurboVault call — including a malformed `edits`/content payload that cannot be encoded in the tool call — is not a licence to switch tools: fix the payload and retry the same TurboVault tool (`write_note` with `mode=overwrite` after a `read_note`, or `edit_note` with smaller SEARCH/REPLACE blocks).
 - **Anchor `edit_note` blocks on complete lines.** The tool falls back to fuzzy (Levenshtein) matching when an exact match fails, and a fuzzy match that catches only the *prefix* of a line replaces the prefix while **concatenating the remainder of the old line onto your new text**. Seen twice in practice: a date became `2026-10-019`, and a MoC bullet ended up carrying two descriptions glued together. So pull the whole line into SEARCH (or several whole lines), and after any `edit_note` whose response reports fuzzy matching, read the touched region back and confirm no orphaned tail remains.
 - **Keep the `=======` separators out of the payload text.** A stray marker copied into the REPLACE half is not a syntax hint, it is content: it gets written into the note verbatim, where it shows up as `=======### Next Heading` and silently breaks heading parsing — entries look deleted (`^### ` counts drop) even though every line is still there. Check any multi-block edit with `grep -c '^======='` on the file plus a heading count before/after; a count that fell while the byte size grew is this bug, not data loss.
-- **Out-of-band writes leave the link index stale.** A note created or edited with `write_file`/`patch` is readable through TurboVault but its edges are not extracted: `get_backlinks` on the new note returns empty and the linking note's `get_forward_links` silently omits it, so `success: true` on the surrounding edits looks correct while the graph does not connect. Repair by writing through TurboVault once (e.g. `edit_note`, or `update_frontmatter` with a merge) and then re-check `get_backlinks` — link extraction happens on the TurboVault write pass, not on read.
+- **Out-of-band writes leave the link index stale.** A note created or edited with `write_file`/`patch` is readable through TurboVault but its edges are not extracted: `get_links` on the new note returns empty and the linking note's `get_links(direction="outgoing")` silently omits it, so `success: true` on the surrounding edits looks correct while the graph does not connect. Repair by writing through TurboVault once (e.g. `edit_note`, or `update_frontmatter` with a merge) and then re-check `get_links` — link extraction happens on the TurboVault write pass, not on read.
 - The only terminal exception is bulk removal of an entire wiki directory (`rm -rf`), named in vault-wiki under archiving, because `delete_note` confirms per file. Do not extend that exception to ordinary note edits.
 - Set fields and write modes explicitly.
 - Preserve unrelated content.
@@ -77,9 +77,9 @@ Registration and activation are separate operations. For existing-vault setup, u
 
 Before the first write of a session, orient explicitly:
 
-- Confirm the active vault with `get_active_vault` and `get_vault_context`; with multiple vaults, `set_active_vault` explicitly and re-confirm.
-- Check existence before creating (`search`, `get_metadata_value`).
-- Probe liveness with a trivial call (`get_active_vault`) when a tool seems dead.
+- Confirm the active vault with `list_vaults` and `get_vault_context`; with multiple vaults, `set_active_vault` explicitly and re-confirm.
+- Check existence before creating (`search`, `get_notes_info`).
+- Probe liveness with a trivial call (`list_vaults`) when a tool seems dead.
 - Never claim success without a tool response — cite the response or the resulting path in the same reply.
 - Treat `success: true` as unproven until checked: it can mean (A) nothing was written, (B) the write landed in the wrong vault, or (C) the report was confabulated.
 
@@ -91,10 +91,10 @@ Before the first write of a session, orient explicitly:
 | Register and select vaults | `list_vaults`, `add_vault`, `set_active_vault`, `get_vault_context` |
 | Move or delete notes | `move_note`, `delete_note` |
 | Multi-file batches | `batch_execute` (transaction guarantee depends on backend) |
-| Frontmatter | `inspect_frontmatter`, `get_metadata_value`, `search_by_frontmatter`, `update_frontmatter` |
-| Full-text and semantic discovery | `search`, `advanced_search`, `semantic_search`; optional `vector_search_search` |
-| Graph traversal | `get_forward_links`, `get_backlinks`, `get_related_notes` |
-| Structural analysis | `get_broken_links`, `get_dead_end_notes`, `get_isolated_clusters`, `detect_cycles` |
+| Frontmatter | `inspect_frontmatter`, `get_notes_info`, `search` with `frontmatter_filters`, `update_frontmatter` |
+| Full-text and semantic discovery | `search` (query, tags, frontmatter_filters, related_to), `find_similar`; optional `vector_search_search` |
+| Graph traversal | `get_links(direction="outgoing")`, `get_links`, `get_related_notes` |
+| Structural analysis | `graph_report(kind="broken_links")`, `graph_report(kind="dead_ends")`, `graph_report(kind="isolated_clusters")`, `graph_report(kind="cycles")` |
 
 Use the exact tool names exposed in the current session; MCP prefixes may differ between clients.
 
@@ -111,6 +111,18 @@ Deferred tools: call through `tool_call` with both `name` and `arguments` on eve
 - `mcp_turbovault_*` tools take full vault-relative paths, including the `area/<folder>/` prefix — not bare filenames. If `search_files` on vault-relative paths returns 0 hits, retry with absolute paths or use the SQL/frontmatter query tools.
 - In-process tools (`read_file`, `write_file`, `patch`) require absolute filesystem paths. Never swap the two conventions: a vault-relative path passed to `patch` fails path resolution.
 
+## 4.0 Tool Surface
+
+TurboVault 4.0 consolidates 79 tools into 52 and changes what a client sees:
+
+- **`tools/list` shows 30 core tools.** The 22 advanced ones are callable by name but unlisted unless `tool_visibility.show_advanced_tools: true` (or `--show-advanced-tools`) is set. Advanced: `inspect_frontmatter`, `query_frontmatter_sql`, `audit_log`, `export`, `compare_notes`, `find_duplicates`, `find_stale_notes`, `suggest_links`, `note_quality`, `analyze_grounding`, `rollback_preview`, `rollback_note`, `move_file`, `diff_notes`, `list_orphan_fanouts`, `find_notes_from_template`, `remove_vault`, `fanout`, `okf_validate`, `generate_index`, `append_log_entry`, `visualize`. A client builds its tool list from `tools/list`, so a hidden tool cannot be called in that session even though the server has it — check the setting before reporting a missing tool.
+- **Every vault-scoped tool takes an optional `vault` argument.** It defaults to the active vault, and naming a vault does not change which vault is active. Prefer it over `set_active_vault` when two sessions share one server.
+- **List results page.** `limit`/`offset`, default 50, with `meta.pagination` (`total`, `returned`, `truncated`, `next_offset`). A vault-wide enumeration (broken links, stale notes, hubs) must loop on `next_offset`; the first page is not the whole answer.
+- **Graph tools return vault-relative paths.** 3.x returned absolute paths on the server.
+- **`edit_note` refuses a SEARCH block that matches in more than one place** and asks for more surrounding context, which removes the silent first-match edit behind the fuzzy-match pitfall above.
+- **`validate_vault` exists as a tool** (whole vault or one `path`, `min_severity`, paging): pre-1.9 `tags`/`aliases`/`cssclasses` forms, unparsable frontmatter, broken links.
+- **`list_vaults` returns `{active_vault, vaults, config}`**; `get_active_vault` and `get_vault_config` no longer exist.
+
 ## Route to the Right Reference
 
 | Task | Reference |
@@ -121,6 +133,7 @@ Deferred tools: call through `tool_call` with both `name` and `arguments` on eve
 | Rename, move, or structural refactor | `references/renames-and-refactors.md` |
 | Apply templates or normalize frontmatter | `references/frontmatter-and-templates.md` |
 | Missing tools, stale UI, reconnect churn, or process symptoms | `references/troubleshooting.md` |
+| Upgrade the server or migrate the skill library to a new tool surface | `references/upgrading.md` |
 
 Do not load every reference for routine reads.
 

@@ -10,15 +10,15 @@ Use when a sub-MoC nested under a parent project accumulates enough notes to war
 
 1. **Create the target directory and move notes** — one `move_note` per file; move the MoC first, then its child notes.
 2. **Update tags** — on every note, replace `project/<parent>` with `project/<dir>` via `update_frontmatter` with `merge=true` (`merge=false` rewrites all frontmatter — avoid); the tags array is replaced wholesale, so pass the complete tag list that must remain, not only the changed tag.
-3. **Fix wikilinks (only when renaming)** — `move_note` does NOT update wikilinks: run `get_backlinks` on the old MoC path BEFORE moving, then update body `[[links]]` (SEARCH/REPLACE), frontmatter `topics`, and INDEX entries.
+3. **Fix wikilinks (only when renaming)** — `move_note` does NOT update wikilinks: run `get_links` on the old MoC path BEFORE moving, then update body `[[links]]` (SEARCH/REPLACE), frontmatter `topics`, and INDEX entries.
 4. **Update the project INDEX** — lift the sub-MoC to its own `##` entry with a one-or-two-sentence routing description; shorten the parent's entry; bump the INDEX `updated:` date.
 5. **Clean up the parent MoC** — drop the promoted sub-project from the parent's core-notes list; point to it from a "Related Projects" / "See Also" section.
 6. **(Optional) create a task note** — `projects/<dir>/Tasks.md` (or `Aufgaben.md` for German-language vaults): a `tasks` query block filtered by `path includes projects/<dir>`.
 
 **Pitfalls:**
 
-- `move_note` leaves broken `[[links]]` behind → `get_backlinks` before moving, then systematic SEARCH/REPLACE.
-- `topics` is not a real wikilink — `get_backlinks` won't find notes by it → keep real body `[[wikilinks]]` + a `Topics:` footer.
+- `move_note` leaves broken `[[links]]` behind → `get_links` before moving, then systematic SEARCH/REPLACE.
+- `topics` is not a real wikilink — `get_links` won't find notes by it → keep real body `[[wikilinks]]` + a `Topics:` footer.
 - `update_frontmatter` merge behavior can clear fields → `merge=true` for targeted updates.
 - Stale INDEX `updated:` → set it manually after structural changes.
 
