@@ -2,7 +2,7 @@
 name: artificial-analysis-cli
 description: "Use when comparing AI models via the model-analysis CLI."
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:

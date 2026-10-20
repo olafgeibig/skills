@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Use when operating Obsidian vaults through TurboVault."
 metadata:
-  version: "0.9.3"
+  version: "0.9.4"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -69,7 +69,7 @@ Registration and activation are separate operations. For existing-vault setup, u
 - Preserve unrelated content.
 - Use the `direct` write backend by default. Do not enable `write_backend: git` or call Git fan-out tools unless the user explicitly authorizes it for the named vault after external-sync compatibility review and testing on a copy.
 - Never assume `batch_execute` is atomic. The Direct backend is sequential and fail-fast; completed operations are not rolled back. Claim all-or-nothing only when the selected backend's documented transaction contract guarantees it.
-- Keep read-before-write for content context. For existing notes, use the current `expected_hash` from `read_note` or an `edit_note` dry run; do not send the removed `force` argument or use a blind overwrite without explicit user authorization.
+- Keep read-before-write for content context. For existing notes, use the current `expected_hash` from `read_note` or an `edit_note` dry run; do not send the removed `force` argument or use a blind overwrite without explicit user authorization. An `expected_hash` mismatch is not proof of a concurrent edit — the hash can move while the visible content is unchanged: re-read the note once and retry with the fresh hash; treat only a second mismatch as a real conflict.
 - Treat `vector_search` as optional. Configure a local compatible model and remember that one engine per process is bound to the vault active when first built; do not assume it follows later vault switches.
 - Verify external writes by reading the exact target and checking the resulting links or metadata.
 - Inspect backlinks before moves or deletions. `move_note` rewrites inbound wikilinks only with `update_backlinks: true` (it then reports every changed source in `link_sources_updated`); `delete_note` on the Direct backend runs with `force` default true and leaves links to the deleted note behind, so repair or report them explicitly.

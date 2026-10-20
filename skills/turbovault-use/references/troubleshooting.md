@@ -11,7 +11,7 @@ If `list_vaults` is unavailable, check the current Hermes MCP configuration and 
 
 ## A tool the skill names is missing
 
-`tools/list` is the whole contract: a tool that is not listed cannot be called in that session, even though the server has it. TurboVault 4.0 leaves 22 advanced tools unlisted by default (`inspect_frontmatter`, `query_frontmatter_sql`, `audit_log`, `export`, `compare_notes`, `find_duplicates`, `find_stale_notes`, `suggest_links`, `note_quality`, `analyze_grounding`, `rollback_*`, `move_file`, `diff_notes`, `fanout`, …). Enable them with `tool_visibility.show_advanced_tools: true` in `~/.turbovault/config.yaml` (or `--show-advanced-tools`), then reload the MCP binding. Do not conclude the server is old or broken before checking that setting.
+`tools/list` is the whole contract: a tool that is not listed cannot be called in that session, even though the server has it. TurboVault 4.0 leaves 22 advanced tools unlisted by default (`inspect_frontmatter`, `query_frontmatter_sql`, `audit_log`, `export`, `compare_notes`, `find_duplicates`, `find_stale_notes`, `suggest_links`, `note_quality`, `analyze_grounding`, `rollback_*`, `move_file`, `diff_notes`, `fanout`, …). Enable them with `tool_visibility.show_advanced_tools: true` in `~/.turbovault/config.yaml` (or `--show-advanced-tools`). A running session picks the change up through the MCP config watcher; surfaces differ in whether a manual reload command exists (the canonical `/reload_mcp` has no Desktop surface), so verify the new surface with `tool_search`/`list_vaults` instead of hunting for a reload. Do not conclude the server is old or broken before checking that setting.
 
 ## No active vault
 

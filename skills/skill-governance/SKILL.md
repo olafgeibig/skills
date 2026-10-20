@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when the skill concept decides a change."
 metadata:
-  version: "0.15.0"
+  version: "0.15.1"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -139,7 +139,7 @@ Wait for approval, then write, validate (`./skills/skill-builder/scripts/skills-
 The failure this rule exists for: a profile-local skill that grows one dated `new-pitfalls-<date>-batch.md` file per session beside its own SKILL.md and ends up with ~1 MB of unclassified sediment, in which the same lesson appears many times and almost nothing is generic. It happened because the skill declared itself a staging area and released the agent from consolidating.
 
 - **Classify and route in the session where the finding arises.** No staging file, batch diary, or "collect now, sort later" pile. A pile has no owner, outlives its context, and is never reviewed.
-- **Search before writing.** Before adding a rule to any skill, search the target for the same rule — its imperative verb plus domain nouns, with `search_files`. A rule stated twice is a defect, not redundancy insurance. The observed cost of skipping this step: ~22 restatements of rules that were already in the target.
+- **Search before writing.** Before adding a rule to any skill, search the target for the same rule — its imperative verb plus domain nouns, with `search_files`. A rule stated twice is a defect, not redundancy insurance. The observed cost of skipping this step: ~22 restatements of rules that were already in the target. Repeat the search before each later write in the same series: the background review turn (see *Who Maintains What*) runs after every assistant turn and can patch or create the target mid-session, so a search made once certifies a file that no longer exists — a series that dedupes only at its start lands the same rule next to the review's copy.
 - **Write the rule, not the incident.** Dates, booking or ticket IDs, handles, and session narration are not knowledge. If a finding only makes sense together with its story, it is project content → the project skill.
 - **One home per rule.** After promotion, delete the source statement; a rule living in two places drifts. A cross-reference only counts as a home when it resolves — verify the named file carries the content before writing "see X for details"; a pointer at a missing section sends the next agent hunting.
 - **Keep the shape.** `SKILL.md` carries always-on rules, depth goes to `references/`. Respect the repository budget (~500 lines) and the runtime budget (~24k chars — the whole body is loaded for the rest of the session). Route content out rather than growing the file.
