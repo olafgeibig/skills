@@ -128,13 +128,12 @@ TurboVault 4.0 consolidates 79 tools into 52 and changes what a client sees:
 | Task | Reference |
 |---|---|
 | Install, register, activate, or diagnose basic availability | `references/vault-configuration.md` |
-| Upgrade the server binary and migrate the skill surface | `references/upgrading.md` |
+| Upgrade the server binary or migrate the skill library to a new tool surface | `references/upgrading.md` |
 | `edit_note`, full writes, or multi-file batches | `references/editing-and-batch-operations.md` |
 | Full-text, frontmatter, SQL, or graph discovery | `references/search-and-graph.md` |
 | Rename, move, or structural refactor | `references/renames-and-refactors.md` |
 | Apply templates or normalize frontmatter | `references/frontmatter-and-templates.md` |
 | Missing tools, stale UI, reconnect churn, or process symptoms | `references/troubleshooting.md` |
-| Upgrade the server or migrate the skill library to a new tool surface | `references/upgrading.md` |
 
 Do not load every reference for routine reads.
 
