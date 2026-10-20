@@ -13,9 +13,9 @@ Use this procedure for moves, renames, and changes that affect multiple links or
 
 Use `move_note` rather than a raw filesystem move when TurboVault is available. Do not assume the tool updated every reference.
 
-`move_note` does **not** update wikilinks in other notes — its warning ("Links pointing to the old path are now broken") is literal. References change only through an explicit link rewrite (`UpdateLinks` in `batch_execute`) or a content rewrite. Pick one of three patterns before starting:
+`move_note` by default does **not** update wikilinks in other notes — its warning ("Links pointing to the old path were not updated and may now be broken") is literal. Pass `update_backlinks: true` and it rewrites inbound wikilinks (bare `[[name]]` and path forms alike) and reports every changed source in `link_sources_updated`; without the flag the move succeeds and silently leaves the links pointing at the dead path. Default pattern for a rename: `move_note(from, to, update_backlinks: true)` → verify `link_sources_updated` covers every expected source → `grep -rn "<old-basename>"` over the vault for prose mentions and source-list entries the rewrite cannot see. Use a manual pattern when the move must also change content, or when building a bulk link map first:
 
-- **A — single note (1-2):** `read_note` old path → `write_note` new path with links updated → `delete_note` old path. Write before delete, always.
+- **A — single note whose content also changes:** `read_note` old path → `write_note` new path with links updated → `delete_note` old path (pass `confirm_path`). Write before delete, always.
 - **B — link rewrite (file already moved):** one `UpdateLinks` op per source note in `batch_execute` (the current server exposes no standalone `update_links` call). Works even when the old note no longer exists.
 - **C — bulk (20+):** read all old notes in parallel → build the link map → `batch_execute` with one `WriteNote` per new path → separate `batch_execute` with one `DeleteNote` per old path → verify with `graph_report(kind="broken_links")`. Never `delete_note` before the content is written at the new path.
 
@@ -30,7 +30,11 @@ After the move:
 5. Update heading anchors and every `#anchor` reference when headings changed.
 6. Update relevant INDEX and MoC entries.
 
-For several coordinated files, use an atomic batch when supported. Otherwise use bounded passes and verify after each pass.
+For several coordinated files, an all-or-nothing batch needs a Git-backed vault; on the Direct backend a batch is sequential and not a transaction, so use bounded passes and verify after each pass.
+
+## Delete
+
+`delete_note` requires `confirm_path`, the same vault-relative path again, so a delete cannot be issued by accident. Check `get_links(path)` first. On a plain-folder (Direct) vault `force` defaults to true: the delete goes through and the inbound links stay where they are (`link_sources_updated: []`), so they break. On a Git-backed vault the delete is refused while other notes link to it unless `on_backlinks: "rewrite-stale-callout"` or `force: true` is given. Verify afterwards with `graph_report(kind="broken_links")`, not by assumption.
 
 ## Fallback without TurboVault
 
@@ -46,6 +50,7 @@ Do not stop after the filesystem move.
 ## Verification
 
 - New target exists and old target does not.
+- `link_sources_updated` lists every expected source note — an empty result with `update_backlinks` omitted means the inbound wikilinks were left stale.
 - Inbound and outbound links resolve.
 - No old basename, path, or heading anchor remains unintentionally.
 - Relevant INDEX and MoC navigation is current.

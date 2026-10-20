@@ -38,6 +38,10 @@ The `patch` tool on vault notes has three recurring whitespace failure modes:
 - **Concatenated lines:** a `new_string` without a trailing newline glues the replacement to the next line (`[[+Agents]][[area/x]]`). Always end inserted text with an explicit trailing newline and re-read the file after every patch.
 - **Section-name mismatch:** an `old_string` written as `## Related` does not match a file with `## See Also`. Verify the actual header first (`read_file`/`search_files`) — seen variants: `## See Also`, `## Related`, `## Related Pages`, `## Verwandte Seiten` — and read the "Did you mean one of these sections?" hint in the tool response.
 
+## Partial reads
+
+`read_note` accepts `path` plus at most one selector — `head_lines`, `tail_lines`, `heading_equals`, `heading_level`, `last_sections`. Combining two selectors is a validation error. A partial read returns `truncated`, `total_lines`, and `returned_lines`/`sections` metadata but **no `hash`**, so it cannot supply `expected_hash`; use a full read or an `edit_note` dry run for that. Use a selector to locate or verify one section instead of pulling a multi-KB note whole.
+
 ## Dry-run and hash-guarded apply
 
 `edit_note` can preview before it writes: `dry_run: true` applies nothing and returns `blocks_applied`/`total_blocks`, `old_hash`/`new_hash`, and a `diff_preview`; the file stays byte-identical. Apply with `dry_run: false` plus `expected_hash: <old_hash from the preview>`, so the write is guarded against a file that changed in between. After the write, confirm `blocks_applied` equals `total_blocks`, then read the target back.
@@ -46,9 +50,9 @@ The `patch` tool on vault notes has three recurring whitespace failure modes:
 
 For writes to existing notes, read the current note and pass its current `expected_hash` when the tool supports it. `edit_note` can use the `old_hash` returned by its dry run. Do not send the removed `force` argument. Never use `expected_hash: "blind"` unless the user explicitly authorizes an intentional blind overwrite.
 
-## Appending content
+## Append and prepend modes
 
-Use append mode only when the new content unambiguously belongs at the end. Do not append tasks or content blindly when placement affects semantics or section structure.
+`mode: prepend` keeps the frontmatter block first (the note still starts with `---`) and puts the new content at the top of the body — the right mode for newest-first logs. `mode: append` adds to the end. Use either only when the new content unambiguously belongs there. Do not append tasks or content blindly when placement affects semantics or section structure.
 
 ## Write-file chunk assembly
 
@@ -73,7 +77,7 @@ If all operations must succeed together, do not use a Direct-backend batch; use 
 
 Build every operation explicitly. Do not rely on provider defaults for path, mode, or merge behavior.
 
-`batch_execute` accepts only `CreateNote | CreateFile | WriteNote | WriteFile | DeleteNote | DeleteFile | MoveNote | MoveFile | UpdateLinks` — it does not accept `UpdateFrontmatter`. Run a frontmatter update (e.g. a SHA stamp) as a separate `update_frontmatter` call instead, in parallel with the batch when it touches a different file. `WriteNote` is a full overwrite, not an append: read append-only files (index, log) first and batch their merged content; `CreateNote` behaves the same way.
+`batch_execute` accepts `CreateNote | WriteNote | EditNote | DeleteNote | MoveNote | UpdateLinks | UpdateFrontmatter | ManageTags | CreateFromTemplate`, so a frontmatter stamp, a body edit, and a tag change can ride in one call. One constraint: **no two operations in one batch may touch the same path** — the batch is refused before anything runs (`intra-batch path collision`), so a frontmatter stamp plus a body rewrite of the same note needs two calls. Verify from the response's `records[]` (per-operation `success`/`error`/`affected_files`) and `changes[]`, not from the top-level `success` alone. `WriteNote` is a full overwrite, not an append: read append-only files (index, log) first and batch their merged content; `CreateNote` behaves the same way.
 
 A large single-note rebuild (callout + new section + source list + MoC entry) belongs in ONE `edit_note` call with multiple SEARCH/REPLACE blocks: a multi-block call is fail-fast and **all-or-nothing** on a match failure — the error names only the first failing block and nothing is applied, so interdependent changes never land half-done. Check the response counts afterwards.
 
@@ -87,6 +91,6 @@ A successful write response is not sufficient for external-state claims:
 2. Confirm the intended content and frontmatter.
 3. Check graph effects where links changed.
 4. For a batch, verify every operation and determine whether partial state remains; do not assume completed operations were rolled back.
-5. For `edit_note`, `blocks_applied` must equal `total_blocks` in the response; a fuzzy-matched block is not a success.
-6. After any response that reports a block as fuzzy-matched, re-read the frontmatter character-exact: fuzzy matching can damage adjacent tokens (a date value can gain a stray digit). Parse date values, `topics:`, and lists as YAML after every such write — do not trust the success response.
-7. After a fuzzy-matched block, re-read with the same tool the parser uses (`read_note` — a filesystem read can normalize differently) and rebuild the SEARCH text byte-for-byte from that output before re-issuing; whitespace, typographic quotes/dashes, and invisible characters are the usual mismatch causes.
+5. For `edit_note`, `blocks_applied` must equal `total_blocks` in the response. The response never says whether a block matched exactly or fuzzily (only hashes and counts come back), so treat every SEARCH that is not byte-identical to a complete line as potentially fuzzy-matched: re-read the touched region and confirm no orphaned tail remains.
+6. Fuzzy matching can damage adjacent tokens (a date value can gain a stray digit) — re-read the frontmatter character-exact and parse date values, `topics:`, and lists as YAML after any non-exact edit; do not trust the success response.
+7. When a block failed to match (`Could not find search text (tried 4 strategies)`), re-read with the same tool the parser uses (`read_note` — a filesystem read can normalize differently) and rebuild the SEARCH text byte-for-byte from that output before re-issuing; whitespace, typographic quotes/dashes, and invisible characters are the usual mismatch causes.

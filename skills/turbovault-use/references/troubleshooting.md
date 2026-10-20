@@ -47,6 +47,8 @@ If a verified file exists but is absent from Obsidian's file tree, the UI index 
 
 For SEARCH/REPLACE parse or match errors, load `references/editing-and-batch-operations.md`. Do not retry an unchanged malformed edit repeatedly.
 
+A `Concurrent access conflict: File does not exist` on an `append` or `prepend` write is not a race: those modes do not create a note. Write it with `overwrite` first.
+
 ## Log-based diagnosis when the user is skeptical
 
 When the user says a tool "always worked" and asks you to check the logs, drop into log-based diagnosis — do not speculate or re-run the failing call. Inspect `~/.hermes/logs/` (`mcp-stderr.log` for TurboVault), grep for the tool name and recent timestamps, read the actual error, then propose the fix.

@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Use when operating Obsidian vaults through TurboVault."
 metadata:
-  version: "0.9.2"
+  version: "0.9.3"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -34,7 +34,7 @@ Load this skill whenever a task calls TurboVault tools, another skill enters a T
 
 Start with `list_vaults`.
 
-- Success, including an empty list, proves the tool is exposed in this session.
+- A successful response (even one with `vaults: []`) proves the tool is exposed in this session.
 - An empty list after an MCP restart or model switch means the in-memory registry was reset: re-register with `add_vault` immediately instead of waiting out a cooldown or retrying.
 - A missing tool does not prove the configured MCP server is unavailable.
 - Distinguish profile/runtime availability from current-session tool exposure.
@@ -61,10 +61,10 @@ Registration and activation are separate operations. For existing-vault setup, u
 - Read a note before editing it.
 - Vault note reads and writes go through TurboVault (`read_note`, `write_note`, `edit_note`, `move_note`, `delete_note`). A missing tool is a blocker, not a reason to write the file directly. Do not substitute `write_file`, `patch`, or `terminal`.
 - A failed TurboVault call — including a malformed `edits`/content payload that cannot be encoded in the tool call — is not a licence to switch tools: fix the payload and retry the same TurboVault tool (`write_note` with `mode=overwrite` after a `read_note`, or `edit_note` with smaller SEARCH/REPLACE blocks).
-- **Anchor `edit_note` blocks on complete lines.** The tool falls back to fuzzy (Levenshtein) matching when an exact match fails, and a fuzzy match that catches only the *prefix* of a line replaces the prefix while **concatenating the remainder of the old line onto your new text**. Seen twice in practice: a date became `2026-10-019`, and a MoC bullet ended up carrying two descriptions glued together. So pull the whole line into SEARCH (or several whole lines), and after any `edit_note` whose response reports fuzzy matching, read the touched region back and confirm no orphaned tail remains.
+- **Anchor `edit_note` blocks on complete lines.** The tool falls back to fuzzy (Levenshtein) matching when an exact match fails, and a fuzzy match that catches only the *prefix* of a line replaces the prefix while **concatenating the remainder of the old line onto your new text**. Seen twice in practice: a date became `2026-10-019`, and a MoC bullet ended up carrying two descriptions glued together. So pull the whole line into SEARCH (or several whole lines). The response never reveals whether a match was exact or fuzzy (it returns only hashes and `blocks_applied`), so after any `edit_note` whose SEARCH is not byte-identical to a complete line, read the touched region back and confirm no orphaned tail remains.
 - **Keep the `=======` separators out of the payload text.** A stray marker copied into the REPLACE half is not a syntax hint, it is content: it gets written into the note verbatim, where it shows up as `=======### Next Heading` and silently breaks heading parsing — entries look deleted (`^### ` counts drop) even though every line is still there. Check any multi-block edit with `grep -c '^======='` on the file plus a heading count before/after; a count that fell while the byte size grew is this bug, not data loss.
 - **Out-of-band writes leave the link index stale.** A note created or edited with `write_file`/`patch` is readable through TurboVault but its edges are not extracted: `get_links` on the new note returns empty and the linking note's `get_links(direction="outgoing")` silently omits it, so `success: true` on the surrounding edits looks correct while the graph does not connect. Repair by writing through TurboVault once (e.g. `edit_note`, or `update_frontmatter` with a merge) and then re-check `get_links` — link extraction happens on the TurboVault write pass, not on read.
-- The only terminal exception is bulk removal of an entire wiki directory (`rm -rf`), named in vault-wiki under archiving, because `delete_note` confirms per file. Do not extend that exception to ordinary note edits.
+- The only terminal exception is bulk removal of an entire wiki directory (`rm -rf`), named in vault-wiki under archiving, because `delete_note` requires a `confirm_path` per file. Do not extend that exception to ordinary note edits.
 - Set fields and write modes explicitly.
 - Preserve unrelated content.
 - Use the `direct` write backend by default. Do not enable `write_backend: git` or call Git fan-out tools unless the user explicitly authorizes it for the named vault after external-sync compatibility review and testing on a copy.
@@ -72,8 +72,8 @@ Registration and activation are separate operations. For existing-vault setup, u
 - Keep read-before-write for content context. For existing notes, use the current `expected_hash` from `read_note` or an `edit_note` dry run; do not send the removed `force` argument or use a blind overwrite without explicit user authorization.
 - Treat `vector_search` as optional. Configure a local compatible model and remember that one engine per process is bound to the vault active when first built; do not assume it follows later vault switches.
 - Verify external writes by reading the exact target and checking the resulting links or metadata.
-- Inspect backlinks before moves or deletions.
-- Do not assume a move updated every inbound path, alias, heading anchor, or plain-text reference.
+- Inspect backlinks before moves or deletions. `move_note` rewrites inbound wikilinks only with `update_backlinks: true` (it then reports every changed source in `link_sources_updated`); `delete_note` on the Direct backend runs with `force` default true and leaves links to the deleted note behind, so repair or report them explicitly.
+- Do not assume a move updated every alias, heading anchor, or plain-text reference — `update_backlinks` covers wikilinks only.
 
 Before the first write of a session, orient explicitly:
 
@@ -87,24 +87,32 @@ Before the first write of a session, orient explicitly:
 
 | Operation | Tool family |
 |---|---|
-| Read and write notes | `read_note`, `write_note`, `edit_note` |
+| Read and write notes | `read_note` (whole, or one selector: `head_lines`, `tail_lines`, `heading_equals`, `heading_level`, `last_sections`), `write_note` (`overwrite`/`append`/`prepend`), `edit_note` |
 | Register and select vaults | `list_vaults`, `add_vault`, `set_active_vault`, `get_vault_context` |
-| Move or delete notes | `move_note`, `delete_note` |
+| Move or delete notes | `move_note` (`update_backlinks` rewrites inbound links), `delete_note` (`confirm_path` required) |
 | Multi-file batches | `batch_execute` (transaction guarantee depends on backend) |
 | Frontmatter | `inspect_frontmatter`, `get_notes_info`, `search` with `frontmatter_filters`, `update_frontmatter` |
 | Full-text and semantic discovery | `search` (query, tags, frontmatter_filters, related_to), `find_similar`; optional `vector_search_search` |
 | Graph traversal | `get_links(direction="outgoing")`, `get_links`, `get_related_notes` |
 | Structural analysis | `graph_report(kind="broken_links")`, `graph_report(kind="dead_ends")`, `graph_report(kind="isolated_clusters")`, `graph_report(kind="cycles")` |
+| Overview, health, validation | `get_vault_context`, `explain_vault`, `vault_health(depth)`, `validate_vault` |
+| Tasks | `query_tasks` — see `references/search-and-graph.md` |
 
 Use the exact tool names exposed in the current session; MCP prefixes may differ between clients.
 
-Deferred tools: call through `tool_call` with both `name` and `arguments` on every entry, and run `tool_describe` before first use. Parameter names are exact and snake_case — `read_note` takes `path`; `edit_note` takes the SEARCH/REPLACE blocks as a single `edits` string.
+Deferred tools: call through `tool_call` with both `name` and `arguments` on every entry, and run `tool_describe` before first use. Parameter names are exact and snake_case — `read_note` takes `path` plus at most one selector (`head_lines`, `tail_lines`, `heading_equals`, `heading_level`, `last_sections`), and a partial read carries no `hash` for `expected_hash`; `edit_note` takes the SEARCH/REPLACE blocks as a single `edits` string.
 
 **Pass `calls` as a real array, never as a JSON string.** The bridge tolerates a stringified envelope (it parses it and reports `tool_call 'calls' is not valid JSON: ...` on failure — see `tools/tool_search_validation.py`), but a long, quote-heavy note body then has to survive two levels of quoting, and one slip invalidates the whole payload before any MCP call:
 
 - the failure is caught by Hermes's own argument validation, so the tool is never invoked — no server-side symptom to diagnose, and retrying the identical payload reproduces nothing;
 - keep single-payload writes moderate: write the skeleton first and add the long sections as separate `edit_note` blocks instead of one 15 KB content string full of escaped quotes and `"*..."*` emphasis;
 - on this failure, fix the payload and re-issue the *same* TurboVault tool. Switching to `write_file`/`patch` trades an encoding error for a stale link index (see the out-of-band write rule above).
+
+### Efficiency defaults
+
+- Read a large note with at most one `read_note` selector instead of the whole file; use a full read (or an `edit_note` dry run) whenever you need `expected_hash`.
+- For broad discovery pass `response_format: concise` to `search`, `explain_vault`, or `get_vault_context` — compact rows without `preview`, `outgoing_links`, and `word_count`.
+- Query tasks with `query_tasks` instead of full-text search over checkboxes: `status` is one of `todo|done|in_progress|cancelled|other` (never `open`), plus `due_before`/`due_after`, `scheduled_before`/`scheduled_after`, `tag`, `path`, `priority`, `text`, and paging.
 
 ### Paths
 
@@ -116,9 +124,11 @@ Deferred tools: call through `tool_call` with both `name` and `arguments` on eve
 TurboVault 4.0 consolidates 79 tools into 52 and changes what a client sees:
 
 - **`tools/list` shows 30 core tools.** The 22 advanced ones are callable by name but unlisted unless `tool_visibility.show_advanced_tools: true` (or `--show-advanced-tools`) is set. Advanced: `inspect_frontmatter`, `query_frontmatter_sql`, `audit_log`, `export`, `compare_notes`, `find_duplicates`, `find_stale_notes`, `suggest_links`, `note_quality`, `analyze_grounding`, `rollback_preview`, `rollback_note`, `move_file`, `diff_notes`, `list_orphan_fanouts`, `find_notes_from_template`, `remove_vault`, `fanout`, `okf_validate`, `generate_index`, `append_log_entry`, `visualize`. A client builds its tool list from `tools/list`, so a hidden tool cannot be called in that session even though the server has it — check the setting before reporting a missing tool.
+- **`generate_index` and `append_log_entry` write OKF conventions** (`index.md`, folder `log.md` history). Use them only in vaults that follow Open Knowledge Format — in vaults with their own index naming (e.g. `INDEX.md` plus MoCs) they collide with the vault's convention.
 - **Every vault-scoped tool takes an optional `vault` argument.** It defaults to the active vault, and naming a vault does not change which vault is active. Prefer it over `set_active_vault` when two sessions share one server.
 - **List results page.** `limit`/`offset`, default 50, with `meta.pagination` (`total`, `returned`, `truncated`, `next_offset`). A vault-wide enumeration (broken links, stale notes, hubs) must loop on `next_offset`; the first page is not the whole answer.
 - **Graph tools return vault-relative paths.** 3.x returned absolute paths on the server.
+- **`write_note` modes are `overwrite`, `append` and `prepend`.** Append and prepend write inside the body — after the frontmatter block — and require an existing note; on a missing path the call fails with a misleading `Concurrent access conflict: File does not exist`.
 - **`edit_note` refuses a SEARCH block that matches in more than one place** and asks for more surrounding context, which removes the silent first-match edit behind the fuzzy-match pitfall above.
 - **`validate_vault` exists as a tool** (whole vault or one `path`, `min_severity`, paging): pre-1.9 `tags`/`aliases`/`cssclasses` forms, unparsable frontmatter, broken links.
 - **`list_vaults` returns `{active_vault, vaults, config}`**; `get_active_vault` and `get_vault_config` no longer exist.

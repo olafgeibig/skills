@@ -36,6 +36,7 @@ Do this when a release replaces the installed `turbovault` binary. The binary sw
 - Codemod every skill that names an old tool, in every location the library spans (repo checkouts, profile-local `skills/`, `external_dirs`), then sweep for artifacts of collapsed names: wherever two old names map to one new name, literal pairs like `` `X`/`X` `` or `` `X`, `X` `` land in the edited prose.
 - Watch cross-domain collisions: an old bare name may belong to a different tool family (a provider's own search tools, for instance). Scope the codemod by domain and restore collateral files rather than deleting that family's references.
 - Audit last: every `mcp_<server>_*` token must exist in the new tool list, and old names may survive only as deliberate migration notes that name their replacement.
+- A name audit is not enough: prose claims about **behavior** go stale too — which operations a tool accepts, which flags are required, what a response contains. Verify each such claim against the new binary by driving it directly over stdio JSON-RPC against a throwaway vault (fake `HOME` so no real registry or config is touched, `--vault` pointing at a scratch directory), one probe per claim. Changelog prose and another installation's analysis are hypotheses; only the probe settles the claim.
 
 ## 7. Reload and re-verify live
 
