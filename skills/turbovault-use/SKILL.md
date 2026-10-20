@@ -70,7 +70,7 @@ Registration and activation are separate operations. For existing-vault setup, u
 - Use the `direct` write backend by default. Do not enable `write_backend: git` or call Git fan-out tools unless the user explicitly authorizes it for the named vault after external-sync compatibility review and testing on a copy.
 - Never assume `batch_execute` is atomic. The Direct backend is sequential and fail-fast; completed operations are not rolled back. Claim all-or-nothing only when the selected backend's documented transaction contract guarantees it.
 - Keep read-before-write for content context. For existing notes, use the current `expected_hash` from `read_note` or an `edit_note` dry run; do not send the removed `force` argument or use a blind overwrite without explicit user authorization. An `expected_hash` mismatch is not proof of a concurrent edit — the hash can move while the visible content is unchanged: re-read the note once and retry with the fresh hash; treat only a second mismatch as a real conflict.
-- Treat `vector_search` as optional. Configure a local compatible model and remember that one engine per process is bound to the vault active when first built; do not assume it follows later vault switches.
+- Treat `vector_search` as optional: its tools are advertised only when the server runs with `--plugins vector_search`, and it needs a local embedding model configured per vault. Setup, model choices, measured resource costs and the long-path `reindex` failure are in `references/vector-search.md`. One engine per process is bound to the vault active when first built; do not assume it follows later vault switches.
 - Verify external writes by reading the exact target and checking the resulting links or metadata.
 - Inspect backlinks before moves or deletions. `move_note` rewrites inbound wikilinks only with `update_backlinks: true` (it then reports every changed source in `link_sources_updated`); `delete_note` on the Direct backend runs with `force` default true and leaves links to the deleted note behind, so repair or report them explicitly.
 - Do not assume a move updated every alias, heading anchor, or plain-text reference — `update_backlinks` covers wikilinks only.
@@ -141,6 +141,7 @@ TurboVault 4.0 consolidates 79 tools into 52 and changes what a client sees:
 | Upgrade the server binary or migrate the skill library to a new tool surface | `references/upgrading.md` |
 | `edit_note`, full writes, or multi-file batches | `references/editing-and-batch-operations.md` |
 | Full-text, frontmatter, SQL, or graph discovery | `references/search-and-graph.md` |
+| Enable, configure, or debug the `vector_search` plugin | `references/vector-search.md` |
 | Rename, move, or structural refactor | `references/renames-and-refactors.md` |
 | Apply templates or normalize frontmatter | `references/frontmatter-and-templates.md` |
 | Missing tools, stale UI, reconnect churn, or process symptoms | `references/troubleshooting.md` |
