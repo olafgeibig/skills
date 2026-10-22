@@ -81,9 +81,9 @@ reviewed_for: "{{project version actually reviewed}}"
 
 Omit unavailable fields. A stored snapshot is not proof the live source remains unchanged.
 
-## Derived note
+## Distilled note
 
-Use the working-note frontmatter with type derived and an accurate description. Recommended body:
+Use the working-note frontmatter with type distilled and an accurate description. Recommended body:
 
 ```markdown
 # {{Reusable conclusion}}
@@ -98,7 +98,7 @@ Use the working-note frontmatter with type derived and an accurate description. 
 
 ## Implications and limits
 
-{{How it informs the concept and where it does not apply}}
+{{What this conclusion informs and where it does not apply}}
 
 ---
 
@@ -110,39 +110,27 @@ Topics:
 - [[INDEX]]
 ```
 
-## Concept note
+## Deliverable note
+
+Use type deliverable and set status to draft until the output is reviewed for its audience, format, scope, and supporting inputs. Adapt the body to the target; a Docupedia page, report, slide deck, or destination vault need not share one heading structure.
 
 ```markdown
 ---
-description: "{{purpose and audience}}"
-type: concept
+description: "{{purpose, audience, and output format}}"
+type: deliverable
 status: draft
 updated: {{actual date}}
 topics: ["[[INDEX]]"]
 ---
 
-# {{Concept title}}
+# {{Deliverable title}}
 
-## Purpose and scope
-
-{{Problem, intended outcome, boundaries}}
-
-## Proposed approach
-
-{{Self-contained account of the concept}}
-
-## Rationale and alternatives
-
-{{Reasons and trade-offs with citations where needed}}
-
-## Open points and limitations
-
-{{Remaining uncertainties and decisions}}
+{{Self-contained output tailored to the intended audience and format}}
 
 ---
 
 Based on:
-- [[derived-conclusion]]
+- [[distilled-conclusion]]
 
 Topics:
 - [[INDEX]]
@@ -170,7 +158,7 @@ updated: {{actual date}}
 topics: []
 ---
 
-# {{Concept title}}
+# {{Project title}}
 
 ## Purpose and boundaries
 
@@ -180,15 +168,15 @@ topics: []
 
 {{Reason for version; changed, rechecked, deferred, blocked work}}
 
-## Concept
+## Deliverables
 
-- [[concept-note]] — {{brief description}}
+- [[deliverable-note]] — {{brief description and target}}
 
-## Conclusions
+## Distilled knowledge
 
-- [[derived-conclusion]] — {{brief description}}
+- [[distilled-conclusion]] — {{brief description}}
 
-## Working material
+## Analysis and working material
 
 - [[analysis-note]] — {{brief description}}
 ```
