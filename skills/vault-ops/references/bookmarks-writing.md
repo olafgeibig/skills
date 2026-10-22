@@ -102,6 +102,12 @@ When a link is dropped with "add this to the <topic> bookmarks":
 7. **Sync enumerating MoCs.** If the parent MoC or an index line lists what a section holds, add the new name and bump its `updated:` in the same session — otherwise the MoC drifts against the list.
 8. **Report terse:** file + section, entry name, verified numbers, resolved URL — one line per URL the user sent; merged URLs get an explicit "combined into one entry" note.
 
+## Several URLs for the Same Product
+
+- Marketing page, docs and repo of one product = ONE entry: collect the URLs on the entry's `- Link:` line in the file's existing multi-URL style (often ` · ` separated).
+- Split into separate entries only when the URLs describe genuinely different things (e.g. two distinct products from one org).
+- Account for every URL the user sent in the report: each must be traceable to a destination. When several collapsed into one entry, say so explicitly — the user tracks sent links one by one and asks when one vanishes.
+
 ## Related
 
 - `./references/note-writing.md` — for atomic notes (zettel)
