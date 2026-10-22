@@ -117,6 +117,12 @@ The script discovers `.transcript-fixer/config.yaml` by walking upward from the 
 
 ## Workflow
 
+### 0. Check input and scope
+
+- Identify whether the supplied input is a text transcript or an audio/video recording before starting correction; this skill corrects existing ASR text, and its helper script does not transcribe media.
+- For a recording, first obtain a transcript through an available, authorized transcription workflow, then return here for correction. Do not present model availability or an opened transcription app as a completed transcription; inspect the generated text before reporting success.
+- If blocked, distinguish source-file access, transcription execution, and UI automation failures in the status report; a failed app interaction does not establish that the recording is unreadable or that a workspace policy forbids access. Request an accessible copy only when the source-access blocker is established, and state explicitly when no transcript was produced.
+
 ### 1. Discover config
 
 Treat `.transcript-fixer/config.yaml` in the current project root as the canonical configuration location.
