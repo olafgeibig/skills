@@ -147,6 +147,119 @@ Published on: {{actual publication date}}
 
 Keep this historical record unchanged after local edits until another publication succeeds. Use an actual encoded external locator, not these placeholders.
 
+## Project support templates
+
+Support instructions, templates, and briefs under `system/` are not content notes by default; omit frontmatter and Topics footers unless the project deliberately treats the file as a content note. Keep them discoverable from AGENTS and/or INDEX.
+
+### Project context
+
+Use a factual context note to orient agents to the purpose, subject, current phase, scope, essential framing, and links to detailed material. When maintained as a content note, use the required metadata and a suitable existing type; a synthesized overview may use `distilled`. Link its actual sources or inputs and keep detailed evidence in the source notes.
+
+```markdown
+---
+description: "{{project purpose, subject, and current boundaries}}"
+type: distilled
+updated: {{actual content-change date}}
+topics: ["[[INDEX]]"]
+---
+
+# Project Context: {{Subject}}
+
+## Purpose and phase
+
+{{Why the project exists and what phase it is in}}
+
+## Essential context
+
+{{Only framing facts and boundaries needed before specialized work}}
+
+## Where to look next
+
+- [[detailed-note]] — {{what it contains}}
+
+---
+
+Based on:
+- [[source-or-research-note]]
+
+Topics:
+- [[INDEX]]
+```
+
+Do not treat this summary as independent evidence for claims derived from its inputs. Keep operating rules in AGENTS or other support instructions, not mixed into factual context without a clear reason.
+
+### Deliverable brief
+
+Use one brief per deliverable when purpose, scope, required coverage, or structure needs more definition than the deliverable itself can carry. A brief is support material, not a blank-heading template or publication record.
+
+```markdown
+# Brief: {{Deliverable name}}
+
+## Intended result
+
+{{What the deliverable should enable or explain}}
+
+## Audience and format
+
+{{Who will use it and how}}
+
+## Scope
+
+- Include: {{required subjects or questions}}
+- Exclude: {{out-of-scope material}}
+
+## Content and structure
+
+{{Required content and preferred organization}}
+
+## Inputs and coverage
+
+- Required inputs: {{actual note links}}
+- Coverage check: {{what must be addressed and what may remain open}}
+
+## Composition mode
+
+{{Assemble selected material or rewrite it for this audience}}
+
+## Intended target
+
+{{Planned destination, or not yet decided; not a verified publication}}
+
+## Acceptance criteria
+
+- {{Observable condition for a complete, supported output}}
+
+## Open decisions
+
+- {{Unresolved choice, or None}}
+```
+
+### Publication instructions
+
+Configure this file locally; never include credentials or imply authorization that has not been granted.
+
+```markdown
+# Publication Instructions
+
+## Target and access
+
+- Platform and target mapping: {{configured target or not configured}}
+- Authorized access procedure/backend: {{approved route or not available}}
+- Required approval: {{who or what authorizes this publication}}
+
+## Platform-specific requirements
+
+- Preserve: {{macros, layout, metadata, or other target features}}
+- Render/link rules: {{destination-specific requirements}}
+
+## Update and verification
+
+- Read the target before updating and reconcile target-side changes.
+- If changes cannot safely be distinguished, stop for reconciliation.
+- Read back the exact target after writing.
+- Record a verified publication only after successful read-back.
+```
+
 ## Main MoC
 
 ```markdown
