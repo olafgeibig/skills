@@ -2,7 +2,7 @@
 name: transcript-fixer
 description: "Use when fixing speech-to-text transcripts."
 metadata:
-  version: "0.1.1"
+  version: "0.1.2"
 ---
 
 # Transcript Fixer
