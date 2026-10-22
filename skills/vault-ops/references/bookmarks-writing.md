@@ -68,6 +68,7 @@ Default `- description:` to 2-4 comparison-ready sentences for tool/repo entries
 
 Always:
 
+- **Search the whole vault for the item first** (tool name + URL host via `search_files`): it may already exist as a zettel or as an entry in another bookmarks file. If found, do not double-file — report the existing note and offer to enrich it in place instead of creating a parallel entry.
 - Read the current content first (`mcp_turbovault_read_note`).
 - Use `mcp_turbovault_write_note` with `mode="overwrite"` with the full updated content, OR use `mcp_turbovault_edit_note` with targeted SEARCH/REPLACE.
 - Never overwrite without reading first.
