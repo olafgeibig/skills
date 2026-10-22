@@ -100,7 +100,7 @@ When a link is dropped with "add this to the <topic> bookmarks":
 5. **`Date:` from the system, immediately before writing** — `date +%F`. A session header can be weeks stale, and a stale `Date:` silently reads as authoritative later.
 6. **Read the target back** and confirm the entry sits in the right section — a write response is not proof it landed.
 7. **Sync enumerating MoCs.** If the parent MoC or an index line lists what a section holds, add the new name and bump its `updated:` in the same session — otherwise the MoC drifts against the list.
-8. **Report terse:** file, entry name, verified numbers, resolved URL.
+8. **Report terse:** file + section, entry name, verified numbers, resolved URL — one line per URL the user sent; merged URLs get an explicit "combined into one entry" note.
 
 ## Related
 
