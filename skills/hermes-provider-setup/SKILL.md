@@ -229,6 +229,8 @@ A key that works inside Hermes can be invisible to a shell command, and vice ver
 
 `terminal.env_passthrough` in `config.yaml` is the supported route for a **non-Hermes** key into `terminal` / `execute_code` children: the declared names resolve through the secret scope, so they are fresh from `.env`. Hermes-managed provider credentials are refused there on purpose (credential scrubbing) — a shell `export` in `~/.bashrc` is the route for those when a CLI needs them.
 
+**Does a config change need a restart?** Usually not. `load_config()` / `load_config_readonly()` are cached on the **file signature** (`hermes_cli/config.py`), so any edit to `config.yaml` invalidates the cache and the next call re-parses it. `auxiliary.<slot>` is resolved per call through `_get_auxiliary_task_config()` → `load_config_readonly()`, and `/review` re-reads `auxiliary.review` at invocation (`agent/review_engine.py`) — a running gateway picks both up with no restart, and an aux client cache is keyed by route, so a changed provider/model builds a new client rather than reusing the old one. What does **not** follow a config edit: a session's own route (`model.default` / `model.provider` captured at session start — use `/model … --global` or `/new`), and a bare `os.environ` reader (needs `/reload`). A gateway restart to apply a slot change is unnecessary and costs the running sessions; only reach for it after evidence that the re-read did not happen.
+
 ## Built-in Providers (the 20+ landscape)
 
 Hermes has **~20 built-in providers** that don't require `providers:` config — they're discovered via `models.dev` and registered in `HERMES_OVERLAYS` (`hermes_cli/providers.py`).
