@@ -80,6 +80,7 @@ For the full ownership and routing rules, load `skill-governance`.
 ## Creating and editing
 
 - Use `skill_manage` for an existing owned skill resolved from the profile or an external directory.
+- For `skill_manage(action='patch')`, name the pair `old_string`/`new_string` and send no other fields on that op: the matcher reads those names, and an op carrying `content` or `old_text` is refused as a missing `old_string` however exact the snippet is.
 - Do not use `skill_manage(create)` unless its configured creation root is the intended canonical repository.
 - When several external repositories exist and `skills.create_dir` cannot select among them, create the new package directly in the chosen canonical repository.
 - Never edit a third-party skill directly.
