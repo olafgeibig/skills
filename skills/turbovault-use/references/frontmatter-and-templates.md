@@ -16,6 +16,10 @@ Use `inspect_frontmatter` before writing repository-specific SQL. Use `search` w
 
 An unquoted `: ` inside a YAML value (e.g. `description: … Sprache: DE.`) invalidates the entire frontmatter. Obsidian still shows it, but `query_frontmatter_sql` returns NULL for its fields, `get_notes_info` returns `null` for its frontmatter keys, and `update_frontmatter` fails with "mapping values are not allowed in this context" — while `get_notes_info` still reports `has_frontmatter: true`. Such notes are metadata-blind (routing, health report, `search (frontmatter_filters)`), though their body links stay in the graph. Fix: quote or shorten the value, then verify against `query_frontmatter_sql`, not Obsidian. Vault-wide scan: `yaml.safe_load` every frontmatter block (regex gives false positives), collect non-UTF8 files separately, leave `wiki/` hits alone.
 
+## Parser compatibility during upgrades
+
+For upgrades that change Obsidian frontmatter parsing, use v4's `validate_vault` on a disposable copy, or under a read-only profile if that profile exposes the tool. It reports pre-1.9 `tags`/`aliases`/`cssclasses`, unparsable frontmatter, and broken links. Treat a blank `tags:` as YAML null, not an empty list (`tags: []`); distinguish null values, scalar forms, singular legacy keys, invalid YAML, and template placeholders because they need different decisions. Keep findings separate from binary installation and obtain scope approval before normalizing notes.
+
 ## Applying templates
 
 `list_templates` returns TurboVault's own templates (built-ins such as `task`, `doc`, `research`, plus whatever `template_dirs` adds) — **not** the files in a vault's `system/templates/`. `create_from_template` fills one of those, takes `fields` as a string and records the template in the note's frontmatter; it refuses to replace an existing note. A vault that keeps its own template files is therefore still hand-written (read the template, write the note), which is what the rest of this section covers.

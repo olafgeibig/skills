@@ -11,6 +11,16 @@
 - Establish the currently-effective state (effective dates, transitional rules) and recheck the source's own arithmetic; name its assumptions — the classic error is mixing two vintages in one calculation.
 - On cross-border topics research the home side too — residence, place of management, CFC and exit-tax rules, treaty — not only the destination side the source argues about.
 
+## Documenting a locally installed tool
+
+A note that states a version, a flag or a feature must be checked against the installation, not against an older note in the vault or the project's marketing page.
+
+- `--version` and `--help` are primary sources for what the installed binary accepts; every flag the note documents should appear there, with its environment variable named alongside it.
+- Optional compiled-in features are invisible in `--help` beyond their switch. Prove presence in the build with `strings <binary> | grep <feature>` before writing that the feature is available; otherwise describe it as available only in a build that carries it.
+- Configuration defaults come from the source's config struct, not from the example file: examples show the shape, defaults often live one file away (`config.rs`, `DEFAULT_*`). Quote a default only when the code states it.
+- Version-specific defects recorded in an older note may be long fixed. Re-test or drop the claim — carrying "known bug" text across a major version turns a stale diagnosis into a permanent warning.
+- When the tool keeps state in a directory its own API excludes (a vault's `.turbovault/`), say so: it explains why config and indexes live on the filesystem rather than behind the tool.
+
 ## Derived figures: no fabrication
 
 - Every derived figure or table cell needs a source — the underlying note, a linked reference, or a citable document. Without one, do not present it as fact; phrase the gap visibly ("source missing / to verify") instead of estimating.

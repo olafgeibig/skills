@@ -13,7 +13,7 @@ Use this procedure for moves, renames, and changes that affect multiple links or
 
 Use `move_note` rather than a raw filesystem move when TurboVault is available. Do not assume the tool updated every reference.
 
-`move_note` by default does **not** update wikilinks in other notes — its warning ("Links pointing to the old path were not updated and may now be broken") is literal. Pass `update_backlinks: true` and it rewrites inbound wikilinks (bare `[[name]]` and path forms alike) and reports every changed source in `link_sources_updated`; without the flag the move succeeds and silently leaves the links pointing at the dead path. Default pattern for a rename: `move_note(from, to, update_backlinks: true)` → verify `link_sources_updated` covers every expected source → `grep -rn "<old-basename>"` over the vault for prose mentions and source-list entries the rewrite cannot see. Use a manual pattern when the move must also change content, or when building a bulk link map first:
+`move_note` defaults to no backlink rewrite on Direct: its warning ("Links pointing to the old path were not updated and may now be broken") is literal. Pass `update_backlinks: true` to request rewriting and check `link_sources_updated`. Verify the resulting wikilinks and inline Markdown links on Direct; rewriting is sequential, not atomic. Test reference-style links and canvas cards separately before claiming coverage. On Git, v4 rewrites inbound wikilinks, Markdown links, and canvas references atomically by default; set `update_backlinks: false` only for a rename-only operation. Keep Direct as the default for externally synchronized vaults. Use a manual pattern when the move must also change content or when a bulk link map is required:
 
 - **A — single note whose content also changes:** `read_note` old path → `write_note` new path with links updated → `delete_note` old path (pass `confirm_path`). Write before delete, always.
 - **B — link rewrite (file already moved):** one `UpdateLinks` op per source note in `batch_execute` (the current server exposes no standalone `update_links` call). Works even when the old note no longer exists.
@@ -50,7 +50,7 @@ Do not stop after the filesystem move.
 ## Verification
 
 - New target exists and old target does not.
-- `link_sources_updated` lists every expected source note — an empty result with `update_backlinks` omitted means the inbound wikilinks were left stale.
+- Compare `link_sources_updated` with the inventoried source notes and read back their links. On Direct, omitting `update_backlinks` leaves inbound links unchanged; do not apply that default to Git-backed moves.
 - Inbound and outbound links resolve.
 - No old basename, path, or heading anchor remains unintentionally.
 - Relevant INDEX and MoC navigation is current.

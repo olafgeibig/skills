@@ -84,6 +84,15 @@ Always:
 
 At 3+ entries across meaningfully different sub-topics — or when a new file is built for a multi-tool domain — split a `*-bookmarks.md` into peer-level `## <Sub-Category>` headings, not one lumped `## Tools` H2. Name sub-categories by consumer purpose, not tool type ("Evaluation Harnesses" > "Eval Tools" — what is the user trying to do with these tools?); a single entry under a new sub-category is fine. Insert new sub-categories before an existing `## Tasks` section — Tasks is always last.
 
+## Re-scoping: a Bookmark File in the Wrong Area
+
+When a bookmark file turns out to belong to another area (the collection is really about a class of tool that lives elsewhere), move it rather than duplicating entries into a second file. Full procedure in `./references/refactoring-workflows.md` § Move Notes Between Areas; the bookmark-specific parts:
+
+- List the destination area's `*-bookmarks.md` names first. A near-duplicate name in one folder (`agent-tool-bookmarks` next to `agent-tools-bookmarks`) defeats triage — rename by scope, or merge the entries verbatim into the existing file and retire the source.
+- Take the chance to fix the file-level `description:` and the scope line under the H1. They are the file's routing filter, and one that still says "browser automation tools" on a file covering MCP clients, research CLIs and vault tooling sends the next entry to the wrong file.
+- Update `tags` (`area/<old>` → `area/<new>`), frontmatter `topics`, the body `Topics:` footer, the old MoC (remove), the new MoC (add), and both `updated:` dates.
+- Leave a footer `Related:` line to the neighbouring bookmark file when the two overlap, so the split looks deliberate rather than like an accidental duplicate — a plain footer label beside `Topics:`, not a new field inside an entry.
+
 ## Tasks in Bookmark Files
 
 Attach a task to a bookmark file only on explicit user request ("add a task to the bookmark: …") — never as a proactive suggestion. Home is a `## Tasks` section after all bookmark entries and sub-categories, not a `- Task:` line inside an entry. This is the deliberate exception to the general inline rule in `task-management.md`. Use Obsidian Tasks syntax (`- [ ] <description> — <context> 📅 YYYY-MM-DD ⏫`), reference the entry in the task only if it adds clarity, and bump `updated:`.
