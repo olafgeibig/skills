@@ -364,7 +364,17 @@ On a headless host (Pi, VPS, container, remote shell) an OAuth provider setup (`
 
 On an auth failure Hermes falls back silently (Knob 3), so a probe that "works" right after a key fix proves only that *some* model answered — often the configured fallback, not the provider you just repaired. Before calling the fix verified, attribute the answer: `state.db`'s `session_model_usage` (`scripts/attribute-provider-burn.py`) names the model that actually served the call, and the provider's server-side 401 log names the one that didn't. Report both sides before claiming the route works.
 
-### Pitfall 12 — A same-named tool is not a trigger for the aux slot
+### Pitfall 12 — A `-free` / `-preview-free` slug is time-boxed, and it breaks config silently
+
+A free slug is a promotional catalogue entry: it disappears without notice (the paid slug usually stays under the suffix-dropped name), and every slot pinned to it then dies **at call time, not at config time** — `hermes config check` stays green, only a real call 404s. Runtime symptoms are quiet: titles stop being generated, approvals and background passes drop out or silently fall back to the parent model.
+
+Rules:
+
+1. **Never pin `auxiliary.*`, `model.*` or `delegation.*` to a `-free`, `-preview*` or `-contributor` slug.** Use the paid slug or a wide-cap cheap model from the same price band.
+2. **Check the cap before replacing one in a high-volume slot.** A freshly monetised ex-free model often carries the smallest monthly cap on the plan, and its per-token price says nothing about that cap.
+3. **Verify through the slot resolver, not the session rail.** `hermes -z --provider … -m <slug>` proves the model answers, not that `auxiliary.<slot>` routes to it; probe with `call_llm(task=<slot>, …)` (`references/model-routing-slots.md`).
+
+### Pitfall 13 — A same-named tool is not a trigger for the aux slot
 
 Slot semantics are not trigger semantics: the `session_search` tool is pure FTS5 (its own schema says "no LLM"), catalog search is lexical, and `auxiliary.mcp` serves MCP **sampling** (server-initiated completions) despite the config comment "MCP tool dispatch" — tool dispatch is direct RPC and tool search is BM25, so neither touches a model. Grep the install for `task="<slot>"` call sites before designing a verification around a tool; a pipeline trigger that can fail upstream (e.g. `tts_audio_tags` inside TTS) may never reach the aux call at all. The reliable sequence — config read → bare `call_llm(task=...)` resolver probe → ledger attribution on a real in-session call — is in `references/model-routing-slots.md`; bare out-of-session probes never land in `session_model_usage`.
 
