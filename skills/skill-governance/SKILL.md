@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when the skill concept decides a change."
 metadata:
-  version: "0.15.1"
+  version: "0.15.2"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -150,7 +150,7 @@ Prices, caps, model lists, quota snapshots, and dated probe results are volatile
 
 - **A skill is bound by its own placement rule** — when it states where a data kind lives, its own `references/` obey it too; a convenience copy beside the note drifts from the source of truth.
 - **Re-date the note instead of appending a second one**; re-fetch rather than re-citing an older snapshot.
-- **Point generically in a shared skill.** "A dated note in the user's knowledge base" travels; a vault name, note path, or local script path is an instance pointer and lives in that setup's profile-local skill.
+- **Point generically in a shared skill.** "A dated note in the user's knowledge base" travels; a vault name, note path, or local script path is an instance pointer and lives in that setup's profile-local skill — unless every consumer of the skill resolves the same path (one vault synced across the user's installations), in which case the concrete pointer may travel. The generic form is for pointers that resolve differently per consumer.
 
 ## Promotion From Sidecars
 

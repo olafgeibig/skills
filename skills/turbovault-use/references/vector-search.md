@@ -69,6 +69,38 @@ hybrid results are then just BM25 plus noise. `potion-multilingual-128M` spreads
 ~0.30–0.66 and returns topically related notes, though exact-wording queries are still served
 better by the core `search`.
 
+## Shrink a multilingual model: prune the vocabulary
+
+The 512 MB of `potion-multilingual-128M` is almost entirely vocabulary — 500,353
+Unigram tokens x 256 dims x 4 bytes — and a German+English vault touches only
+~29k of them. `scripts/prune-model2vec-vocab.py` keeps every token the corpus
+uses, pads to a target with the highest-scoring Latin-script tokens and slices
+the embedding table. Pure Python (tokenizers, safetensors, numpy — no torch):
+
+```bash
+python3 -m venv m2v && m2v/bin/pip install tokenizers safetensors numpy
+m2v/bin/python scripts/prune-model2vec-vocab.py \
+  --source ~/.local/share/turbovault-models/potion-multilingual-128M \
+  --out ~/.local/share/turbovault-models/potion-multilingual-45k \
+  --target 45000 --corpus '~/vaults/akademeia/**/*.md'
+```
+
+Measured on that vault (999 notes / 20,759 chunks):
+
+| | multilingual-128M | pruned to 45k |
+|---|---|---|
+| model directory | 513 MB | 47 MB |
+| process RSS (start / after first search) | 1,164 / 1,225 MB | 211 / 273 MB |
+| full `reindex` | 22.2 s | 21.6 s |
+| German query results | reference | same paths, same dense scores |
+
+Embedding drift: cosine 1.0000 between original and pruned over Latin-script
+sentences (rare German compounds and made-up words included), 0.93 for a rare
+English word whose subword piece fell out of the target, ~0 for Cyrillic/CJK,
+which become `[UNK]`. Re-prune with a higher `--target` if the vault starts
+holding notes in other scripts. Switching `model_path` requires
+`vector_search_reindex` because the token ids change.
+
 ## Pitfalls
 
 - **One engine per process, bound to the vault that was active at first build.** A later vault

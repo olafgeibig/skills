@@ -115,7 +115,7 @@ Answer questions about a skill's history with evidence from runtime telemetry an
 When migrating a skill:
 
 1. Validate the source package.
-2. Sweep the content for what must not travel into a shared copy: instance pointers (vault and note paths, local script paths, machine-specific hosts or endpoints) and any data kind the skill routes to a dated note (`skill-governance` → *Volatile Data Has a Note, Not a Skill*). Procedure and mechanics travel; the pointers become a profile-local skill per setup, and the data stays in each setup's dated note — never fork the skill itself.
+2. Sweep the content for what must not travel into a shared copy: instance pointers (vault and note paths that do not resolve on every consumer of the repository, local script paths, machine-specific hosts or endpoints) and any data kind the skill routes to a dated note (`skill-governance` → *Volatile Data Has a Note, Not a Skill*). Procedure and mechanics travel; the pointers become a profile-local skill per setup, and the data stays in each setup's dated note — never fork the skill itself.
 3. Create the destination explicitly in the canonical repository and adapt the frontmatter to that repository's convention (`hermes.category`, `metadata.source` = the repository URL, author and version style as the sibling skills declare them) — a package that keeps its profile-local frontmatter (`category: own`, no `source`) arrives mislabeled in the shared repo.
 4. Validate the destination before removing the source.
 5. Remove the old copy only after ownership and path verification.

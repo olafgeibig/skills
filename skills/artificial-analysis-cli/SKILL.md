@@ -2,7 +2,7 @@
 name: artificial-analysis-cli
 description: "Use when comparing AI models via the model-analysis CLI."
 metadata:
-  version: "0.1.1"
+  version: "0.1.2"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -111,8 +111,8 @@ jq -r '.data[]
 - **Partial free-tier coverage**: in one full catalog snapshot (689 models) the
   intelligence index was present on 680, coding on 258, economics 213, engineering 205,
   agentic 164, healthcare 80. `null` means "not in this tier".
-- **No vision index in the free tier at all** — visual capability is simply not measured
-  here; probe the model with a generated test image instead of citing an index.
+- **No vision index in the free tier at all** — visual capability is not measured here;
+  probe the model with a generated test image instead of citing an index.
 - **No raw benchmark results**: only the aggregated `artificial_analysis_*_index` fields;
   MMLU/HumanEval-style raw scores are not part of the free shape.
 - **Small quota**: 100 requests per window. One `models list` plus `jq` beats many
@@ -122,8 +122,6 @@ jq -r '.data[]
 - **Do not invent scores**: if a slug is missing from the catalog, say so instead of mapping a similarly named model.
 - **Catalog slugs are not plan model IDs.** The catalog writes version dots as dashes (`glm-5-3-flash`, `grok-4-7`, `mimo-v2-6-pro`) and appends release suffixes (`deepseek-v4-1-flash-1017`); a jq filter on the plan's dotted ID returns nothing with no error. Normalize dots → dashes before filtering, or scan by substring and confirm the exact slug from the hit — an empty result set is almost always a slug mismatch, not a missing model.
 - **Median TTFT is a property of the benchmark harness, not of the model's API.** Effort-heavy variants report a median TTFT in the hundreds of seconds while the same model answers in single-digit seconds on the provisioning endpoint. Never call a model slow on AA TTFT alone; latency claims need an own probe against the actual endpoint (throughput medians transfer better than TTFT but stay harness-dependent).
-  similarly named model.
-
 ## Verification
 
 ```bash

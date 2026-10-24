@@ -55,6 +55,14 @@ Key facts that decide availability:
 3. Read the log line for the engine that actually ran (`grep -i tts ~/.hermes/logs/agent.log`) — the tool
    result names the requested provider, the log names the one that synthesized.
 
+## Attribute a failure before touching config
+
+When synthesis fails, reproduce the provider outside Hermes first — call its own CLI or API
+directly with the same text (for `edge` that is the `edge-tts` CLI). A failure that is identical
+outside Hermes is provider-side (a free tier blocked or revoked server-side, an exhausted key),
+and no config edit will fix it: name the provider as the cause and offer another one instead of
+debugging the slot. Only a difference between the two runs points at Hermes config.
+
 ## Desktop dictation is client-direct — logs cannot answer "did it work"
 
 The desktop's speech input does not pass through the gateway: the renderer fetches
