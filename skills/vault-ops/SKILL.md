@@ -2,7 +2,7 @@
 name: vault-ops
 description: "Use when managing Obsidian vault structure and notes."
 metadata:
-  version: "0.15.0"
+  version: "0.21.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
@@ -28,9 +28,10 @@ Use this skill as the default workflow for working with markdown note vaults. Va
 - Read VAULT.md when deeper understanding of the vault is needed. It contains context for understanding vault content, such as a glossary of vault-specific terms or additional structure notes.
 - Load the reference file that matches the user intent before acting.
 - Load `./references/source-verification.md` when the source is claim-heavy (headline numbers, availability claims, model cards).
-- Before creating, editing, or moving notes under `projects/<dir>/` or `area/<dir>/`, load the project skill (`project-<dir>`) if one exists.
+- Before creating, editing, or moving notes under `projects/<dir>/` or `area/<dir>/`, load the project skill (`project-<dir>`) if one exists. When none exists, read the project directory's `AGENTS.md` and the long-form file it links (typically `conventions.md`) before improvising project conventions.
 - When asked to park work for later, create the requested contextual note with an actionable open task; do not execute the deferred change or invent a due date. Keep the task in that note and link it from the MoC; a MoC may aggregate tasks with a query, not duplicate their checkbox lines. Follow `references/task-management.md` for the capture and verification sequence.
 - Before deleting an allegedly obsolete note, resolve the exact target and test whether its whole purpose is superseded; a replacement for one mechanism does not retire independent requirements. Treat “this note” as ambiguous when multiple recent notes fit, and clarify before deletion rather than explaining the assumption afterwards. Follow the retirement procedure in `references/refactoring-workflows.md`; keep related-note cleanup limited to links and directly invalidated claims.
+- **“Analyse this first” means analyse.** When the user asks for an analysis, a comparison, or an assessment, deliver that and stop — do not implement, refactor, or write files until they ask, and do not treat a follow-up question inside a design discussion as a work order. Give the options and the recommendation, then wait.
 
 ## Before starting to work on a vault
 
@@ -50,6 +51,13 @@ Read additionally `VAULT.md`
 - The selected vault's root `AGENTS.md` overrides this skill.
 - Files referenced by that vault `AGENTS.md` also override this skill.
 - `./references/*.md` contains default conventions to use only when the vault does not define a more specific rule.
+- **A vault rule that contradicts the requested shape is surfaced, not silently overridden.** When the vault's own `AGENTS.md` says project conventions belong in a `project-*` skill and the user asks for project files (or the reverse), build what was asked and report the contradiction in the same reply with a concrete amendment proposal. Otherwise the next agent reads the vault rule first and either flags the new files as a defect or ignores them.
+
+## Project context
+
+Project structure is not this skill's business. The project shapes (worktree only, notes only, hybrid), where a project's `AGENTS.md` lives and what it contains, the machine table, working vaults and the publication path are owned by **`hermes-projects`** — load it whenever a request touches a project's structure, its `AGENTS.md`, a work tree or a second vault.
+
+What stays here, because it is about the notes themselves: the vault's root `AGENTS.md` as the constitution that overrides everything else, the `INDEX.md` hierarchy, note types and frontmatter, and the writing conventions below.
 
 ### Directory Structure
 
@@ -93,6 +101,10 @@ Language: EN.
 - `sources/`: Raw sources from external, web, documents
 - `system/`: Internal files, templates, state, helper scripts
 - `wiki/`: the root of a wiki maintained by the vault-wiki skill
+
+**Area boundary = primary operator, not subject matter.** When a vault carries both a human-tool area and an agent area, file a note by who primarily operates the thing: software the user runs and drives themselves (desktop apps, service managers, CLIs they invoke) belongs in the tools area; tooling whose primary consumer is an agent (MCP servers, agent CLIs and harnesses, memory/context backends, the vault server itself) belongs in the agents area. Subject overlap is not a reason to file agent tooling under a tools area, and a tool the user *also* uses does not flip the classification. When that boundary turns out to be drawn wrong, move the notes — see `./references/refactoring-workflows.md` § Move Notes Between Areas — and make the area's MoC `description:` and sub-index abstract state the boundary explicitly, because they are what routes the next note.
+
+**Scope boundary: product versus deployment.** A note about a tool or system splits on a second axis that has nothing to do with subject matter. What the thing *is* — capabilities, tool surface, configuration model, plugin and model options, upstream resources — belongs in the area note. How *this* installation runs it — binary paths, ports, which vaults a profile may reach, operating skills, watchers, per-machine quirks — belongs in the project note, cross-linked both ways. Mixing them mixes stable facts with facts that change per machine and per profile, pushes the note past a page, and leaves the area note claiming a deployment nobody has any more. This is the same move as the size split in `./references/note-writing.md`, applied on an axis instead of a byte count: split product from deployment even when the note would still fit.
 
 ### Note Types
 Use default templates unless AGENTS.md defines different templates
@@ -189,7 +201,7 @@ Always check if you need to read references matching your intent. Use the descri
 - Understanding the vault graph: `./references/vault-graph.md`
 - Navigating the vault: `./references/vault-navigation.md`
 - Changing a shared value or status (search → classify → one diff → verify): `./references/propagation-audits.md`
-- Refactoring workflows (promote a sub-MoC, rename a note type): `./references/refactoring-workflows.md`
+- Refactoring workflows (move notes between areas, promote a sub-MoC, rename a note type): `./references/refactoring-workflows.md`
 - Task management: `./references/task-management.md`
 - Task overview dashboards (aggregated `tasks` blocks): `./references/wf-task-overview-dashboard.md`
 - Verifying claims in a source (primary-source hierarchy, availability claims, model cards): `./references/source-verification.md`

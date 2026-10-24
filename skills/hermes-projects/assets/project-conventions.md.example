@@ -1,0 +1,37 @@
+---
+description: {{Extended rules for <project> — the long tail that does not fit in AGENTS.md}}
+type: zettel
+status: active
+created: {{YYYY-MM-DD}}
+updated: {{YYYY-MM-DD}}
+tags:
+  - project/{{tag}}
+topics:
+  - "[[+{{MoC}}]]"
+---
+
+# Conventions
+
+> [!ABSTRACT] Abstract
+> The long half of this project's contract. `AGENTS.md` stays at about a page and links here. Every rule an agent would otherwise re-derive by trial and error lands in this file instead of growing the manual.
+
+## Workflow
+
+{{The sequence that works, with the exact commands. A step that names a script or a flag is worth more than a paragraph describing it.}}
+
+## Verification
+
+{{What "done" means here: which check proves it, and what a passing result looks like. "Written" is not "in effect".}}
+
+## Known quirks
+
+{{Environment or tool behaviour that costs an hour to rediscover. One line each, with the workaround.}}
+
+## Open threads
+
+{{Decisions still pending, and what would settle them.}}
+
+---
+
+Topics:
+- [[+{{MoC}}]]

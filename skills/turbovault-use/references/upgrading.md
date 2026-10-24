@@ -10,7 +10,7 @@ Do this when a release replaces the installed `turbovault` binary. The binary sw
 ## 2. Install with a rollback path
 
 - Verify the asset against the release's `SHA256SUMS` before installing.
-- Pick the asset by **libc**, not by CPU architecture: the `linux-gnu` builds need glibc 2.38 or newer (4.0.2 requires `GLIBC_2.38`), so an older distribution needs the `linux-musl` build, which is static. Run the staged binary's `--version` before moving it into place.
+- Match the asset's OS and CPU architecture first, then check libc compatibility on Linux: the `linux-gnu` builds need glibc 2.38 or newer (4.0.2 requires `GLIBC_2.38`), so an older distribution needs the matching `linux-musl` build, which is static. Run the staged binary's `--version` before moving it into place.
 - Keep the old binary runnable under a versioned path (e.g. `~/.local/share/turbovault/<old-version>/turbovault`) and snapshot the server's state files (vault registry, `operations.jsonl` per vault) beside it.
 - Overwriting the installed binary while a server process is running is safe — the process keeps its loaded inode — but the swap stays invisible to that process and its clients until the binding is restarted. The snapshot also covers the reverse case: an older binary reading state the newer one wrote is only as safe as the state format.
 
@@ -18,8 +18,8 @@ Do this when a release replaces the installed `turbovault` binary. The binary sw
 
 - When the release reads `~/.turbovault/config.yaml`, register the vaults there instead of in per-client `args` flags: one source of truth survives client restarts. Naming the file in `args` (`--config <path>`) is fine — it pins which file is read without duplicating registration data. Details in `vault-configuration.md`.
 - Expect both silent and loud failures from the same file: unknown keys inside a `vaults` entry are ignored without a message, while a missing required field stops startup (`vaults[1]: missing field 'is_default'`). Start the new binary once against the migrated config and read the error instead of guessing.
-- Registering the vaults in the file is also what makes the vault list deterministic. Otherwise the server restores the per-project cache under `~/.cache/turbovault/projects/<hash>/vaults.yaml`, which is keyed by the server's **working directory** — two clients can then show two different vault lists for the same installation.
-- Check the advanced tools explicitly: a major release may leave tools out of `tools/list` unless a visibility setting enables them (4.0 hides 22 behind `tool_visibility.show_advanced_tools: true`). A client that builds its tool list from `tools/list` loses them without an error, so compare the discovered count against the release's documented total (52, not 30) instead of reading "connected" as complete.
+- Declare intended vaults in the file, but do not treat it as an exclusive registry or proof of active selection: the server also restores per-project cache state keyed by its **working directory**. Test clean-cache startup and startup with an isolated copy of the relevant existing cache; compare the full name/path mapping, runtime default flags, and active vault. See `vault-configuration.md` for the registry and cache checks.
+- Check the advanced tools explicitly: a major release may leave tools out of `tools/list` unless a visibility setting enables them (4.0 hides 22 behind `tool_visibility.show_advanced_tools: true`). Compare discovered names against the expected surface for the build and configured visibility policy, accounting for deliberately disabled tools. The release's unfiltered total is not the configured expected count; a client reporting "connected" does not establish completeness.
 
 ## 4. Validate vault content before the swap
 
@@ -28,7 +28,8 @@ Do this when a release replaces the installed `turbovault` binary. The binary sw
 ## 5. Verify the new server standalone before reloading
 
 - `hermes mcp test <server>` opens a fresh client connection, so it sees the new binary immediately while the running session's cached child still serves the old one. It proves connection and tool count — nothing more; it runs no vault call.
-- Start the binary once against the real config (`--profile <name>`, `--config <path>`) and check `list_vaults`, one read and a health call before wiring it into any client.
+- Start the binary once against the real config (`--profile <name>`, `--config <path>`) and check `list_vaults`, one read and a health call before wiring it into any client. Keep this production-config probe read-only; perform lifecycle writes only through the separately verified disposable connection.
+- For the disposable lifecycle probe, isolate `HOME` and the working directory as well as the vault, because registry restoration can otherwise redirect a scratch-config test. Confirm the absolute target through that same connection, then create collision-checked target and source fixtures with both a wikilink and an inline Markdown link. Read the target's current hash, perform a guarded edit, move it with `update_backlinks: true`, and read back the target and source links. Delete only those fixtures with explicit `confirm_path`, then verify their absence and removal of test references. Use the configured backend and report only the link forms actually exercised; a successful lifecycle probe does not certify every backend or reference syntax.
 
 ## 6. Migrate the skill library in the same change
 
@@ -42,4 +43,4 @@ Do this when a release replaces the installed `turbovault` binary. The binary sw
 
 - The session's tool surface changes only when the MCP binding reloads or a new session starts, and which reload exists depends on the client surface. TUI: `/reload-mcp`; the `mcp_servers` section of `config.yaml` is also polled there and reloads on change. Hermes Desktop: its slash-command registry hides commands with no desktop surface, and a config change there does not rebind the running session — restarting the services is the reliable path.
 - Never restart gateway/dashboard yourself to force the swap: each service spawns its own server child, so restarting only one leaves the other surface on the old binary, and the restart kills your in-flight turn. Hand the user the restart for every affected service and continue verification on the next turn.
-- After the reload, repeat the step-5 probes through the live session's own tools, and require a response shape only the new version emits (4.x `list_vaults` returns `{active_vault, vaults, config}`; 3.x returned a bare list). A tool count alone does not prove which version is live.
+- After the reload, repeat the step-5 probes through the live session's own tools and compare the negotiated server version plus measured response shapes. For v4, inspect `list_vaults.data.active_vault` and `data.vaults`; do not require `data.config`, which an unfiltered response may omit. A tool count or optional field alone does not establish the exact running version.

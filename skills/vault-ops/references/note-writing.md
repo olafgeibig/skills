@@ -1,6 +1,14 @@
 ## Writing notes
 Notes contain the actual content. They must follow a template defined in AGENTS.md
 
+## Before Creating: the Subject May Already Have a Note
+
+"Create a note about X" is a request about X, not an instruction to add a file. Before writing, check what the vault already says about the subject: a `search` on the subject, plus a filename listing of the target area and its subdirectories. Notes on one entity accumulate under slightly different names — `turbovault.md` next to a requested `TurboVault.md` is the same file on a case-insensitive filesystem, and a different file on a case-sensitive one either way.
+
+When a note on the subject exists but is stale — an old version number, paths from a previous machine, a workaround for a defect since fixed — the correct action is a **rewrite in place**: copy the file to a scratch path outside the vault as a rollback option, replace the body, keep `created`, bump `updated`, and say in the handoff that you rewrote an existing note instead of creating a duplicate. Two files on one entity split the graph and both drift out of date.
+
+Create a new file only when the subject is genuinely distinct (a sub-topic that deserves its own atomic note) — and then link both ways.
+
 ## Template
 
 Use `./assets/note-template.md` as the default note structure.
@@ -82,6 +90,8 @@ In addition to the structured `topics` array in the frontmatter, the body or foo
 After creating a zettel for a tool, concept, or entity, check for existing bookmark notes in the same area that match the topic. If a match exists, add a backlink entry (`See also: [[zettel-name]]`) to that bookmark note. This keeps bookmarks current and creates a bidirectional graph edge between the zettel (deep knowledge) and the bookmark note (curated overview).
 
 **Example:** A zettel about a tool in an area may get a backlink from that area's matching tools bookmark note when the bookmark note is the user's curated overview and the zettel is the deeper note.
+
+**Match the target file's field set.** The backlink takes whatever form the bookmark file already uses: when it has no `- Related:`/`- See also:` bullet, do not introduce one — put the cross-reference inline in the entry's `- description:` ("Deep dive: [[zettel]]"), because `./references/bookmarks-writing.md` owns the per-file format rule and overrides the bullet form here. Bump the file's `updated:` either way.
 
 **When to skip:** The bookmark note already covers the topic with sufficient depth directly, the zettel is only tangentially related, or adding the backlink would be a noisy side effect unrelated to the user's request.
 

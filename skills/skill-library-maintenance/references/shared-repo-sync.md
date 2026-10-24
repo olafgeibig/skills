@@ -104,6 +104,8 @@ For a fresh install, `--bootstrap-current-ledger` explicitly places the cursor a
 
 `--apply-config` writes only the two hook entries through `hermes config set`; it never changes `hooks_auto_accept`. Approve the exact `(event, command)` pairs through Hermes' normal consent flow. For headless setup, use a verified exact-pair allowlist; do not enable global auto-accept. Additional shared repos: repeat `--repo /path/to/other/repo` — each must be on `main` tracking `origin/main` and have a remote.
 
+After consent, rerun `hermes hooks list`, `hermes hooks doctor`, and the engine's `--selfcheck --verbose`; report automation active only when both pairs are allowlisted and the checks pass. A configured but not allowlisted hook is installed, not activated. If consent remains pending, report that boundary and leave activation unverified; do not present a blocked selfcheck as a passed check. In the handoff, separate repository publication (exact remote SHA), installation (wrapper, state, configuration), and activation (consent and health). Cite test results only for the inspected revision; rerun affected checks after later edits before carrying their results into the final handoff.
+
 The installer rewrites the wrapper only when its content actually changes: the hook consent records
 the script's mtime, so a needless rewrite would show up in `hermes hooks doctor` as "script modified
 since approval". If the wrapper *is* rewritten, refresh the consent —
