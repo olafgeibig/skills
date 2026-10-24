@@ -2,7 +2,7 @@
 name: hermes-projects
 description: "Use when structuring a project that Hermes works in."
 metadata:
-  version: "1.0.3"
+  version: "1.0.4"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   scope: personal
@@ -60,8 +60,8 @@ Paths are declared per machine under a stable logical name. A hostname changes w
 | Machine | Hostname | What it is |
 |---|---|---|
 | `bosch` | `BE18-C-0001G` | work laptop; its successor keeps the logical name, only this row changes |
-| `durin` | *fill on first use* | home-lab server (Raspberry Pi 5), runs an agent and the backup NAS |
-| `boromir` | *fill on first use* | private MacBook, the local ML box |
+| `durin` | `durin` | home-lab server (Raspberry Pi 5), runs an agent and the backup NAS |
+| `boromir` | `boromir` | private MacBook, the local ML box |
 
 This table lives here on purpose. It is instance data and belongs in a personal skill, not in a shared one — and it is the one place to edit when the setup changes, instead of every project's `AGENTS.md`.
 
