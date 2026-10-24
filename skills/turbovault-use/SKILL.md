@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Use when operating Obsidian vaults through TurboVault."
 metadata:
-  version: "0.13.0"
+  version: "0.13.1"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -58,6 +58,8 @@ A **vault-relative path in the request is itself vault evidence.** When the user
 Registration and activation are separate operations. For existing-vault setup, use `references/vault-configuration.md`.
 
 **Profile-scoped config files are the access boundary.** When profiles on one machine must not see the same vaults, give each its own config (`~/.turbovault/<profile>.yaml`) and start the server with `--config`; a vault absent from that file cannot be addressed by name or path, so the restriction is enforced by the server rather than by instruction. `is_default: true` marks the one vault used without naming it, so a single-vault config needs no `set_active_vault`. Verify what a config really registers — vault names, default flag, tool count — with `scripts/probe-config.py <config.yaml>` before restarting the client with it; that probe is the read-back for the change.
+
+**A running server keeps the config it was spawned with.** `list_vaults` reports what the current session can actually touch; the YAML on disk reports what the next spawn will load. When the two disagree — a vault in the list that is missing from the file, or the reverse — the file was edited after the process started. Report the pending restart; do not "fix" the file to match memory, and do not call the discrepancy corruption.
 
 For a temporary lookup in another vault:
 

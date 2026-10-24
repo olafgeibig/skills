@@ -2,7 +2,7 @@
 name: vault-ops
 description: "Use when managing Obsidian vault structure and notes."
 metadata:
-  version: "0.18.0"
+  version: "0.21.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
@@ -31,6 +31,7 @@ Use this skill as the default workflow for working with markdown note vaults. Va
 - Before creating, editing, or moving notes under `projects/<dir>/` or `area/<dir>/`, load the project skill (`project-<dir>`) if one exists. When none exists, read the project directory's `AGENTS.md` and the long-form file it links (typically `conventions.md`) before improvising project conventions.
 - When asked to park work for later, create the requested contextual note with an actionable open task; do not execute the deferred change or invent a due date. Keep the task in that note and link it from the MoC; a MoC may aggregate tasks with a query, not duplicate their checkbox lines. Follow `references/task-management.md` for the capture and verification sequence.
 - Before deleting an allegedly obsolete note, resolve the exact target and test whether its whole purpose is superseded; a replacement for one mechanism does not retire independent requirements. Treat “this note” as ambiguous when multiple recent notes fit, and clarify before deletion rather than explaining the assumption afterwards. Follow the retirement procedure in `references/refactoring-workflows.md`; keep related-note cleanup limited to links and directly invalidated claims.
+- **“Analyse this first” means analyse.** When the user asks for an analysis, a comparison, or an assessment, deliver that and stop — do not implement, refactor, or write files until they ask, and do not treat a follow-up question inside a design discussion as a work order. Give the options and the recommendation, then wait.
 
 ## Before starting to work on a vault
 
@@ -52,19 +53,11 @@ Read additionally `VAULT.md`
 - `./references/*.md` contains default conventions to use only when the vault does not define a more specific rule.
 - **A vault rule that contradicts the requested shape is surfaced, not silently overridden.** When the vault's own `AGENTS.md` says project conventions belong in a `project-*` skill and the user asks for project files (or the reverse), build what was asked and report the contradiction in the same reply with a concrete amendment proposal. Otherwise the next agent reads the vault rule first and either flags the new files as a defect or ignores them.
 
-## Project context files
+## Project context
 
-A project directory can carry its operating rules as plain files instead of a `project-<dir>` skill. The pair that works:
+Project structure is not this skill's business. The project shapes (worktree only, notes only, hybrid), where a project's `AGENTS.md` lives and what it contains, the machine table, working vaults and the publication path are owned by **`hermes-projects`** — load it whenever a request touches a project's structure, its `AGENTS.md`, a work tree or a second vault.
 
-- **`AGENTS.md` — the contract, with no frontmatter.** It is not a note: scope of the project, the environments or installations it runs on, mandatory skills (names and one clause each), hard rules, and points to where to start. Roughly a page; agents follow the first rules and skim the rest.
-- **`conventions.md` — the long tail, and it IS a note.** Frontmatter (`type`, tags, `topics`), body `Topics:` footer, MoC entry in the same change. Without those it is an invisible file that no query and no MoC reaches.
-- **Division:** facts about this project go in these files; a method reused across projects goes in a skill; neither restates the other, they link.
-- **What earns a place in `conventions.md`:** the workflow with its commands, the verification standard ("written" is not "in effect"), and the environment quirks a future agent would otherwise re-derive by trial and error. Keep inventories and bookmarks elsewhere.
-- Project facts belong here rather than in a skill because the vault is audited, versioned and synced, while a skill needs a deploy step per profile and can be stale on the machine you are on.
-- A skill is the better home when the procedure is needed by two or more projects, needs scripts or templates, runs outside any project directory, or needs per-profile gating.
-- **Where project skills live is a convention, not a path:** any skill directory named `project-*` under a skill root the profile sees (its own `skills/`, plus every `skills.external_dirs` entry, nested included) is a project skill. Resolve with `hermes config get skills.external_dirs` at runtime — or run `scripts/find-project-skill-dirs.py [<project>]`, which scans every root of the current profile and exits `2` when the same project name exists in more than one root. Ask when the answer is missing or ambiguous; a profile may legitimately hold several such roots (work vs. private scope). Never bake an absolute path into a vault `AGENTS.md` — it is wrong on the next machine.
-- **Exactly one shape per project.** The pair and a `project-<dir>` skill are alternatives, not layers. Where both already exist, the files carry the facts and the skill carries the method, and the skill links the files instead of repeating them.
-- **A project may also own a *working vault***: a second, self-contained vault inside the project's work tree, where the project's work builds its knowledge base — hand-written (`kind knowledge-base`, no skill, no publication target) or a structured authoring vault whose output is published (`kind authoring` → `authoring-vault`, `kind csl` → `csl-vault`). A working vault is not a notes vault: do not apply this skill's note types there, and do not translate its notes across the boundary. This skill needs only two things from it: the project `AGENTS.md` names the working vault's subdirectory **and its kind**, and publishing is a declared rendering step with a one-to-one mapping and a read-back — never a copy and never a sync.
+What stays here, because it is about the notes themselves: the vault's root `AGENTS.md` as the constitution that overrides everything else, the `INDEX.md` hierarchy, note types and frontmatter, and the writing conventions below.
 
 ### Directory Structure
 

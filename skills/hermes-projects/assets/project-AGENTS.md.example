@@ -1,0 +1,54 @@
+# {{Project}} — project context
+
+## Purpose
+
+{{What this project is, what it is for, and what the output is. One paragraph. If documents
+are produced, say where they are produced and where they end up.}}
+
+## Setup
+
+Shape: {{notes only | notes + work tree | notes + work tree + skill <name>}}
+Project directory: {{this directory | the work tree — its AGENTS.md is the operating manual}}
+
+- **Notes:** this directory — entry `{{+MoC}}`
+- **Work tree** (per machine): `{{machine}}` → `{{/absolute/path}}` · `{{machine}}` → not present
+- **Working vault:** `{{subdirectory}}`, kind `{{knowledge-base|authoring|csl}}` — or `none`
+
+{{With a work tree this file is the router: purpose, where the project lives per machine, and
+what the notes here are for — knowledge source, and publication target when they are one. The
+manual lives next to the code, because AGENTS.md loads from the working directory and every other
+agent working in that repo reads it there. Without a work tree this directory is the project
+directory, so this file is the manual itself.}}
+
+Machines are logical names; resolve `hostname` against the table in the vault `AGENTS.md`.
+Unknown hostname → ask. Never write an OS hostname here, and never reuse another machine's path.
+Paths go one way: this file names the work tree's path per machine (nothing else can discover a
+checkout location); the work tree's file names the vault by **name** and resolves it with
+`list_vaults`, because a vault path differs per machine.
+
+## Important resources
+
+- `{{+MoC}}` — every note in this directory
+- `{{note}}` — {{why an agent should open it before deciding something}}
+
+## Rules
+
+- {{Where content is produced, and where it is published.}}
+- {{Publication needs an explicit yes; never copy a file in place of writing a note.}}
+- {{Never mirror: one artefact, one home.}}
+- {{No vault guarantees in a work tree: no hash guard, no audit, no rollback, no drift check.}}
+- {{Commit after project work — or state plainly that nothing is versioned.}}
+
+## Extending the rules
+
+Read and extend [conventions.md](conventions.md) — never grow this file. It holds the workflow,
+the verification standard and the quirks that are too detailed for a page. Create it with the
+first rule that does not fit here, and link it from this section in the same change: a dangling
+link is worse than a short manual. In a vault it is a note (frontmatter, `topics`, body `Topics:`
+footer, MoC entry); in a work tree it is a plain markdown file.
+
+Keep this file to about a page: it is read on every entry, the rest only on demand. Where a
+project skill holds the method instead, name it here and keep the facts in this file.
+
+Write this file in the project's note language, not the language of the conversation that
+created it.
