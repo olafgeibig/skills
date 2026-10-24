@@ -48,6 +48,7 @@ Read additionally `VAULT.md`
 
 ## Instruction Precedence
 
+- **Which skill governs a vault is the vault's `AGENTS.md`'s decision, not the session's.** This skill plus that vault's specific skill is the default whenever the `AGENTS.md` names no skill. Apply a working-vault skill (`authoring-vault` for `authoring`-kind deliverable vaults, `csl-vault` for CSL) only where the vault's `AGENTS.md` declares that kind or names that skill — never because the subject matches the topic, the session is about it, or the skill menu offers it.
 - The selected vault's root `AGENTS.md` overrides this skill.
 - Files referenced by that vault `AGENTS.md` also override this skill.
 - `./references/*.md` contains default conventions to use only when the vault does not define a more specific rule.
