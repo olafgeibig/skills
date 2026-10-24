@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.7.0"
+  version: "0.7.1"
   author: Olaf Geibig
   hermes:
     category: personal
