@@ -1,6 +1,6 @@
-# Analysis and Deliverables Vault
+# Authoring Vault
 
-This directory is one self-contained analysis and deliverables vault. Apply the simple-vault skill. Replace these setup placeholders before adoption; merge with existing instructions rather than overwrite them.
+This directory is one self-contained working vault of kind `authoring`: analysis and deliverables, whose outputs publish into a notes vault. Apply the `authoring-vault` skill. Replace these setup placeholders before adoption; merge with existing instructions rather than overwrite them.
 
 ## Scope
 

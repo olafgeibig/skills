@@ -26,6 +26,32 @@ Reuse templates from skill/references: note-template, moc-template
 
 Never invent a type — map to the nearest type above; if a genuinely new type is required, extend this table in the same change.
 
+## Project context
+Each project carries its own context. Pick **one** shape per project — the file pair inside the vault, or a `project-<folder>` skill — never both.
+
+**Shape 1 — files in the vault (default):** `projects/<x>/AGENTS.md` plus `projects/<x>/conventions.md`.
+- `AGENTS.md` is the contract, not a note: no frontmatter, no own MoC entry, referenced from the project's `+MoC` orientation. Project scope, environments or installations, mandatory skills (names and one clause each), hard rules, where to start. Roughly a page.
+- `conventions.md` is the long tail and **is** a note: frontmatter, `topics` as MoC wikilinks, body `Topics:` footer, MoC entry in the same change. Without those it is invisible to every query.
+- No deployment step: it arrives with the vault and the agent can edit it, audited.
+
+**Shape 2 — a `project-<folder>` skill**, only when at least one holds:
+- two or more projects need the same procedure;
+- the procedure needs scripts or templates to be reliable;
+- it runs outside any project directory, so no `AGENTS.md` would trigger on it;
+- it needs per-profile or per-role gating.
+
+Naming: `project-<folder>` mirrors the vault folder (`projects/fsj/` → `project-fsj`). The prefix is the marker, not the location.
+
+**Location is per installation, and it is a convention rather than a path.** Every skill directory whose name starts with `project-` is a project skill, wherever it sits in the skill roots the profile sees: its own `skills/` directory plus every `skills.external_dirs` entry, nested subdirectories included. Those roots are configured per profile, so one profile can keep work and private project skills apart; a skill outside all of them is invisible no matter how correct its path looks.
+
+Resolve it at runtime — `hermes config get skills.external_dirs`, then find the `project-*` directories beneath those roots (or run the `vault-ops` helper `scripts/find-project-skill-dirs.py <project>`). No match → ask before creating one; several plausible roots → ask, never guess. Never write an absolute path into this file; it is wrong on the next machine.
+
+For both shapes:
+- **Always load the project context when working in or referencing that project** — read `AGENTS.md` and `conventions.md`, or load the skill.
+- **One fact, one place.** A skill never restates project facts, it links the note; a project `AGENTS.md` never repeats rules from this file.
+- **If a project has neither:** say so explicitly and offer to add one before improvising project conventions.
+- Routing abstracts stay in `projects/INDEX.md`.
+
 ## Additional frontmatter properties
 
 ### article
