@@ -38,7 +38,7 @@ One entry per changed path, under `<vault>/.turbovault/audit/`: operation type, 
 
 ## Turning the gate off
 
-`--no-confirm-destructive` / `TURBOVAULT_NO_CONFIRM_DESTRUCTIVE=1` is a server-wide flag, not a per-vault setting. Prefer the environment-variable form on the MCP server entry so the `args` list stays untouched (see `hermes-agent` → `references/native-mcp.md`). The value is read when the MCP subprocess spawns: the running session keeps the old behaviour until Hermes restarts, so a tool call that still refuses after the config write is expected, not a failed write — confirm with the config reader, not by calling the tool.
+`--no-confirm-destructive` is a server-wide flag, not a per-vault setting, and it belongs in the MCP server entry's **`args`** list. Do not express it as `TURBOVAULT_NO_CONFIRM_DESTRUCTIVE` in the `env` block: Hermes validates MCP env values as strings, so YAML `1` fails the spawn with `Input should be a valid string` and a quoted `"1"` reaches Clap with the quotes attached (`invalid value '"1"'`). Either way the server never starts, and because a server that failed three times is *parked*, the tools stay gone until the owning gateway restarts — the config being correct is not enough. The value is read when the MCP subprocess spawns, so a running session keeps the old behaviour until Hermes restarts: a tool call that still refuses after the config write is expected, not a failed write. Confirm with the restart and the `registered N tool(s)` log line, not by calling the tool.
 
 Ask before flipping it. The user granting destructive rights is not the same as the user accepting that moves cannot be undone or that Obsidian edits have no snapshot; state both.
 

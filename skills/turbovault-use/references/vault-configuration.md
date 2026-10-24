@@ -69,6 +69,15 @@ The registry is not one global list. In 4.0 registration combines these sources 
 
 Treat the configured `is_default`, runtime default flags, and active selection as separate observations. Do not promise active selection from the YAML alone: a v4 startup with restored cache state can select a different vault. Because the cache is keyed by the server's **working directory**, two Hermes processes (dashboard, gateway) can report different vault lists on the same machine. Declare intended entries explicitly, then verify the complete live registry and active selection after startup; cached names absent from the config may also be restored. Test both a clean cache and a disposable copy of the relevant existing cache under the intended working directory before claiming restart behavior. Keep all probe cache writes isolated from production.
 
+**Isolation is a property of the working directory, not of the config.** A profile whose YAML deliberately excludes another project's vaults still inherits them when its server starts in a directory whose cache holds them — names, `active_vault` and the default flag included — so a private profile can address vaults its config never mentions. `security.allowed_vault_roots` does not prevent this: it only limits runtime `add_vault`. Give such a profile a cache of its own; then prove the result by comparing `list_vaults` with the YAML rather than by reading either alone.
+
+Two levers separate the cache, and the cheaper one is the cache root rather than the working directory:
+
+1. **`XDG_CACHE_HOME` in the server entry's `env`** — the cache lands below it (`<root>/turbovault/projects/<hash>/`), so each profile gets its own directory while the client keeps spawning from wherever it likes. The value is a path string, so it does not fall into the env-typing trap that breaks numeric values.
+2. **A launcher that `cd`s into the profile directory before `exec`** — changes the cache key instead of the root; needed only when the cache root cannot be set.
+
+Prove either lever before restarting anything: run the binary with the intended environment and working directory, then read its startup log. A separated cache prints `Project cache initialized: <id> | Cache dir: <path>`, then `No cached vaults found for this project`, then one `Registering configured vault '<name>'` line per entry in the YAML. Any `Restored vault from cache: '<name>'` line is the leak, and a restored `active_vault` overrides the `is_default` flag from the config. Restart the owning gateway afterwards and confirm the new registry with `list_vaults`.
+
 ```yaml
 vaults:
   - name: main
