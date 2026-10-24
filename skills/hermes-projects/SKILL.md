@@ -2,7 +2,7 @@
 name: hermes-projects
 description: "Use when structuring a project that Hermes works in."
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   scope: standalone
@@ -44,6 +44,7 @@ Shape is a decision, not an accident. Write it into the project's `AGENTS.md` (`
 ## The operating manual lives where the work happens
 
 - **With a work tree (A, C):** its `AGENTS.md` is the manual. `AGENTS.md` loads from the working directory, and Codex or Claude Code working in that repo read it there. The vault side, if it exists, is a **router**: purpose, the work tree's location per machine, and what the notes are for.
+- **The router is optional.** When the notes hold nothing but notes, drop it: the MoC carries one line instead — `Projektverzeichnis: der Arbeitsbaum, sein AGENTS.md ist das Betriebshandbuch; diese Notizen sind seine Wissensquelle` — and the manual names the vault notes worth reading. Two files describing the same project is how they drift apart, and the path belongs in the checkout, not in the vault.
 - **Notes only (B):** the vault project directory *is* the project directory, so its `AGENTS.md` is the manual.
 
 Both use the same five sections — `Purpose`, `Setup`, `Important resources`, `Rules`, `Extending the rules` — from `assets/project-AGENTS.md.example`. Around 30–40 lines: the file is read on every entry, so everything longer belongs in `conventions.md` or in the project skill.
