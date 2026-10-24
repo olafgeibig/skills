@@ -373,6 +373,7 @@ Rules:
 1. **Never pin `auxiliary.*`, `model.*` or `delegation.*` to a `-free`, `-preview*` or `-contributor` slug.** Use the paid slug or a wide-cap cheap model from the same price band.
 2. **Check the cap before replacing one in a high-volume slot.** A freshly monetised ex-free model often carries the smallest monthly cap on the plan, and its per-token price says nothing about that cap.
 3. **Verify through the slot resolver, not the session rail.** `hermes -z --provider … -m <slug>` proves the model answers, not that `auxiliary.<slot>` routes to it; probe with `call_llm(task=<slot>, …)` (`references/model-routing-slots.md`).
+4. **A provider's model-list update is the sweep trigger.** When a catalogue refresh lands, sweep every pinned slug (`model.*`, `delegation.*`, `auxiliary.*`, plus the five side sections in `references/model-routing-slots.md`) against the new keyed `/models` answer and move dead slugs to the suffix-dropped paid name — `hermes config check` cannot see a retired slug.
 
 ### Pitfall 13 — A same-named tool is not a trigger for the aux slot
 
