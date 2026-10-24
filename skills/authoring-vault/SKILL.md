@@ -25,6 +25,8 @@ Operate one small, self-contained **working vault** of kind `authoring`: the vau
 
 A working vault without a publication target is just a hand-written knowledge base and needs none of this. This skill is the `authoring` kind, not the whole genus: a `csl` working vault is governed by `csl-vault`.
 
+**Scope gate — the vault's `AGENTS.md` chooses the skill.** Apply this model only where the vault's `AGENTS.md` declares the `authoring` kind or names this skill, or the user explicitly sets the vault up as one. When a vault's `AGENTS.md` names no skill, `vault-ops` plus that vault's specific skill governs it. A notes vault (MoC-based `area/`/`projects/`/`wiki/` Zettelkasten) keeps its own structure, note types, and metadata — never give it this layout, SemVer versions, or `checked`/`reviewed_for` markers. The session offering this skill is not the vault choosing it.
+
 ## Before working
 
 - Read applicable `AGENTS.md` files; local rules override defaults. Read `VAULT.md` when relevant.
