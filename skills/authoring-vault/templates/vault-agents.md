@@ -1,6 +1,6 @@
 # Authoring Vault
 
-This directory is one self-contained working vault of kind `authoring`: analysis and deliverables, whose outputs publish into a notes vault. Apply the `authoring-vault` skill. Replace these setup placeholders before adoption; merge with existing instructions rather than overwrite them.
+This directory is one self-contained working vault of kind `authoring`: analysis and deliverables, whose outputs publish into a notes vault. Apply the `authoring-vault` skill. This file governs everything *inside* the vault — layout, metadata, navigation, language, local overrides; the enclosing project's `AGENTS.md` governs the work tree around it and carries the checkout paths and the declared publication target. Read both, and let this one win inside. Replace these setup placeholders before adoption; merge with existing instructions rather than overwrite them.
 
 ## Scope
 

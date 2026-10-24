@@ -2,7 +2,7 @@
 name: hermes-projects
 description: "Use when structuring a project that Hermes works in."
 metadata:
-  version: "1.0.4"
+  version: "1.0.6"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   scope: personal
@@ -38,6 +38,8 @@ How a project that Hermes works in is structured: what its project directory is,
 | **C — hybrid** | the work tree | `projects/<x>/`, a knowledge source or a publication target, often both | possible |
 
 A **working vault** is a vault inside the work tree that is not a notes vault: it holds the analysis and the deliverables, and its kind names the skill that governs it — `knowledge-base` (hand-written, no publication target, no skill), `authoring` → `authoring-vault`, `csl` → `csl-vault`. It lives in a **subdirectory** of the work tree, never at its root: two contexts need two `AGENTS.md`, one for how the work is done and one for what is known.
+
+**The chain is stated on both sides, never assumed.** The project's `AGENTS.md` names the vault, its kind and the skill that governs it, and says that work inside the vault begins by loading that skill and reading the vault's own `AGENTS.md`. The skill states the same from its side and makes the vault-local file the manual inside the vault — its rules override the skill's defaults, and the skill overrides generic vault conventions. A project manual that names a working vault without that line is incomplete, and a kind-skill that does not require the vault-local `AGENTS.md` is equally incomplete: an agent that reads only the project manual will otherwise work in the vault on the wrong rules, and one that loads only the skill will miss the project's layout, language and publication target.
 
 A working vault is **unregistered by default**. Registration is a per-profile decision; without it there are no TurboVault hashes, audit, rollback or drift check, so its own version control is the safety net — or state before the first large write that none exists. **When a task needs those guarantees, say that the vault is unregistered and, after the user's approval, register it** in the active profile's TurboVault config — do not silently work on without an audit trail, and do not register without asking. Never register a work project's vault in a private profile.
 
@@ -100,6 +102,20 @@ Declare the publication target per project; the shape alone does not determine i
 
 A rename touches more than the skill: the vault root `AGENTS.md`, every project `AGENTS.md`, the skill's own frontmatter and template, and any note naming the term. Patch the skill contents first, then `git mv` the directory (the frontmatter `name:` must equal the directory name), grep every skill root and vault for the old name, and verify discovery with the skills list — trust the listing, not the rename.
 
+## Auditing an existing project manual
+
+Asked whether a project's `AGENTS.md` still matches these conventions, the deliverable is the audit plus a proposed patch — check first, rewrite only after approval. Read the manual, the `conventions.md` beside it, and every note that points at the manual, then work the list in order:
+
+1. **Five sections, in order, about a page.** A missing `Project directory: …` line is the most common gap: nothing else states which file *is* the manual.
+2. **Shape stated literally** (`Shape: notes only — …`) and consistent with the file tree and the rest of the file. If the shape claim itself is wrong, rewrite rather than patch around it.
+3. **Instance data not restated.** Hostnames and per-machine roles belong in the table above; naming which machines are in play is enough. A manual that calls one machine "the work laptop" is a second place to edit.
+4. **Every cross-reference resolves.** The longest-lived defect is a note claiming "the table of installations lives in `AGENTS.md`" while the manual has no such table: each file reads correctly alone, so only a grep finds it. Grep the project for `AGENTS.md`, `conventions`, and the MoC link, and test every claim against the file's actual content.
+5. **`conventions.md` is a real link, not a code span**, from the `Extending the rules` section — the agent told to extend the rules must be able to follow it.
+6. **Important resources carry a reason** (`open before …`) and a stated selection rule. The MoC is the index; a second complete list is the defect.
+7. **Rules state the publication position** even when it is "nothing publishes", and name the `wiki/` ownership boundary where the vault has one.
+
+Report as a numbered list with `file:line` and, for each, the exact replacement; distinguish what is wrong from what is merely terse. Apply after approval — through TurboVault for a vault-side file — and read each edit back. A validator warning on a correct `[text](https://…)` link is a false positive: say so instead of rewriting it.
+
 ## Setting up a new project
 
 1. Answer the three questions and write the shape down.
@@ -107,7 +123,7 @@ A rename touches more than the skill: the vault root `AGENTS.md`, every project 
 3. Shape A/C: create the work tree, `git init` and commit — or state that it is unversioned.
 4. Write `AGENTS.md` from the template, on the side where the work happens. For C, add a vault router only when vault-only discovery requires it. Create `conventions.md` from `assets/project-conventions.md.example` with the first rule that overflows the page, and link it in the same change.
 5. Declare per-machine checkout paths in their one authoritative home; in the work tree name the vault by name, never by path.
-6. If a working vault exists: install it in a subdirectory, declare its kind, name the skill that governs it.
+6. If a working vault exists: install it in a subdirectory, declare its kind, name the skill that governs it, and add the chain sentence — load that skill and read the vault's `AGENTS.md` before the first write inside it.
 7. Only then start working. The files exist before the first write, not after.
 
 ## What this skill does not own

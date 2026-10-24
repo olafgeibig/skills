@@ -2,7 +2,7 @@
 name: authoring-vault
 description: "Use when authoring deliverables in a working vault: notes → distilled → publication."
 metadata:
-  version: "2.0.1"
+  version: "2.0.3"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -27,7 +27,8 @@ A working vault without a publication target is just a hand-written knowledge ba
 
 ## Before working
 
-- Read applicable `AGENTS.md` files; local rules override defaults. Read `VAULT.md` when relevant.
+- **Read the chain before any work in the vault.** `AGENTS.md` at the vault root is the manual for everything inside it: directory layout, metadata rules, navigation entry points, language and any project-specific override. Read it first — even when the task starts in the surrounding work tree and the enclosing project's `AGENTS.md` was already read. That project file governs the work tree; this skill supplies reusable `authoring` conventions; neither substitutes for the vault's own rules. If the vault-local `AGENTS.md` is missing or unreadable, say so and do not infer layout or rules — continue only with work that does not depend on them. Where the vault file and this skill disagree, the vault wins; where this skill and generic vault convention disagree, this skill wins.
+- **Initializing a new vault is the one exception to that prerequisite.** Read the enclosing project's `AGENTS.md` first when one exists, then create the vault-local manual from `templates/vault-agents.md` as the first artifact and read it back before creating any content. With no project manual, use only setup facts the user gave you — invent no paths, language, or publication target. Declaring the vault's own rules before its content is what keeps the read-first rule satisfiable.
 - Establish the working vault's own directory as the vault root. When the project has a work tree, this is a **subdirectory** of that work tree — never the work tree root, the enclosing repository, or a destination vault. The work tree and working vault keep separate `AGENTS.md` files; `hermes-projects` owns that placement decision.
 - Follow project documentation language; default to English, not the chat language.
 - Filesystem tools suffice. When using TurboVault, load `turbovault-use` and verify the selected vault and scope. Registration is not required for an Obsidian mini-vault, but without it there is no TurboVault audit, rollback or drift coverage: use the project's version control as the safety net and do not claim those guarantees.
@@ -157,6 +158,7 @@ Project versions label iterations; they do not archive history. Existing Git sup
 
 ## Verify before completion
 
+- Name the vault-local `AGENTS.md` you read and how its layout, metadata and navigation rules were applied. A completion report that cannot name that file has not followed the chain, however conformant the notes look.
 - Validate YAML, allowed types, quoted version strings, descriptions, and actual date values.
 - Check local note/attachment targets and reachability of every content note from INDEX. Inspect list indentation as well as link existence: insert a new sibling after an existing parent's entire nested child block, not between the parent and its children, because valid links can still imply the wrong hierarchy. Verify requested filenames and AGENTS read-before-work links explicitly; after a rename, update incoming links together and check that no stale target remains.
 - Check non-root MoC membership in both directions and matching frontmatter/footer topics.
