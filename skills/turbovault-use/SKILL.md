@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Use when operating Obsidian vaults through TurboVault."
 metadata:
-  version: "0.13.1"
+  version: "0.13.2"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -59,7 +59,7 @@ Registration and activation are separate operations. For existing-vault setup, u
 
 **Profile-scoped config files are the access boundary.** When profiles on one machine must not see the same vaults, give each its own config (`~/.turbovault/<profile>.yaml`) and start the server with `--config`; a vault absent from that file cannot be addressed by name or path, so the restriction is enforced by the server rather than by instruction. `is_default: true` marks the one vault used without naming it, so a single-vault config needs no `set_active_vault`. Verify what a config really registers — vault names, default flag, tool count — with `scripts/probe-config.py <config.yaml>` before restarting the client with it; that probe is the read-back for the change.
 
-**A running server keeps the config it was spawned with.** `list_vaults` reports what the current session can actually touch; the YAML on disk reports what the next spawn will load. When the two disagree — a vault in the list that is missing from the file, or the reverse — the file was edited after the process started. Report the pending restart; do not "fix" the file to match memory, and do not call the discrepancy corruption.
+**A running server keeps the config it was spawned with.** `list_vaults` reports what the current session can actually touch; the YAML on disk reports what the next spawn will load. When the two disagree — a vault in the list that is missing from the file, or the reverse — the file was edited after the process started. Report the pending restart; do not "fix" the file to match memory, and do not call the discrepancy corruption. Under Hermes, restart the process that owns the MCP server: when the gateway supervises it, use `hermes gateway restart`; restarting only the desktop app or killing just the MCP child can leave the old config in force because the parent respawns it from cached settings. The general MCP lifecycle rule lives in `hermes-agent`.
 
 For a temporary lookup in another vault:
 
@@ -147,7 +147,7 @@ TurboVault 4.0 consolidates 79 tools into 52 and changes what a client sees:
 - **Graph tools return vault-relative paths.** 3.x returned absolute paths on the server.
 - **`write_note` modes are `overwrite`, `append` and `prepend`.** Append and prepend write inside the body — after the frontmatter block — and require an existing note; on a missing path the call fails with a misleading `Concurrent access conflict: File does not exist`.
 - **`edit_note` refuses a SEARCH block that matches in more than one place** and asks for more surrounding context, which removes the silent first-match edit behind the fuzzy-match pitfall above.
-- **`validate_vault` exists as a tool** (whole vault or one `path`, `min_severity`, paging): pre-1.9 `tags`/`aliases`/`cssclasses` forms, unparsable frontmatter, broken links.
+- **`validate_vault` exists as a tool** (whole vault or one file `path`, `min_severity`, paging): pre-1.9 `tags`/`aliases`/`cssclasses` forms, unparsable frontmatter, broken links. A directory passed as `path` fails with an I/O error because the validator expects a file; validate each touched file or omit `path` for a whole-vault run.
 - **Read `list_vaults` from `data.active_vault` and `data.vaults`.** Do not require `data.config`: an unfiltered v4 response can omit it. Inspect the current tool schema and returned fields before choosing a configuration lookup; inspect the loaded YAML separately when needed. `get_active_vault` and `get_vault_config` no longer exist.
 
 ## Audit Trail

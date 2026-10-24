@@ -2,7 +2,7 @@
 name: authoring-vault
 description: "Use when authoring deliverables in a working vault: notes → distilled → publication."
 metadata:
-  version: "2.0.0"
+  version: "2.0.1"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -16,20 +16,21 @@ metadata:
       - mocs
     related_skills:
       - turbovault-use
+      - hermes-projects
 ---
 
 # Authoring Vault
 
-Operate one small, self-contained **working vault** of kind `authoring`: the vault a project's work is done in, whose outputs are published into a notes vault. Use this standalone model instead of importing the area/project hierarchy from `vault-ops` or the compliance machinery from `csl-vault`. No mandatory plugins, manifests, evidence IDs, or independent per-note versions.
+Operate one small, self-contained **working vault** of kind `authoring`: the vault a project's work is done in, whose outputs are published to a declared target, commonly a notes vault. Use this standalone model instead of importing the area/project hierarchy from `vault-ops` or the compliance machinery from `csl-vault`. No mandatory plugins, manifests, evidence IDs, or independent per-note versions.
 
 A working vault without a publication target is just a hand-written knowledge base and needs none of this. This skill is the `authoring` kind, not the whole genus: a `csl` working vault is governed by `csl-vault`.
 
 ## Before working
 
 - Read applicable `AGENTS.md` files; local rules override defaults. Read `VAULT.md` when relevant.
-- Establish the project directory as the vault root, not the enclosing repository or a destination vault.
+- Establish the working vault's own directory as the vault root. When the project has a work tree, this is a **subdirectory** of that work tree — never the work tree root, the enclosing repository, or a destination vault. The work tree and working vault keep separate `AGENTS.md` files; `hermes-projects` owns that placement decision.
 - Follow project documentation language; default to English, not the chat language.
-- Filesystem tools suffice. When using TurboVault, load `turbovault-use` and verify the selected vault and scope. Registration is not required for an Obsidian mini-vault.
+- Filesystem tools suffice. When using TurboVault, load `turbovault-use` and verify the selected vault and scope. Registration is not required for an Obsidian mini-vault, but without it there is no TurboVault audit, rollback or drift coverage: use the project's version control as the safety net and do not claim those guarantees.
 - Do not restructure existing material, initialize Git, commit, or publish without a request. Preserve unrelated work.
 - For new notes load `references/note-templates.md`; for initialization load `templates/vault-agents.md`.
 - For multi-step knowledge work, coverage decisions, composition choices, or refreshes, load `references/knowledge-workflow.md`.
@@ -54,7 +55,7 @@ When asked to align an existing vault with an updated skill without changing its
 ## Layout
 
 ```text
-project-root/
+working-vault/       # a subdirectory of the work tree when one exists
 ├── AGENTS.md
 ├── INDEX.md
 ├── +Topic.md          # optional thematic MoCs
