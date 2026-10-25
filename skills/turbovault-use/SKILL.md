@@ -163,6 +163,7 @@ The `audit_log` tool, its snapshots and `rollback_note` cover **only writes that
 | `edit_note`, full writes, or multi-file batches | `references/editing-and-batch-operations.md` |
 | Full-text, frontmatter, SQL, or graph discovery | `references/search-and-graph.md` |
 | Enable, configure, or debug the `vector_search` plugin | `references/vector-search.md` |
+| Set `vector_search` up on a fresh installation (model, config, MCP args, verification) | `references/vector-search-setup.md` |
 | Audit coverage, changes made outside TurboVault, restoring an unaudited edit | `references/audit-and-drift.md` |
 | Rename, move, or structural refactor | `references/renames-and-refactors.md` |
 | Apply templates or normalize frontmatter | `references/frontmatter-and-templates.md` |
