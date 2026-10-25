@@ -73,7 +73,7 @@ Always:
 - Use `mcp_turbovault_write_note` with `mode="overwrite"` with the full updated content, OR use `mcp_turbovault_edit_note` with targeted SEARCH/REPLACE.
 - Never overwrite without reading first.
 - Keep duplicate links out unless the duplicate is intentionally listed in another category with a distinct purpose.
-- Get repo facts from the API, not the page: `curl -s https://api.github.com/repos/<owner>/<repo>` returns `stargazers_count`, `license.spdx_id`, `language`, `created_at`, `pushed_at`.
+- Get repo facts from the API, not the page: `https://api.github.com/repos/<owner>/<repo>` returns `stargazers_count`, `license.spdx_id`, `language`, `created_at`, `pushed_at`. Fetch **and** parse in ONE `execute_code` call with `urllib.request` (write large payloads to a file, filter in Python before printing) instead of shell `curl` pipelines — a fetch/parse split through the terminal drops output to truncation and empty pipeline stages. The same call can pull `git/trees/<branch>?recursive=1` for the repo structure and `raw.githubusercontent.com/<owner>/<repo>/<branch>/README.md` for the claims the entry quotes.
 - Repo pages and search hits give contradictory or stale numbers; the API is the evidence base for `- Stars:` / `- License:` in the entry.
 - Don't invent fields: use only the target file's field set (`- Link`, `- License`, `- Stars`, `- Date`, …).
 - If the file has no `- Related:`, put cross-references inline in the `description` instead of adding a bullet.
