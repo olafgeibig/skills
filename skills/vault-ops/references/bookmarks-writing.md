@@ -69,6 +69,7 @@ Default `- description:` to 2-4 comparison-ready sentences for tool/repo entries
 Always:
 
 - **Search the whole vault for the item first** (tool name + URL host via `search_files`): it may already exist as a zettel or as an entry in another bookmarks file. If found, do not double-file — report the existing note and offer to enrich it in place instead of creating a parallel entry.
+- **Resolve the target file's path at write time, never from earlier in the session or from memory.** Parallel sessions rename and move notes while a session runs; a bookmarks file that sat under `area/…` last hour can now live under `projects/…`. When the expected path is missing or empty, `search_files` by filename (and by a known entry string) before concluding the file is gone — creating a replacement next to a moved original yields two same-named files and defeats triage.
 - Read the current content first (`mcp_turbovault_read_note`).
 - Use `mcp_turbovault_write_note` with `mode="overwrite"` with the full updated content, OR use `mcp_turbovault_edit_note` with targeted SEARCH/REPLACE.
 - Never overwrite without reading first.
