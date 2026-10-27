@@ -13,6 +13,8 @@ This directory is one self-contained working vault of kind `authoring`: analysis
 
 INDEX.md is the main MoC and holds the quoted project version. Optional +Topic.md files organize aspects. Working research and analysis live in notes/, reusable conclusions in distilled/, audience- and format-specific outputs in deliverables/, originals in resources/, and project context, publication instructions, topical templates, and optional deliverable briefs in system/. Create directories only when used. No area/project hierarchy or mandatory plugins.
 
+An autonomous run keeps its `plan.md` and `log.md` in system/ (see the skill's plan-driven-run reference); read them before continuing such a run.
+
 AGENTS.md should point agents to essential context and publication instructions. Support instructions, templates, and briefs are not content notes by default; factual context maintained as a content note needs appropriate metadata, provenance, and input links.
 
 Each content note has description, type, updated, and topics. Types: resource, research, analysis, idea, distilled, deliverable, moc. Non-root notes link to parent MoCs in both frontmatter and a matching Topics footer; those MoCs link back. Root has topics: [] and no self-link. Use portable relative paths and unambiguous wikilinks.

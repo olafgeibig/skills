@@ -2,7 +2,7 @@
 name: authoring-vault
 description: "Use when authoring deliverables in a working vault: notes → distilled → publication."
 metadata:
-  version: "2.0.3"
+  version: "2.2.1"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -35,6 +35,7 @@ A working vault without a publication target is just a hand-written knowledge ba
 - Do not restructure existing material, initialize Git, commit, or publish without a request. Preserve unrelated work.
 - For new notes load `references/note-templates.md`; for initialization load `templates/vault-agents.md`.
 - For multi-step knowledge work, coverage decisions, composition choices, or refreshes, load `references/knowledge-workflow.md`.
+- When the user wants an agent to work autonomously from research to distilled or deliverable, load `references/plan-driven-run.md`: interview with `grilling`, an approved plan in `system/plan.md`, subagent execution, review gates.
 - Treat template body headings as defaults: preserve the user's requested section names, order, and brevity while applying the required metadata and navigation, because a valid note must also match the requested reading structure.
 
 ## Capture an existing discussion as a note
