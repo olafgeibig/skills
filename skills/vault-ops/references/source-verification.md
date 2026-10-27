@@ -60,6 +60,11 @@ A note that states a version, a flag or a feature must be checked against the in
 - State the security caveat explicitly — foreign code runs directly; the execution decision stays with the user.
 - Name the weights licence separately: it can differ from the code licence (non-commercial weights under a permissive code licence).
 
+## Downloadable artifacts (firmware, installers, binaries)
+- A vendor download URL is not the artifact: URLs get repointed to a newer release while third-party docs, installers and older notes still cite the old one. Verify identity before citing — download, record size + SHA-256, and cross-check a second independent mirror; only a byte-identical pair counts as `verified`.
+- Prefer the vendor's own source/SDK repo as the primary source for an exact file when one exists (firmware blobs are often committed there), and cite embedded product identifiers (product strings, version headers) alongside size/hash — they expose a repointed file even without a baseline hash.
+- When the canonical URL no longer serves the documented artifact, say so in the note and give the reader a copy-paste fetch + hash-check snippet with the expected hash inline — this user acts on verified commands, not prose descriptions.
+
 ## Cost/decision notes
 - Every figure with an as-of date and a source; prices change weekly.
 - Do not force one currency: compute break-even in hours and state the conversion assumption; mark power price, utilisation and efficiency as assumptions, not facts.
