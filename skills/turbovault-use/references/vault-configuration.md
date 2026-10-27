@@ -15,6 +15,16 @@ We use a two-stage check:
    - If it succeeds (even with an empty list): TurboVault MCP is available.
    - If it fails: stop and instruct the user to enable/configure TurboVault MCP.
 
+## Inspect existing working-vault registrations
+
+For a read-only question about whether project working vaults are configured:
+
+1. Resolve the active client's TurboVault launch entry and its exact `--config` argument before opening YAML; a familiar filename is not evidence that this session uses it. Inspect only the relevant command, arguments, and vault entries, not unrelated credentials or environment values.
+2. Read the configured vault names and paths, then call `list_vaults` on the current MCP connection. Match names **and** absolute paths; file configuration, live registration, default flags, and active selection are separate facts.
+3. Resolve each requested project's embedded vault root from its project manual or existing registration. Check the project and vault directories explicitly. If the project directory is empty or has no working vault, report that state rather than treating it as a ready-to-register vault. A missing manual alone does not prove that a vault is absent.
+4. If configuration and runtime disagree, report the mismatch without guessing its cause: compare the launch configuration and per-working-directory cache sources described below before attributing it to an old process. Do not restart or rewrite configuration during an inspection.
+5. Return one compact row per requested project, distinguishing configured, live-registered, and directory-present states. Mention the configuration source and that nothing changed. Do not audit manual formatting, metadata, or navigation unless requested; stop once the registration question is answered.
+
 ## Register and activate an existing vault
 
 When the user provides an existing vault path that is not registered:

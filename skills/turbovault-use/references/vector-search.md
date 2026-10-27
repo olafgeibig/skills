@@ -12,6 +12,8 @@ turbovault --help | grep -- --plugins          # flag exists → the feature set
 strings "$(command -v turbovault)" | grep -c vector_search   # >0 → plugin compiled into this binary
 ```
 
+Treat `--help` and binary strings as capability hints, not proof of a working plugin: the flag establishes plugin support, and an embedded name does not establish activation or successful model loading. Check the actual server invocation, then verify the exposed tool schemas, `vector_search_status`, and a real search after approved enablement. Avoid repeated broad Tool Search queries once the catalogue has established that these tools are not exposed; inspect launch arguments and tool visibility instead.
+
 `cargo install turbovault` alone is stdio-only without the plugin; the published release archives carry every feature. A note or README claiming vector search "is available" describes the project, not the installed binary.
 
 ## Enable
@@ -47,6 +49,22 @@ Any model in the [Model2Vec library](https://huggingface.co/models?library=model
 | `minishlab/potion-science-8M` / `potion-science-32M` | 256 | science corpora |
 
 Fetch the repository files, keep the three together, and use an absolute path. Two cheap checks before promising a model works: `curl -s https://huggingface.co/api/models/<id>` for the file list (a repo shipping `embeddings.safetensors` or a bare torch checkpoint instead of `model.safetensors` needs conversion; the loader also accepts the sentence-transformers layout with a `0_StaticEmbedding/` subfolder), and `curl -sL https://huggingface.co/<id>/raw/main/config.json` for the dimension. Changing the model changes the dimension and therefore requires `vector_search_reindex`. Embeddings are static lookup-table means, so encoding is CPU-cheap and needs no model server. Report "not configured" as a configuration gap with the missing `model_path`, never as a broken feature.
+
+## Assess a model or setup transferred from another machine
+
+1. Establish the destination's live memory budget, server invocation and intended registered vault before adapting another machine's instructions. Keep the comparison read-only until downloads, configuration changes and restarts are approved.
+2. Identify the exact model artifact and its provenance. A locally named vocabulary-pruned derivative is not interchangeable with its upstream model: inspect its tokenizer vocabulary and `hidden_dim` separately; a token-count suffix does not establish embedding dimensions.
+3. For corpus-pruned models, assess vocabulary coverage on the destination corpus **and representative queries**, including both languages and domain terminology. Source-machine retrieval examples demonstrate only that source workload; do not transfer its quality or memory measurements as destination guarantees.
+4. Choose the smallest suitable language-compatible candidate first when memory pressure is the constraint; do not make loading the full upstream model a prerequisite. Prefer an available, provenance-checked small artifact. If an imported guide depends on a pruning helper, resolve it from the attachment, linked skill or source machine before considering new tooling; a missing helper is not evidence that custom pruning code is needed. Treat an untested derivative as a candidate, not a validated recipe.
+5. Reindex after any model or tokenizer change, even when dimensions stay equal: equal-length vectors can still represent incompatible embedding spaces. Verify representative German and English queries with hybrid search, and compare lexical retrieval so vocabulary loss is visible.
+
+### Run a bounded, single-vault pilot
+
+1. Confirm the named vault and the exact MCP process serving it. Reuse its existing instance where appropriate; do not add another instance merely because the pilot targets one vault. Leave other profiles unchanged unless their modification is explicitly requested.
+2. Explain the resource boundaries separately: the index stores that vault's note/chunk vectors; the model maps tokens to vectors; vocabulary pruning removes token entries, not notes. A corpus-pruned vocabulary can miss future query terms even when all current notes were indexed, so test queries as well as corpus coverage. Separate indexes do not themselves imply either separate or shared model loads.
+3. Budget a model load for each process that actually initializes an engine. Sharing the model files on disk is not proof of sharing the loaded model; conversely, a running MCP process or a status call alone does not establish that a model has loaded. Treat another machine's RSS as a planning estimate, not a local measurement or an exact multiplier; RSS can include shared pages.
+4. Record baseline process memory and system memory pressure, then measure again after the first real search/reindex and after indexing completes. Capture indexing time and note/chunk counts through the intended connection. Keep downloads and model preparation local; do not upload corpus text for pruning or evaluation.
+5. Compare lexical and hybrid results on the same small, representative query set, noting useful additional hits, missed expected notes and latency. Report measured memory alongside retrieval benefit; expand only if the pilot earns its cost. Do not present configuration or a successful status call as a completed retrieval evaluation.
 
 ## Config file
 

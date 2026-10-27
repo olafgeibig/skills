@@ -16,7 +16,7 @@ Rules:
 
 - Read the note first and copy exact text into SEARCH.
 - Include enough surrounding context for uniqueness.
-- Use the complete delimiters, including `REPLACE` on the closing line.
+- Use the complete delimiters, including `REPLACE` on the closing line. **Each block needs its own opening `<<<<<<< SEARCH` and closing `>>>>>>> REPLACE`** — two edits written as one block with two `=======` dividers is a parse error (`block contains 3 `=======` divider lines`), not two blocks.
 - End the `edits` string exactly at the `>>>>>>> REPLACE` line — no trailing XML-style closing tag. A stray `</edits>` is parsed as more block content and fails with `Parse error: Incomplete SEARCH/REPLACE block (state: InReplace). Expected >>>>>>> REPLACE`.
 - No wrapper tags around the block (`<edits>`, `<search>`, `<replace>`) and no quote-escaping of the delimiters — the parser reads them as content and fails with `Parse error: No SEARCH/REPLACE blocks found`.
 - After a parse error, do not retry the same shape: rebuild the call correctly, or fall back to `write_note` with the full content in overwrite mode.
