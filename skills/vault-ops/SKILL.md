@@ -37,7 +37,7 @@ Use this skill as the default workflow for working with markdown note vaults. Va
 
 ### Check prerequisites
 
-The `turbovault-use` skill handles TurboVault availability checks, vault selection, and all tool-level mechanics. Load it — it is listed in `related_skills` and should be available. Follow its prerequisites and vault selection sections before proceeding with vault operations.
+The `turbovault-use` skill handles TurboVault availability checks, vault selection, and all tool-level mechanics. Load it — it is listed in `related_skills` and should be available. Follow its prerequisites and vault selection sections before proceeding with vault operations. For a request naming an area, resolve it through the registered vault's area index and MoC before searching similarly named work-tree directories; an area name is not a repository locator.
 
 ## Working with a vault
 Read the vault's root `AGENTS.md`. If it doesn't exist, tell the user that it is important. If TurboVault reports "subdirectory context discovered" (AGENTS.md/VAULT.md), treat it as authoritative and read it via filesystem tools if needed.
