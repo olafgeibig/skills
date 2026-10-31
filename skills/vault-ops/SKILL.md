@@ -218,6 +218,9 @@ Prefixed with `wf-`
 
 ## Troubleshooting
 
+### Vault files renamed or changed mid-session
+A patch failure on a note written earlier in this session usually means the path moved, not that the patch text is wrong: re-resolve the filename, repair links to the old name, verify with `get_links`. When files change without anyone asking, attribute the source before touching anything — `./references/sync-management.md` § External Writes Via Sync.
+
 ### TurboVault `edit_note` — SEARCH/REPLACE parse failures
 See the `turbovault-use` skill for complete `edit_note` syntax, format requirements, and troubleshooting. The `references/task-management.md` in this skill has working examples in the context of task operations.
 
