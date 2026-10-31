@@ -200,6 +200,8 @@ When the user asks for a note to park a change rather than implement it:
 
 ### Create a Task
 
+**Search before you add.** Grep the subject (`query_tasks` or `rg --no-heading -n -e '🆔' <vault>`) before creating a task: a request that names work already tracked is an update to that task — extend its wording (scope, links, due date) and point to it from the new note as a plain bullet instead of adding a second checkbox with a fresh `🆔`. Two IDs for one piece of work make every task query overstate the workload.
+
 Append to the end of the relevant note using `mcp_turbovault_write_note` with `mode="append"`:
 
 ```bash
