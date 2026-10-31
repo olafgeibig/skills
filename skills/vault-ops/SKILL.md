@@ -202,6 +202,7 @@ Always check if you need to read references matching your intent. Use the descri
 - Understanding the vault graph: `./references/vault-graph.md`
 - Navigating the vault: `./references/vault-navigation.md`
 - Changing a shared value or status (search → classify → one diff → verify): `./references/propagation-audits.md`
+- Sync behavior, stuck sync, mid-session external writes and attribution: `./references/sync-management.md`
 - Refactoring workflows (move notes between areas, promote a sub-MoC, rename a note type): `./references/refactoring-workflows.md`
 - Task management: `./references/task-management.md`
 - Task overview dashboards (aggregated `tasks` blocks): `./references/wf-task-overview-dashboard.md`
