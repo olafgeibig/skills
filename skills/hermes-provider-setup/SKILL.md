@@ -39,6 +39,10 @@ Class-level reference for the **mechanics** of provider setup in Hermes. This sk
 - User asks whether a provider-specific reasoning/thinking level (anything outside `low|medium|high`) can be made to reach the API
 - User wants one Hermes installation aligned with another (slots, providers, fallback chain brought in line), or an existing config cleaned up after a version change — verify the change surface (Pitfall 15)
 
+## Work on the installation that is actually here
+
+Provider and slot config is machine-local, and a request can name a machine the session is not running on. Before touching config, confirm the target (`hostname`, plus the kernel signature when the host names are project-specific); if the user named a different machine, say so plainly and ask whether to work on the one you are on — never do machine-local config work silently on another host, and never claim the named machine's state from here. And when a credential or provider the user says they added is missing, check the local `.env` mtime and the `providers:` keys before hunting for a failed write: the change may have landed on a different host.
+
 ## Config Schema: `providers:` vs `custom_providers:`
 
 Hermes has TWO ways to register a non-built-in provider, and they are NOT redundant:
