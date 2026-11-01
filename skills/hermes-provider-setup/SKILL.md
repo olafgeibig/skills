@@ -401,7 +401,7 @@ A multi-block edit of `config.yaml` (dead blocks, duplicate entries, stale pins)
 
 ## References
 
-- `references/model-routing-slots.md` — Which knob moves which model (session / `delegation.*` / `auxiliary.<slot>`), the writer-vs-reviewer rule, the two-step model probe (`-z` answer check, then `-t file`), the full auxiliary slot table, the aux-route verification sequence (trigger map + `call_llm(task=...)` resolver probe + ledger attribution) and the `/review` mechanics.
+- `references/model-routing-slots.md` — Which knob moves which model (session / `delegation.*` / `auxiliary.<slot>`), the writer-vs-reviewer rule, the two-step model probe (`-z` answer check, then `-t file`), the full auxiliary slot table, the aux-route verification sequence (wiring read + trigger-gate map + `call_llm(task=...)` resolver probe + ledger attribution) and the `/review` mechanics.
 - `references/live-provider-probes.md` — How to answer "is this key live here", "which models does this plan have", "how much quota is left": key loading without printing values, `/models` + `/usage` response shapes, honest reading of unlabeled percentages, burn attribution from the local ledger (`state.db`, driven by `scripts/attribute-provider-burn.py`), and the credential-visibility chain per consumer.
 - `references/model-selection-workflow.md` — Turning a provider plan into config decisions: purposes first, hard filters before ranking, caps as a budget, quality data over the same slugs, which knob each decision lands in, and the probe that closes it.
 - `references/opencode-go-plan.md` — OpenCode Go billing facts: the two tiers (Go $10 / Go Plus $40), per-model buckets, Zen-balance overflow, MiniMax M3 on-plan, and the two auth shapes under one base URL.
