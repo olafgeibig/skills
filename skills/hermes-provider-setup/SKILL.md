@@ -34,6 +34,7 @@ Class-level reference for the **mechanics** of provider setup in Hermes. This sk
 - User asks whether model or provider can be changed mid-session, or which credential of a pool gets used first
 - User asks *which* model belongs in *which* slot on a plan he already pays for (make routing smarter, pick a model per purpose) — see `references/model-selection-workflow.md`
 - User asks whether the subscription is still enough, where the monthly quota went, or whether to upgrade a plan tier — attribute the burn before recommending money (see "Subscription Adequacy" below)
+- A provider's dashboard shows near-zero usage for a model the user pinned somewhere, and they ask where the calls went or why nothing routes there — attribute from the ledger, then check the slot's wiring and trigger gate (Pitfall 13) before re-pinning anything
 - User asks whether speech input / dictation works, where a dictated message is actually transcribed, or why a voice feature leaves no trace in the server logs
 - User asks what Hermes actually puts on the wire for a provider — whether a configured field (reasoning effort, thinking flag, `extra_body` key) reaches the endpoint — or why the API ignores a parameter Hermes seems to send
 - User asks whether a provider-specific reasoning/thinking level (anything outside `low|medium|high`) can be made to reach the API
