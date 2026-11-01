@@ -65,6 +65,7 @@ When self-improvement (or a user-directed patch) has a learning to capture, clas
 | **Agent-/environment-specific** (this profile, this machine, this setup) | Any | **A profile-local skill** in a real directory at `$HERMES_HOME/skills/own/<name>/` (standalone) or `$HERMES_HOME/skills/adaptations/<source>-adaptation/`; declared `metadata.scope: standalone` or `metadata.adapted_from` |
 | **A rule discovered while working** (pitfall, correction, new technique) | Any | Classified and routed in the session it arises: generic → the owning skill (review gate); project-only → the **project skill**; profile/environment → **profile-local skill**. Never a diary entry — see Capture Discipline |
 | **Project fact** (architecture, current state, system brief) | Any | **Project repository content** — never a skill |
+| **A design draft or concept document** (proposal, analysis, trade-off study) | Any | **Project repository content** — the project directory, even when its subject is a skill or the shared skill machinery; a rule enters a skill only when extracted and approved |
 | **A new skill that narrows, specializes, or extends one existing skill** | Own or third-party | **The owning skill (owned only) or a `<source>-adaptation`** — never a standalone sibling; see the routing gate below |
 
 ### The simplification that matters
