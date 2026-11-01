@@ -2,6 +2,12 @@
 
 User-directed structural refactors and note retirement. Scope the affected files before writing; run multi-file structural changes as explicit work with verification, never as a quick patch.
 
+## Measure the Link Cost Before Pricing a Restructure
+
+Before proposing or pricing a move, count inbound wikilinks per affected note across the whole vault: build a basename→path map of every note, resolve each `[[target]]` (strip directory prefixes, aliases and heading anchors), count references per target, and report totals split into consumers inside the touched directory versus consumers outside it — that split is what says whether the restructure is one directory's business or vault-wide work.
+
+- **Count by resolving link targets against a basename map, never by grepping the bare filename** — a vault that links with full paths (`[[projects/x/Name]]`) or carries date-prefixed filenames returns zero for a naive name grep, so an expensive move looks free and the cost surfaces as broken links after the fact.
+
 ## Promote a Sub-MoC to a Top-Level Project
 
 Use when a sub-MoC nested under a parent project accumulates enough notes to warrant its own directory, tag, and INDEX entry. Promote when: the sub-project holds 3+ notes; the parent `project/*` tag is too generic to filter them; the parent MoC becomes a dump container mixing unrelated topics; task filters like `path includes projects/<parent>` catch unrelated notes; or the topic is an active project with ongoing obligations.
