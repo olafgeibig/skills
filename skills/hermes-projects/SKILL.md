@@ -2,7 +2,7 @@
 name: hermes-projects
 description: "Use when structuring a project that Hermes works in."
 metadata:
-  version: "1.0.4"
+  version: "1.0.5"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   scope: personal
@@ -37,7 +37,7 @@ How a project that Hermes works in is structured: what its project directory is,
 | **B — notes only** | `projects/<x>/` in the vault | *are* the project | — |
 | **C — hybrid** | the work tree | `projects/<x>/`, a knowledge source or a publication target, often both | possible |
 
-A **working vault** is a vault inside the work tree that is not a notes vault: it holds the analysis and the deliverables, and its kind names the skill that governs it — `knowledge-base` (hand-written, no publication target, no skill), `authoring` → `authoring-vault`, `csl` → `csl-vault`. It lives in a **subdirectory** of the work tree, never at its root: two contexts need two `AGENTS.md`, one for how the work is done and one for what is known.
+A **working vault** is a vault inside the work tree that is not a notes vault: it holds the analysis and the deliverables, and its kind names the skill that governs it — `knowledge-base` (hand-written, no publication target, no skill), `authoring` → `authoring-vault`, `csl` → `csl-vault` (where installed). It lives in a **subdirectory** of the work tree, never at its root: two contexts need two `AGENTS.md`, one for how the work is done and one for what is known.
 
 A working vault is **unregistered by default**. Registration is a per-profile decision; without it there are no TurboVault hashes, audit, rollback or drift check, so its own version control is the safety net — or state before the first large write that none exists. **When a task needs those guarantees, say that the vault is unregistered and, after the user's approval, register it** in the active profile's TurboVault config — do not silently work on without an audit trail, and do not register without asking. Never register a work project's vault in a private profile.
 
@@ -117,5 +117,5 @@ A rename touches more than the skill: the vault root `AGENTS.md`, every project 
 | Note types, MoCs, INDEX, frontmatter, refactoring, tasks | `vault-ops` |
 | Writing into a vault, audit, drift | `turbovault-use` |
 | Authoring a working vault (analysis → deliverable) | `authoring-vault` |
-| Bosch security lifecycle vault (`csl` kind) | `csl-vault` |
+| CSL lifecycle vault (`csl` kind) | `csl-vault` (where installed) |
 | One project's method, triggers, pitfalls | `project-<x>` |

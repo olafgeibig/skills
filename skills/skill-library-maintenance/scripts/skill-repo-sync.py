@@ -35,7 +35,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCRIPT_VERSION = "1.0.2"
+SCRIPT_VERSION = "1.0.3"
 STATE_NAME = "skill-repo-sync.json"
 GROUP_GAP_SECONDS = 120          # entries closer than this belong to one review run
 AUDIT_MARKER = "hermes-skill-sync-audit"
@@ -43,9 +43,11 @@ CURSOR_KEY = "ledger_cursor"     # index of the last processed ledger line
 
 # Lines that must never enter a shared (generic) skill: instance pointers.
 # Both home layouts are covered — Linux (`/home/<user>`) and macOS (`/Users/<user>`).
+# A `~/` path is only an instance pointer outside the portable runtime directories every
+# installation has: `~/.local`, `~/.cache`, `~/.config` and `~/.hermes` resolve everywhere.
 INSTANCE_PATTERNS = (
     (r"/(?:home|Users)/[A-Za-z0-9_.-]+", "absolute home path"),
-    (r"(?<![\w/])~/(?!\.hermes/skills)", "tilde path"),
+    (r"(?<![\w/])~/(?!\.(?:local|cache|config|hermes)\b)(?!\.hermes/skills)", "tilde path"),
     (r"\bakademeia\b", "vault name"),
     (r"\b(durin|boromir)\b", "machine name"),
     (r"\bBosch\b", "employer name"),
@@ -321,11 +323,50 @@ def repo_line_index(repo: Path, skip: set[str]) -> dict[str, set[str]]:
     return index
 
 
+def added_lines_from_commits(repo: Path, shas: list[str]) -> list[tuple[str, str]]:
+    """(file, text) for every line *shas* added — the audit's view of history."""
+    out: list[tuple[str, str]] = []
+    for sha in shas:
+        r = git(repo, "show", "-U0", "--no-color", "--pretty=format:", sha)
+        if r.returncode != 0:
+            continue
+        current = ""
+        for line in r.stdout.splitlines():
+            if line.startswith("+++ b/"):
+                current = line[6:]
+            elif line.startswith("+++"):
+                current = ""
+            elif line.startswith("+"):
+                out.append((current, line[1:]))
+    return out
+
+
+def surviving_lines(repo: Path) -> dict[str, set[str]]:
+    """file -> stripped lines present in that file now (markdown and scripts)."""
+    seen: dict[str, set[str]] = {}
+    for pattern in ("*.md", "*.py"):
+        for path in repo.rglob(pattern):
+            if "/.git/" in str(path):
+                continue
+            rel = str(path.relative_to(repo))
+            try:
+                seen[rel] = {l.strip() for l in path.read_text(encoding="utf-8",
+                                                               errors="replace").splitlines()}
+            except OSError:
+                continue
+    return seen
+
+
 def gate(repo: Path, files: list[str]) -> list[dict]:
+    """Defect checks on the lines a working-tree change adds."""
+    return gate_lines(repo, added_lines(repo, files), skip=set(files))
+
+
+def gate_lines(repo: Path, pairs: list[tuple[str, str]], skip: set[str]) -> list[dict]:
     """Defect checks on added lines: instance pointers, dangling references, duplicate rules."""
     findings: list[dict] = []
-    index = repo_line_index(repo, skip=set(files))
-    for file, text in added_lines(repo, files):
+    index = repo_line_index(repo, skip=skip)
+    for file, text in pairs:
         if not text.strip():
             continue
         for pattern, label in INSTANCE_PATTERNS:
@@ -547,7 +588,7 @@ def pull_only(verbose: bool) -> tuple[int, list[str]]:
 
 
 def audit(verbose: bool) -> tuple[int, list[str]]:
-    """Report-only: review commits since the last audit + a whole-repo defect scan."""
+    """Report-only: review commits since the last audit + a defect scan over what they added."""
     notes: list[str] = []
     for repo in repos_from_state():
         marker = git_path(repo, AUDIT_MARKER)
@@ -557,13 +598,25 @@ def audit(verbose: bool) -> tuple[int, list[str]]:
         args = ["log", fmt, "--date=short"] + ([rng] if since else [f"--since={rng} days ago"])
         log = git(repo, *args)
         commits = [l for l in log.stdout.splitlines() if "review: publish skill updates" in l]
-        scan = gate(repo, [])
+        hashes = [l.split("|", 1)[0] for l in commits]
+        # Scan what those commits added, minus lines their file no longer carries: a repaired
+        # defect is history. A pair whose file was renamed or deleted is skipped — `git mv`
+        # relocates a rule, so comparing the old path against its new home reports a duplicate
+        # that is the same file.
+        present = surviving_lines(repo)
+        pairs = [(f, t) for f, t in added_lines_from_commits(repo, hashes)
+                 if t.strip() in present.get(f, set())]
+        scan = gate_lines(repo, pairs, skip=set())
         if commits or scan:
             notes.append(f"{repo.name}: {len(commits)} review commit(s) since last audit")
             for line in commits[:20]:
                 notes.append("  " + line)
+            if len(commits) > 20:
+                notes.append(f"  … {len(commits) - 20} more")
             for f in scan[:20]:
                 notes.append(f"  ! {f['kind']} in {f['file']}: {f['detail']} — {f['line'][:80]}")
+            if len(scan) > 20:
+                notes.append(f"  ! … {len(scan) - 20} more finding(s)")
         elif verbose:
             notes.append(f"{repo.name}: nothing to audit")
     return 0, notes

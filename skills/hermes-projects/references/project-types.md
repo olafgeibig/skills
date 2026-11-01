@@ -60,7 +60,7 @@ Applies to A and C. Lives in a **subdirectory** of the work tree. Registration i
 |---|---|---|
 | `knowledge-base` | hand-written knowledge, no publication target | none — plain files |
 | `authoring` | analysis → distilled → deliverables; commonly publishes into the associated notes project | `authoring-vault` |
-| `csl` | Bosch security lifecycle: evidence, manifest, `analysis → compiled → docs`; target declared per project | `csl-vault` |
+| `csl` | CSL lifecycle: evidence, manifest, `analysis → compiled → docs`; target declared per project | `csl-vault` (where installed) |
 
 Never apply the notes vault's types (`zettel`, `article`, …) inside a working vault, and never translate its notes across the boundary except at publication.
 

@@ -33,9 +33,10 @@ the project, not the installed binary.
    default true), `vector_search_reindex`, `vector_search_status`.
 3. In Hermes the server is started from `mcp_servers.turbovault.args`. Add the flag with
    `hermes config set mcp_servers.turbovault.args '[...]'` (the tool refuses this file
-   directly). The running session keeps its old tool list: verify with
-   `hermes mcp test turbovault`, and the tools become callable only after the MCP
-   server/session restarts.
+   directly). A running process keeps its old tool list, and a new session does not help —
+   the connection is cached per registry scope and a fresh session adopts the live one.
+   Reload with `/reload-mcp`; the pre-reload `ps`-vs-config diff and the verification steps
+   are in `references/vector-search-setup.md` §5.
 
 ## Model: a local directory, never a download
 
@@ -134,10 +135,10 @@ python3 -m venv m2v && m2v/bin/pip install tokenizers safetensors numpy
 m2v/bin/python scripts/prune-model2vec-vocab.py \
   --source ~/.local/share/turbovault-models/potion-multilingual-128M \
   --out ~/.local/share/turbovault-models/potion-multilingual-45k \
-  --target 45000 --corpus '~/vaults/akademeia/**/*.md'
+  --target 45000 --corpus '~/vaults/<name>/**/*.md'
 ```
 
-Measured on that vault (999 notes / 20,759 chunks):
+Measured on a 1,000-note bilingual vault (20,759 chunks):
 
 | | multilingual-128M | pruned to 45k |
 |---|---|---|

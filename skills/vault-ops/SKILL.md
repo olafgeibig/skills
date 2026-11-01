@@ -2,7 +2,7 @@
 name: vault-ops
 description: "Use when managing Obsidian vault structure and notes."
 metadata:
-  version: "0.22.0"
+  version: "0.22.1"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
@@ -20,7 +20,7 @@ Use this skill to manage a navigable notes-graph built from MoCs (Maps of Conten
 
 Use this skill as the default workflow for working with markdown note vaults. Vault Ops provides an opinionated approach to managing vaults using Obsidian-oriented best practices for top-level directory structure and note types. Vault specifics can be defined in the vault's AGENTS.md. The skill works best with TurboVault to interact with the vault safely.
 
-> **CSL vaults (Bosch security documentation):** The generic `area/`/`projects/`/`wiki/` layout below is the default. If a project adopts a **CSL vault** (lifecycle directories such as `analysis/`, `compiled/`, `evidence/`, `references/`, …), load the **`csl-vault`** skill for the CSL layout, lifecycle MoC, frontmatter-normalization, and template-sync conventions. This skill stays generic.
+> **CSL vaults (security and compliance documentation):** The generic `area/`/`projects/`/`wiki/` layout below is the default. If a project adopts a **CSL vault** (lifecycle directories such as `analysis/`, `compiled/`, `evidence/`, `references/`, …), load the `csl-vault` skill — a separate package, installed only where CSL work is set up — for the CSL layout, lifecycle MoC, frontmatter-normalization, and template-sync conventions. This skill stays generic.
 
 ## Basic mandatory rules
 
@@ -48,7 +48,7 @@ Read additionally `VAULT.md`
 
 ## Instruction Precedence
 
-- **Which skill governs a vault is the vault's `AGENTS.md`'s decision, not the session's.** This skill plus that vault's specific skill is the default whenever the `AGENTS.md` names no skill. Apply a working-vault skill (`authoring-vault` for `authoring`-kind deliverable vaults, `csl-vault` for CSL) only where the vault's `AGENTS.md` declares that kind or names that skill — never because the subject matches the topic, the session is about it, or the skill menu offers it.
+- **Which skill governs a vault is the vault's `AGENTS.md`'s decision, not the session's.** This skill plus that vault's specific skill is the default whenever the `AGENTS.md` names no skill. Apply a working-vault skill (`authoring-vault` for `authoring`-kind deliverable vaults, `csl-vault` for CSL where that package is installed) only where the vault's `AGENTS.md` declares that kind or names that skill — never because the subject matches the topic, the session is about it, or the skill menu offers it.
 - The selected vault's root `AGENTS.md` overrides this skill.
 - Files referenced by that vault `AGENTS.md` also override this skill.
 - `./references/*.md` contains default conventions to use only when the vault does not define a more specific rule.
@@ -176,7 +176,7 @@ topics: ["[[+related-moc]]"]
 - Descriptions:
   - Non‑empty, one sentence, content‑based (no trailing period preferred), not filename echoes.
 
-> **Bulk normalization of CSL analysis notes** (domain tags, `analysis` manifest snapshot, MoC-derived topics): see the **`csl-vault`** skill and `csl-analysis-frontmatter-normalization` reference.
+> **Bulk normalization of CSL analysis notes** (domain tags, `analysis` manifest snapshot, MoC-derived topics): see the `csl-vault` skill (where installed) and its `csl-analysis-frontmatter-normalization` reference.
 
 ## Improvement Routing
 
@@ -229,4 +229,4 @@ See the `turbovault-use` skill for complete `edit_note` syntax, format requireme
 - Default note template: `./assets/note-template.md`
 - Default MoC template: `./assets/moc-template.md`
 
-> **CSL vault template sync** (e.g. `assets/*` → `csl/system/templates/`): see the **`csl-vault`** skill.
+> **CSL vault template sync** (e.g. `assets/*` → `csl/system/templates/`): see the `csl-vault` skill (where installed).

@@ -7,12 +7,12 @@ Non-Latin scripts are dropped (they become [UNK]); for a German/English corpus
 the result is embedding-identical on Latin text.
 
 Usage:
-  python prune-model2vec-vocab.py --source ~/models/potion-multilingual-128M \
-      --out ~/models/potion-multilingual-45k --target 45000 \
-      --corpus '~/vaults/akademeia/**/*.md'
+  python prune-model2vec-vocab.py --source ~/.local/share/turbovault-models/potion-multilingual-128M \
+      --out ~/.local/share/turbovault-models/potion-multilingual-45k --target 45000 \
+      --corpus '~/vaults/<name>/**/*.md'
 
-Requires a venv with tokenizers, safetensors, numpy (no torch), e.g.
-  python3 -m venv m2v && m2v/bin/pip install tokenizers safetensors numpy
+Requires tokenizers, safetensors and numpy — no torch. The venv recipe, the corpus
+caveats and the measured before/after are in references/vector-search.md.
 """
 from __future__ import annotations
 

@@ -41,7 +41,9 @@ Written for Linux and macOS alike — an installation may be either, and the two
   repositories are resolved with `git rev-parse --show-toplevel`, and every absolute path is
   recorded per machine in the state file.
 - The gate's instance-pointer patterns cover `/home/<user>` **and** `/Users/<user>`, so a rule that
-  leaks a local path is caught whichever installation writes it.
+  leaks a local path is caught whichever installation writes it. A `~/` path is flagged only
+  outside the portable runtime directories (`~/.local`, `~/.cache`, `~/.config`, `~/.hermes`): those
+  resolve on every installation, so a model cache under `~/.local/share` is not an instance pointer.
 - Both hook events and the cron jobs are Hermes-level features — nothing goes into `crontab` or
   `launchd`.
 - The wrapper execs `python3` from `PATH`; a missing one falls back to the interpreter that ran the
@@ -126,7 +128,9 @@ interpreter with `--python`).
    ```
 
 2. **Monthly audit** — report only, never edits: review commits since the last audit plus a
-   whole-repo defect scan. Run it with this skill loaded, so the follow-up session can act on it:
+   defect scan over the lines those commits added that still survive in the tree (instance
+   pointers, dangling references, a rule that now lives in two files). Run it with this skill
+   loaded, so the follow-up session can act on it:
 
    ```text
    every 30 days · skills: [skill-library-maintenance] · prompt:

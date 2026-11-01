@@ -2,7 +2,7 @@
 name: turbovault-use
 description: "Use when operating Obsidian vaults through TurboVault."
 metadata:
-  version: "0.13.2"
+  version: "0.13.3"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -169,7 +169,6 @@ The `audit_log` tool, its snapshots and `rollback_note` cover **only writes that
 | Apply templates or normalize frontmatter | `references/frontmatter-and-templates.md` |
 | Destructive operations, confirmation gate, audit trail and rollback | `references/audit-and-rollback.md` |
 | Missing tools, stale UI, reconnect churn, or process symptoms | `references/troubleshooting.md` |
-| Enable, configure, or debug the vector-search plugin | `references/vector-search.md` |
 
 Do not load every reference for routine reads.
 

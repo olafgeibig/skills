@@ -1,6 +1,6 @@
 # OpenCode Go metadata API — probing and refresh
 
-How to read the OpenCode Go plan state directly from the provider instead of trusting this file or a remembered list. The *current snapshot* of the plan lives in the vault (`akademeia`, `area/ai/opencode-go-models.md`); this file is the procedure, it does not hold data.
+How to read the OpenCode Go plan state directly from the provider instead of trusting this file or a remembered list. The *current snapshot* of the plan lives in the maintainer's notes vault (`area/ai/opencode-go-models.md`); this file is the procedure, it does not hold data.
 
 ## Endpoints
 

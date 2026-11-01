@@ -2,7 +2,7 @@
 name: authoring-vault
 description: "Use when authoring deliverables in a working vault: notes → distilled → publication."
 metadata:
-  version: "2.1.0"
+  version: "2.1.1"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -21,9 +21,9 @@ metadata:
 
 # Authoring Vault
 
-Operate one small, self-contained **working vault** of kind `authoring`: the vault a project's work is done in, whose outputs are published to a declared target, commonly a notes vault. Use this standalone model instead of importing the area/project hierarchy from `vault-ops` or the compliance machinery from `csl-vault`. No mandatory plugins, manifests, evidence IDs, or independent per-note versions.
+Operate one small, self-contained **working vault** of kind `authoring`: the vault a project's work is done in, whose outputs are published to a declared target, commonly a notes vault. Use this standalone model instead of importing the area/project hierarchy from `vault-ops` or the compliance machinery from `csl-vault` (a separate package, installed only where CSL work is set up). No mandatory plugins, manifests, evidence IDs, or independent per-note versions.
 
-A working vault without a publication target is just a hand-written knowledge base and needs none of this. This skill is the `authoring` kind, not the whole genus: a `csl` working vault is governed by `csl-vault`.
+A working vault without a publication target is just a hand-written knowledge base and needs none of this. This skill is the `authoring` kind, not the whole genus: a `csl` working vault is governed by `csl-vault`, where that package is installed.
 
 **Scope gate — the vault's `AGENTS.md` chooses the skill.** Apply this model only where the vault's `AGENTS.md` declares the `authoring` kind or names this skill, or the user explicitly sets the vault up as one. When a vault's `AGENTS.md` names no skill, `vault-ops` plus that vault's specific skill governs it. A notes vault (MoC-based `area/`/`projects/`/`wiki/` Zettelkasten) keeps its own structure, note types, and metadata — never give it this layout, SemVer versions, or `checked`/`reviewed_for` markers. The session offering this skill is not the vault choosing it.
 
