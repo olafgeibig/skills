@@ -206,6 +206,7 @@ Never leave the version unchanged after editing.
 - Do not route a generic rule only into one domain skill — put it in the generic core so every skill inherits it.
 - Do not edit a third-party skill directly just because you loaded it; being in play does not make it editable.
 - Do not store project facts in skills — they belong in the project repository content.
+- Do not park a design draft in a skill's `references/` because its topic is that skill's territory — placement follows the artefact's role (a draft is project content until a rule is extracted and approved), not its subject.
 - Do not keep a dated price, cap, or model table in a skill or its `references/` — the dated note holds the numbers, the skill holds the procedure and the pointer.
 - Do not mix agent-specific/environment quirks into a shared generic skill; keep them in a profile-local skill under `$HERMES_HOME/skills/`.
 - Do not create a staging area, batch diary, or dated pitfall file — not in a skill, not in `references/`. Classify in the session, or lose the finding.
