@@ -37,6 +37,7 @@ Class-level reference for the **mechanics** of provider setup in Hermes. This sk
 - User asks whether speech input / dictation works, where a dictated message is actually transcribed, or why a voice feature leaves no trace in the server logs
 - User asks what Hermes actually puts on the wire for a provider — whether a configured field (reasoning effort, thinking flag, `extra_body` key) reaches the endpoint — or why the API ignores a parameter Hermes seems to send
 - User asks whether a provider-specific reasoning/thinking level (anything outside `low|medium|high`) can be made to reach the API
+- User wants one Hermes installation aligned with another (slots, providers, fallback chain brought in line), or an existing config cleaned up after a version change — verify the change surface (Pitfall 15)
 
 ## Config Schema: `providers:` vs `custom_providers:`
 
