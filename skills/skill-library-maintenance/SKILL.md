@@ -112,6 +112,14 @@ Answer questions about a skill's history with evidence from runtime telemetry an
 - Never edit a third-party checkout directly.
 - Do not call a profile-local skill committed merely because it exists on disk.
 
+### Answering “committed and pushed?”
+
+1. Start from the `skill_dir` returned by a fresh `skill_view`; resolve the actual checkout with `git -C <skill_dir> rev-parse --show-toplevel`. Do not guess the repository root from a parent directory's name — discovery roots may be nested inside the checkout.
+2. At that root, run `git status --short --branch` and `git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}'`. Fetch the upstream remote before comparing; if fetching fails, label the tracking ref as cached rather than claiming current remote state.
+3. Run `git rev-list --left-right --count HEAD...@{upstream}` and `git log --oneline '@{upstream}..HEAD'`. The first count is local-only commits, the second remote-only commits; inspect the commits before attributing them to particular skills.
+4. Report working-tree cleanliness, local commits, and publication separately. A clean tree does not mean pushed; local-only commits do not prove their content is absent remotely, since another branch may have merged or cherry-picked it.
+5. If both counts are nonzero, report divergence and the need for integration. A status question authorizes inspection, not a merge, rebase, commit, or push; use `references/shared-repo-sync.md` only after integration is authorized.
+
 When migrating a skill:
 
 1. Validate the source package.
