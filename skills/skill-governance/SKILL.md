@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when the skill concept decides a change."
 metadata:
-  version: "0.15.2"
+  version: "0.16.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
