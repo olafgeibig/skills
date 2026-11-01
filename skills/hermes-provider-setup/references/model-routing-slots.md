@@ -84,6 +84,10 @@ Slot semantics are not trigger semantics: a slot whose name matches a tool or fe
 rg 'task="<slot>"' <install root> -g '*.py'
 ```
 
+Read what the hits *are*, not just that they exist: `hermes_cli/main_provider_setup.py` (the picker's slot list) and `hermes_cli/config_defaults.py` (the defaults table) declare **every** slot and prove nothing. If those two are the only hits, the slot is unwired in this build — no config value can make it fire, and the pin silently costs zero. A wired slot still sits behind an **enabling gate** upstream of the call: `approval` fires only under `approvals.mode: "smart"`, `tts_audio_tags` only inside the Gemini TTS path, `memory_query_rewrite` only where the memory provider calls the rewrite helper (the builtin provider does not). So a pinned slot with zero ledger rows is a completed diagnosis, not a mystery: call site first, trigger gate second, pin last.
+
+For "why is my pinned model never used", the wiring read plus the ledger query (step 3) close the question — step 2's bare probe is optional and the flakiest part of the sequence; skip it once the grep and the ledger agree.
+
 Then verify in three steps, cheapest first.
 
 **Step 1 — config read:** `hermes config get auxiliary.<slot>` shows what the config claims.
