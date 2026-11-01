@@ -1,7 +1,7 @@
 ---
 name: hermes-provider-setup
 description: Set up Hermes providers, keys, rate limits and model slots.
-version: 0.10.2
+version: 0.11.0
 author: Hermes Agent
 license: MIT
 metadata:
