@@ -390,6 +390,14 @@ Rules:
 
 Slot semantics are not trigger semantics: the `session_search` tool is pure FTS5 (its own schema says "no LLM"), catalog search is lexical, and `auxiliary.mcp` serves MCP **sampling** (server-initiated completions) despite the config comment "MCP tool dispatch" — tool dispatch is direct RPC and tool search is BM25, so neither touches a model. Grep the install for `task="<slot>"` call sites before designing a verification around a tool; a pipeline trigger that can fail upstream (e.g. `tts_audio_tags` inside TTS) may never reach the aux call at all. The reliable sequence — config read → bare `call_llm(task=...)` resolver probe → ledger attribution on a real in-session call — is in `references/model-routing-slots.md`; bare out-of-session probes never land in `session_model_usage`.
 
+### Pitfall 14 — a `delegation.*` pin also costs the children's fallback chain
+
+Pinning `delegation.model` / `delegation.provider` is not only a route choice: a pinned child resolves its own fallback chain instead of inheriting the session's (`tools/delegate_tool_config.py:_resolve_child_fallback_chain`, `pinned=True`), so subagents lose failover silently while the session keeps it. Leave `delegation.*` empty when children should inherit route **and** fallback; pin only when cutting children off the session chain is the intent (separate quota, independent provider). A pin that merely duplicates the parent route buys nothing and pays this cost.
+
+### Pitfall 15 — a config cleanup can sweep more than intended
+
+A multi-block edit of `config.yaml` (dead blocks, duplicate entries, stale pins) can do more than the intended change when a merge writes extra keys or a pattern matches too much. Back the file up first (`cp ~/.hermes/config.yaml ~/.hermes/backups/config.yaml.pre-<tag>-<timestamp>`) and verify the change surface afterwards: diff the key paths of both files and require the delta to be exactly the keys you meant to touch — anything else is a regression to undo before continuing. Name the backup path in the report so rollback is one copy away.
+
 ## References
 
 - `references/model-routing-slots.md` — Which knob moves which model (session / `delegation.*` / `auxiliary.<slot>`), the writer-vs-reviewer rule, the two-step model probe (`-z` answer check, then `-t file`), the full auxiliary slot table, the aux-route verification sequence (trigger map + `call_llm(task=...)` resolver probe + ledger attribution) and the `/review` mechanics.
