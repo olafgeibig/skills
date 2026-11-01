@@ -12,7 +12,7 @@ Three separate knobs, easy to confuse:
 | Subagents | `delegation.model` + `delegation.provider` | what **every** `delegate_task` child inherits — no per-child override exists in the tool schema |
 | One run | `hermes -z "<prompt>" --provider <P> -m <M> -t <toolsets>` | that invocation only: fresh context, own session, own tool grants |
 
-Read the value before quoting it (`hermes config get delegation.model`) — the model picker and other sessions write these keys, so a value read earlier in the day can already be stale.
+Read the value before quoting it (`hermes config get delegation.model`) — the model picker and other sessions write these keys, so a value read earlier in the day can already be stale. Pinning `delegation.*` also decides the children's fallback chain (SKILL.md Pitfall 14).
 
 **Separating writer from reviewer.** Because all subagents inherit `delegation.model`, an implementer and a reviewer dispatched through `delegate_task` run on the *same* model — correlated blind spots, which defeats the review. Keep `delegation.*` on the cheap model for the writers and run each review as a pinned one-shot:
 
