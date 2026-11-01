@@ -107,7 +107,11 @@ print(call_llm(task='<slot>', messages=[{'role':'user','content':'Antworte mit e
 
 Expect interpreter trouble here: the terminal layer can reroute a `python` invocation to its own bundled interpreter (the tell is a traceback whose first line is a rewritten `import sys, runpy; … runpy.run_path(…)`), which carries none of the checkout's dependencies — a probe dying on `ModuleNotFoundError` for a dependency the install plainly has is that reroute, not a broken install. Discover the runtime python as above instead of naming `venv/bin/python`; if the probe still cannot import, fall back to grep + ledger rather than cycling through interpreters.
 
-**Step 3 — ledger attribution:** after the first genuine in-session call of that task, read `state.db`'s `session_model_usage` for `task`, `model`, `billing_provider`, `billing_base_url`. Bare out-of-session probes are **not** ledgered — only session-loop calls land there — so step 2 proves the resolver and step 3 proves the production route.
+**Step 3 — ledger attribution:** after the first genuine in-session call of that task, read `state.db`'s `session_model_usage` for `task`, `model`, `billing_provider`, `billing_base_url`. Bare out-of-session probes are **not** ledgered — only session-loop calls land there — so step 2 proves the resolver and step 3 proves the production route. Rows with a non-empty `task` are the aux calls; group them to see which slot ever fired and where it routed:
+
+```bash
+sqlite3 ~/.hermes/state.db "select task, billing_provider, model, sum(api_call_count) from session_model_usage where task <> '' group by 1,2,3 order by 4 desc"
+```
 
 Configure interactively: `hermes model` → "Configure auxiliary models" (same picker in the dashboard's Models tab). **Read a slot back** with `hermes config get auxiliary.<slot>` (e.g. `hermes config get auxiliary.review`); to see several at once, read the YAML:
 
