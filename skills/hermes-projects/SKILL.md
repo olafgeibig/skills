@@ -94,6 +94,9 @@ Declare the publication target per project; the shape alone does not determine i
 
 ## Writing these files safely
 
+- **Resolve “here” before choosing the manual.** For a request to create or update the project-root `AGENTS.md`, target the work-tree root, not the embedded vault root; inspect the directory context and existing manuals first. Preserve an adequate vault manual unless its own changes were requested, because the two files govern different contexts.
+- **State mandatory skills explicitly.** In the project manual's `Setup`, add a `Mandatory skills` subsection naming `hermes-projects` and, when a working vault exists, its kind-skill plus the requirement to read its local `AGENTS.md`. A passing mention of the vault kind does not tell the next agent what to load.
+
 - **A vault-side `AGENTS.md` or `conventions.md` goes through TurboVault.** It is audited and rollback-able but *not* approval-gated, while the same filename outside the vault is a protected file. Treat every vault-side edit as a change to agent behaviour: read the section back and quote what changed.
 - **A work-tree `AGENTS.md` is protected.** Read its full current content first — an overwrite from a stale copy is refused — then expect an approval prompt. A timed-out prompt means nothing was written: report it and hand over the intended content, never retry through another tool.
 - **One `AGENTS.md` per context, not per project.** A hybrid project can legitimately have a work-tree manual, a working-vault `AGENTS.md`, and a vault router. Two in the *same* directory are the defect, and that is why a working vault goes into a subdirectory.
