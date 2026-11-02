@@ -2,7 +2,7 @@
 name: authoring-vault
 description: "Use when authoring deliverables in a working vault: notes → distilled → publication."
 metadata:
-  version: "2.2.2"
+  version: "2.3.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
