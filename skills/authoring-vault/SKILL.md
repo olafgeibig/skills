@@ -23,7 +23,7 @@ metadata:
 
 Operate one small, self-contained **working vault** of kind `authoring`: the vault a project's work is done in, whose outputs are published to a declared target, commonly a notes vault. Use this standalone model instead of importing the area/project hierarchy from `vault-ops` or the compliance machinery from `csl-vault`. No mandatory plugins, manifests, evidence IDs, or independent per-note versions.
 
-A working vault without a publication target is just a hand-written knowledge base and needs none of this. This skill is the `authoring` kind, not the whole genus: a `csl` working vault is governed by `csl-vault`.
+Use the working-vault kind declared by the project, not the presence of a publication target, to select this skill. An explicitly declared `authoring` vault may develop local research and deliverables with no publication target; keep publication disabled until a destination and authorization exist. This skill is the `authoring` kind, not the whole genus: a `csl` working vault is governed by `csl-vault`.
 
 ## Before working
 
