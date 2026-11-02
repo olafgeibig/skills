@@ -257,8 +257,8 @@ Three separate knobs, easy to confuse:
 
 | Scope | Config key | Controls |
 |---|---|---|
-| Session / main thread | `model.default` + `model.provider` | the model you are talking to; also the default for `hermes -z` unless overridden |
-| Subagents | `delegation.model` + `delegation.provider` | what **every** `delegate_task` child inherits — no per-child override exists in the tool schema |
+| Profile default | `model.default` + `model.provider` | route for new sessions and `hermes -z` unless overridden; not proof of the current session's route |
+| Subagents | `delegation.*`, including `backend`, `default_backend`, and `backends` where supported | default child routing; inspect the live tool schema for per-task backend selection |
 | One run | `hermes -z "<prompt>" --provider <P> -m <M> -t <toolsets>` | that invocation only: fresh context, own session, own tool grants |
 
 Read the value before quoting it (`hermes config get delegation.model`) — the model picker and other sessions write these keys, so a value read earlier in the day can already be stale.
