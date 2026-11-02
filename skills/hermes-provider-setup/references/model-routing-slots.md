@@ -14,7 +14,7 @@ Three separate knobs, easy to confuse:
 
 Read the value before quoting it (`hermes config get delegation.model`) — the model picker and other sessions write these keys, so a value read earlier in the day can already be stale.
 
-**Separating writer from reviewer.** Because all subagents inherit `delegation.model`, an implementer and a reviewer dispatched through `delegate_task` run on the *same* model — correlated blind spots, which defeats the review. Keep `delegation.*` on the cheap model for the writers and run each review as a pinned one-shot:
+**Separating writer from reviewer.** Resolve both routes before dispatch. With model-map delegation, select distinct configured backends through per-task `option` when the live tool exposes it; choose different model families when review independence matters. If backend selection is unavailable or the desired model is not mapped, run a pinned one-shot:
 
 ```bash
 hermes -z "$REVIEW_PROMPT" --provider <P> -m <M> -t file,terminal
