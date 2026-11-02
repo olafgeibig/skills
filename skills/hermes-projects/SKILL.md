@@ -101,6 +101,18 @@ Declare the publication target per project; the shape alone does not determine i
 - **A work-tree `AGENTS.md` is protected.** Read its full current content first — an overwrite from a stale copy is refused — then expect an approval prompt. A timed-out prompt means nothing was written: report it and hand over the intended content, never retry through another tool.
 - **One `AGENTS.md` per context, not per project.** A hybrid project can legitimately have a work-tree manual, a working-vault `AGENTS.md`, and a vault router. Two in the *same* directory are the defect, and that is why a working vault goes into a subdirectory.
 
+## Indexing originals and working-vault conversions
+
+When asked for a work-tree document index connecting originals outside the vault to converted source notes inside it:
+
+1. Resolve the requested root and inventory both directories before writing. Read the existing resource MoC for descriptions; do not assume every original already has a conversion.
+2. Create the requested root-level navigation file, link to the resource MoC, and use one table row per original: **Original | Conversion | Description**. Keep the MoC authoritative for source descriptions rather than adding independent analysis to this bridge.
+3. Match files using their actual directory entries. Unicode normalization may help compare names, but build each link from the target's exact filename; composed and decomposed accents can differ between originals and conversions. Use relative Markdown links across the vault boundary, percent-encoding path characters with `urllib.parse.quote(path, safe='/')` so spaces, parentheses, ampersands and combining marks survive Markdown parsing.
+4. Mark unmatched originals explicitly as having no conversion found; do not invent conversion links or silently convert documents during an indexing task. Label descriptions inferred only from filenames as such.
+5. Verify the generated artifact: extract and URL-decode its local link destinations, resolve them relative to the index file, and check each target exists. Compare the table's original-document rows against the actual directory inventory, not a second hand-maintained expected list; otherwise both lists can omit the same file. Report missing conversions separately from broken links.
+
+Keep this file a navigation bridge, not a second resource MoC; leave originals and source notes unchanged unless their modification was requested.
+
 ## Renaming a genus or a kind
 
 A rename touches more than the skill: the vault root `AGENTS.md`, every project `AGENTS.md`, the skill's own frontmatter and template, and any note naming the term. Patch the skill contents first, then `git mv` the directory (the frontmatter `name:` must equal the directory name), grep every skill root and vault for the old name, and verify discovery with the skills list — trust the listing, not the rename.
