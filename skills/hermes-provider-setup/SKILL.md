@@ -328,12 +328,13 @@ read -rsp '<Provider> API key: ' K; echo "<KEY_ENV_NAME>=$K" >> ~/.hermes/.env; 
 
 **A key found outside `.env` is a finding, not a wiring task.** When a credential turns up somewhere unexpected (credential pool under a mismatched provider ID, a stale `auth.json` entry), report name and location and hand over the ingest one-liner above — do not re-home the discovered key under the "correct" provider ID to clear a 401. The user's key-injection path is theirs to redo the standard way; silently rewiring a discovered key is a repair nobody asked for and it gets undone.
 
-### Pitfall 7 — `delegate_task` is a model tool, and the tool schema has no per-task model
+### Pitfall 7 — Resolve delegation through the live schema and backend map
 
-1. **`delegate_task` is a model tool, not a user command.** There is no `/tool delegate_task` and no `/delegate`. The running model calls it when it decides to spawn subagents, so a user asks for delegation through the *goal* ("use a subagent to investigate X in parallel") rather than by naming the tool.
-2. **No per-task model override.** The tool schema exposes no `model`/`provider` argument — children inherit the parent's routing, and `delegation.model` / `delegation.provider` in `config.yaml` pin it for *all* children. Never suggest `delegate_task(goal="…", model="…")`; it is not a parameter.
+1. **`delegate_task` is a model tool, not a user command.** Ask for delegation through the goal rather than inventing a slash command.
+2. **Inspect per-task `option` support before claiming all children share one model.** With `delegation.backend: model_map`, read `delegation.default_backend` and every `delegation.backends` entry; `option` selects a configured backend such as `fast`, `workhorse`, `smart`, or `professional`. Record each backend's provider, model and reasoning settings. A top-level `delegation.model` read alone misses these routes.
+3. **Do not invent direct `model` or `provider` task arguments.** Use only fields present in the live tool schema; backend selection is not an arbitrary model override.
 
-**What works instead:**
+**Other routing scopes:**
 
 1. **Per invocation:** `-p <profile>` — profiles are separate homes (`~/.hermes/profiles/<name>/config.yaml`, no live config inheritance), created with `hermes profile create` (`--clone` copies an existing one), listed with `hermes profile list`, made sticky with `hermes profile use`.
 2. **Per session:** `/model <model> --provider <p>` (Pitfall 5).
