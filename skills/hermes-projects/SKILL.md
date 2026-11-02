@@ -2,7 +2,7 @@
 name: hermes-projects
 description: "Use when structuring a project that Hermes works in."
 metadata:
-  version: "1.0.7"
+  version: "1.1.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   scope: personal
