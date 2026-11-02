@@ -338,7 +338,7 @@ read -rsp '<Provider> API key: ' K; echo "<KEY_ENV_NAME>=$K" >> ~/.hermes/.env; 
 
 1. **Per invocation:** `-p <profile>` — profiles are separate homes (`~/.hermes/profiles/<name>/config.yaml`, no live config inheritance), created with `hermes profile create` (`--clone` copies an existing one), listed with `hermes profile list`, made sticky with `hermes profile use`.
 2. **Per session:** `/model <model> --provider <p>` (Pitfall 5).
-3. **Per single step:** `hermes -z … --provider <P> -m <M>` — the only route that puts one step on another model while session and children keep theirs.
+3. **Per single step:** `hermes -z … --provider <P> -m <M>` pins an arbitrary route without changing the session or child defaults.
 4. **Advisor plus aggregator:** MoA — `/moa <prompt>` for a one-shot, `hermes moa` to configure the presets (`agent/moa_*.py`).
 
 ### Pitfall 8 — Provider config auto-applies once credentials are in the pool
