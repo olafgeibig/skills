@@ -265,7 +265,7 @@ Read the value before quoting it (`hermes config get delegation.model`) — the 
 
 **These three knobs are not the whole inventory.** Exactly five more top-level config sections carry model choices: `tts`, `stt`, `x_search`, `moa`, `smart_model_routing`. An audit of "every place a model is configured" — or a cleanup after removing a provider — must cover the three layers **plus** those five, and `tts`/`stt` are whole subsystems with per-provider subkeys, so a single top-level grep is not an audit. What each of the five routes: `references/model-routing-slots.md`.
 
-**Review independence.** Every `delegate_task` child inherits `delegation.model`, so an implementer and a reviewer on the delegation rail share the same blind spots. Either keep `delegation.*` on the cheap model and run each review as a pinned one-shot, or use the native `review` slot instead of hand-rolling one. **Probe before building on a model:** the list in `provider_models_cache.json` is a catalogue, not a credential check — first ask the model to answer, then ask it to read a file with `-t file`.
+**Review independence.** Resolve the actual writer and reviewer routes before assuming they differ: children using the same backend can share model-family blind spots. Select different configured backends with the live tool's per-task `option` when available, use a pinned one-shot, or use the native `review` slot. **Probe before building on a model:** the list in `provider_models_cache.json` is a catalogue, not a credential check — first ask the model to answer, then ask it to read a file with `-t file`.
 
 Commands, the one-shot recipe and what a failed probe names verbatim: `references/model-routing-slots.md`.
 
