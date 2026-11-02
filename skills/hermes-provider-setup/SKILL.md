@@ -269,6 +269,15 @@ Read the value before quoting it (`hermes config get delegation.model`) — the 
 
 Commands, the one-shot recipe and what a failed probe names verbatim: `references/model-routing-slots.md`.
 
+## Read-only routing inventory
+
+For a routing snapshot, inspect first; do not change config or run paid inference merely to document it.
+
+1. Scope commands to the intended profile (`HERMES_HOME=<profile-home> hermes …`). Read `model`, the complete `delegation` block, `auxiliary`, fallback and the other model-bearing sections described above. Report the profile default separately from the active session route: launch flags and session switches can make them differ.
+2. Run `hermes config check`, `hermes fallback list`, and `hermes auth status <provider>` for referenced providers. Treat these as schema, chain-resolution and credential-state checks, not successful inference. An auth listing alone does not establish that another credential source is absent.
+3. Distinguish **configured**, **resolver-tested**, and **production-attributed** routes. A model missing from a local `providers.<key>.models` map is a verification gap, not proof the endpoint cannot serve it. Do not silently replace its literal ID. State which probes were not run.
+4. Update the existing profile routing note, or create one only after checking for an existing topic. Keep operational routing facts there and generic procedures in this skill. Link it from the project MoC; label an older overview as historical rather than repeating its stale provider claim as current. Read back the changed notes and validate the routing note.
+
 ## Auxiliary (side-task) model slots
 
 Side tasks route through their own slots under `auxiliary:` in `config.yaml` — the third layer next to `model.*` (session) and `delegation.*` (subagents). `hermes model` → "Configure auxiliary models" writes them; read one back with `hermes config get auxiliary.<slot>` (`hermes config get auxiliary.review`). `/review` runs on `auxiliary.review` when set, else on the parent's credentials, and cannot be triggered by the agent.
