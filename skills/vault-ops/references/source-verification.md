@@ -48,6 +48,7 @@ A note that states a version, a flag or a feature must be checked against the in
 ## Large primary documents
 - Never search a filing, statute or regulator PDF through a paginated extractor: it returns head+tail only, so a passage in the middle is missing and zero hits look like "not in there".
 - Fetch the raw document, strip tags, regex the passage, quote it verbatim.
+- MediaWiki pages: the rendered extraction returns section headings with empty bodies — tables and list items never make it through. Fetch `?title=<Page>&action=raw` and read the wikitext; an empty section is extraction loss, not absent content.
 - Cite it with URL in the sources section; details only the primary document carries (transitional dates, applied rates) become their own sentence in the note.
 
 ## Thread fact-checks
