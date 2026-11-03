@@ -62,7 +62,13 @@ Related:
 
 ## Importing Legacy Notes
 
-When the user copies notes from an external vault into the active vault, they arrive without frontmatter, with legacy task formats, and unlinked from the graph. Follow this procedure:
+When the user copies notes from an external vault into the active vault, they arrive without frontmatter, with legacy task formats, and unlinked from the graph.
+
+**The source vault usually lives on another machine and is not mounted here.** A foreign path (another computer's home directory) cannot be read from the agent host — ask the user to attach the notes to the chat and read them from the attachments directory; do not attempt mounts or guess the content.
+
+**A transfer with restructure is not a copy.** When the user asks to transfer notes and restructure them, treat the old notes as raw material: extract every fact and rebuild into the target project's note classes per its `AGENTS.md`, splitting one oversized legacy note into several (overview/akte, checklist, receipt or log, data table). Carry dates and checklist items over verbatim; mark unknown values as not-yet-recorded instead of dropping or inventing them. The source note's layout is no template — the target's sibling notes decide the shape — and the project MoC lists the new notes in the same pass.
+
+For a straight copy-in-place import, follow this procedure:
 
 1. **Discover all imported files — don't rely on search alone.** Keyword searches like `query: "<search-term>"` may miss notes without any content that matches your search terms. Verify all notes in the target directory using `query_frontmatter_sql`:
    ```sql
