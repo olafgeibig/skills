@@ -384,7 +384,7 @@ On a headless host (Pi, VPS, container, remote shell) an OAuth provider setup (`
 
 ### Pitfall 11 — A green probe after a credential fix can be the fallback answering
 
-On an auth failure Hermes falls back silently (Knob 3), so a probe that "works" right after a key fix proves only that *some* model answered — often the configured fallback, not the provider you just repaired. Before calling the fix verified, attribute the answer: `state.db`'s `session_model_usage` (`scripts/attribute-provider-burn.py`) names the model that actually served the call, and the provider's server-side 401 log names the one that didn't. Report both sides before claiming the route works.
+On an auth failure Hermes falls back silently (Knob 3), so a probe that "works" right after a key fix proves only that *some* model answered — often the configured fallback, not the provider you just repaired. Before calling the fix verified, attribute the answer: `state.db`'s `session_model_usage` (`scripts/attribute-provider-burn.py`) names the model that actually served the call, and the provider's server-side 401 log names the one that didn't. For a single probe, query `session_model_usage` directly ordered by `last_seen` (`sqlite3 ~/.hermes/state.db "SELECT datetime(last_seen,'unixepoch','localtime'), model, billing_provider, billing_base_url, task FROM session_model_usage ORDER BY last_seen DESC LIMIT 5"`) — the burn script aggregates a whole window and merges the probe with unrelated traffic. Report both sides before claiming the route works.
 
 ### Pitfall 12 — A `-free` / `-preview-free` slug is time-boxed, and it breaks config silently
 
