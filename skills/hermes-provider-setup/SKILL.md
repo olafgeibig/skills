@@ -94,7 +94,7 @@ hermes config set providers.<key>.context_length <from live /models>
 hermes config set 'providers.<key>.models' '{"<model-id>": {}}'   # JSON string, parsed into the dict
 ```
 
-Then `hermes config get providers` to confirm the merge (an existing sibling entry survives), `hermes config check` to validate, and a probe (`hermes -z "..." --provider <key> -m <model-id>`, then again with `-t file`) before touching `model.default` — a configured provider is not a working one. Before naming `<key>`, grep the install for the name: a key that matches a built-in provider (see the transport table below) shadows or collides with it.
+Then `hermes config get providers` to confirm the merge (an existing sibling entry survives), `hermes config check` to validate, and a probe (`hermes -z "..." --provider <key> -m <model-id>`, then again with `-t file`) before touching `model.default` — a configured provider is not a working one. Before naming `<key>`, check `hermes_cli/providers.py` for the name in BOTH tables: `HERMES_OVERLAYS` (built-ins — `ollama-cloud` already serves `https://ollama.com/v1`) and `_ALIAS_GROUPS` (aliases of the legacy `custom` placeholder: `ollama`, `local`, `vllm`, `llamacpp`, `llama.cpp`, `llama-cpp`). A key equal to one of them collides with or shadows that entry instead of extending it — the obvious name `ollama` for an Ollama Cloud provider hits the `custom` alias while the built-in is `ollama-cloud`. If a built-in already serves the endpoint, drop the custom entry (`hermes config unset providers.<key>` is the removal counterpart of `hermes config set`) and wire the built-in's `key_env` instead.
 
 ## Credential Pool with Multiple Keys
 
