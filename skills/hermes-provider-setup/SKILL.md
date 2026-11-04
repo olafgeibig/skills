@@ -199,6 +199,15 @@ Rules that survive the next docs update:
 
 See `references/live-provider-probes.md` for the key-loading one-liner (the value never enters the transcript), endpoint response shapes, and the credential-visibility chain.
 
+## When a configured provider fails outright
+
+Symptom: a registered provider "doesn't work" — error at call time, silence, or a probe that answers on some other model. Diagnose in this order before editing anything:
+
+1. **Key present?** `grep -c '^<KEY_ENV>' ~/.hermes/.env` plus the `hermes config check` badge (`○ <KEY_ENV>` = missing). A missing key is the most common cause; hand over the Pitfall 6 ingest one-liner — never accept a pasted key.
+2. **Key name collides with a built-in or alias?** `HERMES_OVERLAYS` / `_ALIAS_GROUPS` in `hermes_cli/providers.py` (Headless registration above).
+3. **Keyed `GET $base_url/models`** (probe recipe above): 401 = bad key; 200 without the model ID = wrong model name; 200 with it = auth fine, the fault is routing.
+4. **Probe through Hermes, then attribute.** `hermes -z "..." --provider <key> -m <model>`, then read the ledger row (Pitfall 11): only a row whose `billing_provider` is your provider proves the route — a green answer billed elsewhere is the fallback.
+
 ## Wire Probes: What Hermes Actually Sends
 
 The transport code shows what it *can* send; only a captured request shows what it *does*. To answer "does Hermes put field X on the wire for provider Y", register a throwaway `providers.<tmp>` entry whose `base_url` points at `scripts/wire-echo-server.py` on localhost, run `hermes -z` against it, and read the logged body — then remove the entry and kill the server by recorded PID. No endpoint traffic, no guessing from code paths.
