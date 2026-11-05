@@ -32,7 +32,7 @@ Class-level reference for the **mechanics** of provider setup in Hermes. This sk
 - User asks about the three api_mode values (chat_completions, codex_responses, anthropic_messages)
 - User wants one step — a review, a second opinion — to run on a *different* (stronger) model than the session, or asks how to pin a model for a single run
 - User asks whether model or provider can be changed mid-session, or which credential of a pool gets used first
-- User asks *which* model belongs in *which* slot on a plan he already pays for (make routing smarter, pick a model per purpose) — see `references/model-selection-workflow.md`
+- User asks *which* model belongs in *which* slot on a plan he already pays for (make routing smarter, pick a model per purpose), or which model is strongest at a specific capability (vision, coding, long context) — see `references/model-selection-workflow.md`
 - User asks whether the subscription is still enough, where the monthly quota went, or whether to upgrade a plan tier — attribute the burn before recommending money (see "Subscription Adequacy" below)
 - A provider's dashboard shows near-zero usage for a model the user pinned somewhere, and they ask where the calls went or why nothing routes there — attribute from the ledger, then check the slot's wiring and trigger gate (Pitfall 13) before re-pinning anything
 - User says a provider they configured "doesn't work" — a call error, or a probe that answers on some other model — diagnose with "When a configured provider fails outright" before changing config
