@@ -272,6 +272,12 @@ Hermes has **~20 built-in providers** that don't require `providers:` config —
 3. **Local / private:** `lmstudio`, `ollama-cloud`.
 4. **Aggregator:** `openrouter` (400+ models behind one key).
 
+### Standing routing preferences (this user)
+
+- **Same slug on several lanes → the fastest lane wins, measured not assumed** (decode tok/s per lane from a live throughput source, `references/opencode-go-api.md`). The MiMo family in particular runs on the Ollama Cloud lane — never on a shared aggregator lane that serves the same slug slower.
+- **Intelligence-heavy side tasks default to `mimo-v2.6-pro`** (Ollama Cloud); for judgment slots (`goal_judge`, `review`) the user ranks `kimi-k3.1-pro` top. Keep "the user's ranking" and "the benchmark's ranking" as separate claims — the newest models often carry no figure in the comparison indexes, so attribute an uncited ranking to the user.
+- **Models that train on prompts/completions are excluded regardless of score** — the privacy filter of `references/model-selection-workflow.md` Step 3 is a standing decision here, not a per-task trade-off.
+
 ## Which Knob Decides Which Model: Session, Subagent, One-Shot
 
 Three separate knobs, easy to confuse:
