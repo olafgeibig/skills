@@ -37,7 +37,7 @@ echo "key len: ${#PROVIDER_KEY}"     # length only — the value stays out of th
 | 404 with an HTML body | not an endpoint. OpenCode-style providers answer unknown paths with the docs page — check the HTTP status before trying to parse JSON. |
 | `POST $BASE/chat/completions` without a session header | `400 {"type":"error","error":{"type":"MissingSessionID"…}}` — OpenCode Go wants `x-opencode-session` in addition to the key; Hermes sends it since the build with PR #101864, a raw curl/urllib probe must set it itself. Two auth shapes coexist under one base URL: `/chat/completions` (OpenAI-compatible, `Authorization: Bearer`) and `/messages` (Anthropic shape, `x-api-key` + `anthropic-version`; a Bearer there returns 401), so read the provider's endpoint table before assuming a shape. |
 | docs page with plan tabs (e.g. Go / Go Plus) | a text extractor renders only the active tab — the second plan's limit table stays invisible. Fetch the raw HTML and read **every** `<table>`; that is how the $180/$240 caps behind the $40 plan surfaced after an announcement feed had claimed a single price point. Never conclude "this tier does not exist" from a rendered page, a search snippet, or an older announcement. |
-| image input | billed as plain input tokens. Prove vision by POSTing a self-generated PNG with known content (PIL is commonly installed) — a catalogue's `image` modality flag is a claim, not evidence; when cheap and expensive candidates both pass a basic OCR test, price and cap decide, not the flag. |
+| image input | billed as plain input tokens. Prove vision by POSTing a self-generated PNG with known content (PIL is commonly installed) — a catalogue's `image` modality flag is a claim, not evidence; when cheap and expensive candidates both pass a basic OCR test, price and cap decide, not the flag. For ranking several candidates, run the full battery instead (`references/model-selection-workflow.md` Step 5, `scripts/vision-capability-battery.py`). |
 
 Print the status code and byte count first, then the parsed fields; that is what distinguishes "endpoint missing" from "auth rejected" from "empty plan".
 
@@ -79,3 +79,11 @@ Recipe: take the cycle start from `/usage` `resetsAt` minus the window length, `
 **Attribute on dollars, not token volume.** Long agent sessions re-send most of the context on every call, so `cache_read_tokens` can dwarf `input_tokens` (506 M against 37 M in one 8-day window) while contributing a few percent of the cost at a cache price two orders of magnitude below input. Judging by raw tokens names the wrong hot bucket — and a bucket that is hot in dollars but idle in requests is the one that will block.
 
 **Project, don't declare.** "N % at D days into the cycle" plus a linear projection of the breach day is the honest form; per-window percentages aggregate across models and cannot attribute (§ 3), so the projection and the per-model attribution are two separate claims.
+
+## 7. Concurrency probes: an account gate vs upstream load
+
+When the question is "does this plan limit parallel requests" (relevant before several sessions share a slot), docs silence is not a limit and a burst of passes is not "unlimited" — probe it, with generations long enough to overlap:
+
+- Fire N concurrent long completions and read the failures. A burst where every request gets `429 upstream overloaded` with a small `Retry-After` (seconds) is the provider's **load shedding** — it fires even far below any account limit and says nothing about one.
+- To characterise a real gate, **stagger the request starts**: a K-slot gate shows runs finishing in K-sized waves (each start's duration overlaps the previous K-1), while load shedding shows flat rejections regardless of start spacing.
+- Short generations can all slip under a gate without ever overlapping it — a clean run of tiny prompts cannot rule a limit out. Report both probes and never derive "limit N" from rejects or "unlimited" from passes alone.

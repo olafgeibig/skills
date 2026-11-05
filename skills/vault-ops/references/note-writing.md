@@ -85,6 +85,15 @@ For a straight copy-in-place import, follow this procedure:
 
 **Pitfall:** In a session where the user copies 3 notes, a keyword search may find those 3 — but there could be 6 more that happen not to contain the search term. Always verify via SQL with the directory path filter.
 
+## New Evidence Supersedes Stale Claims
+
+Recording a source document (receipt, certificate, statement) is only half the job: the notes carrying derived or historical claims must be reconciled in the same change.
+
+1. Mirror the document's facts into a dated note with a source line naming the document. One document can carry several records (a certificate with an invoice attached) — read the whole extracted text and give each record its own dated note or a clearly separated section.
+2. Find the notes that depend on those facts: chronology tables, status fields, open-question lists, upcoming-appointment notes. Search by the entity, not by the document.
+3. Correct them in the same pass: replace stale values, name the source note as authority, and remove open items the evidence has answered. Never leave the old and the new version standing side by side — the fact-mirror rule is each fact once, current.
+4. Compute derived numbers (sums, distances, next-due dates) instead of estimating them, and label a derivation where the source does not state the value.
+
 ## Topological Linking
 
 The note must integrate into the vault graph, see `./references/vault-graph.md`

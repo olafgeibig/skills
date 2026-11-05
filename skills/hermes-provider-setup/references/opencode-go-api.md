@@ -51,7 +51,7 @@ Method (used 2026-10-20 for five models):
 
 - Non-streaming completion, ~1,200 input tokens, `max_tokens: 600`, 3 runs per model.
 - Latency = end-to-end (request → full body), not TTFT — includes network + queueing.
-- Surface: `/chat/completions` (OpenAI-compatible, `Authorization: Bearer`) for most models; Anthropic-shaped models (`claude-haiku-5-5`, MiniMax, Qwen) must go to `/messages` with `x-api-key` + `anthropic-version` — the `/chat/completions` surface returns HTTP 400 `ModelProtocolUnsupported` for them.
+- Surface: `/chat/completions` (OpenAI-compatible, `Authorization: Bearer`) for most models; Anthropic-shaped models (`claude-haiku-5-5`, MiniMax, Qwen) must go to `/messages` with `x-api-key` + `anthropic-version` — the `/chat/completions` surface returns HTTP 400 `ModelProtocolUnsupported` for them. Scope: raw probes only — through Hermes the relay maps each model to its surface, so `hermes -z` works on anthropic- and responses-shaped models alike and a raw 400 is no routability verdict (`references/model-selection-workflow.md`).
 - **Cloudflare blocks plain urllib with HTTP 403 `error code: 1010`** — a browser `User-Agent` header (e.g. `Mozilla/5.0 … Chrome/126.0`) is required.
 - `max_tokens` may be hit (all 3 runs exactly 600) → the real tok/s is higher; report the truncation.
 

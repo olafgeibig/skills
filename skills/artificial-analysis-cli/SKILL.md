@@ -112,7 +112,9 @@ jq -r '.data[]
   intelligence index was present on 680, coding on 258, economics 213, engineering 205,
   agentic 164, healthcare 80. `null` means "not in this tier".
 - **No vision index in the free tier at all** — visual capability is not measured here;
-  probe the model with a generated test image instead of citing an index.
+  probe the model with a generated test image instead of citing an index (ready-made
+  ground-truth battery incl. per-protocol callers: `hermes-provider-setup` →
+  `scripts/vision-capability-battery.py`).
 - **No raw benchmark results**: only the aggregated `artificial_analysis_*_index` fields;
   MMLU/HumanEval-style raw scores are not part of the free shape.
 - **Small quota**: 100 requests per window. One `models list` plus `jq` beats many

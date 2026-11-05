@@ -1,9 +1,9 @@
 ---
 name: skill-library-maintenance
-description: "Use when auditing or dissolving a skill library."
+description: "Use when auditing, dissolving or syncing a skill library."
 license: MIT
 metadata:
-  version: "0.14.2"
+  version: "0.14.3"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -30,6 +30,7 @@ Audit, consolidate, and restructure Git-backed skill libraries without losing us
 - Adopt or migrate a profile-local skill into a canonical owned repository.
 - Split a generic skill into a core and domain or project overlays.
 - Reconcile duplicate skill names across configured roots.
+- Diagnose a stuck cross-installation repository sync.
 - Dissolve a migration-source skill into its canonical owners and retire the shell.
 
 Use `skill-builder` for the quality rules of one skill package. Use `skill-governance` for ownership, scope, sidecars, and canonical destinations. This skill applies those rules across a library.
@@ -132,6 +133,7 @@ Before installing or enabling a skill-repository publisher:
 4. Check file-level staging against mixed manual and automated edits; ledger membership identifies a path, not ownership of every change inside it.
 5. Verify branch and upstream guards in code, and approve only the exact hook commands needed; documentation does not enforce a branch policy, and global hook auto-accept widens consent beyond the installer. Distinguish configured hooks from approved and healthy hooks: installer success alone does not establish activation.
 6. Verify failures remain observable in unattended execution; do not treat a zero exit code or quiet hook as evidence of a successful pull or publication.
+7. Falsify the single-writer assumption before trusting any hash-chain gate: other writers (audits, manual fixes, merges) make it hold forever — `references/shared-repo-sync.md` → *Diagnosing a stuck publisher*.
 
 Use `references/repository-sync-safety.md` for the isolation recipe and behavioral acceptance matrix. Record findings against the inspected revision; do not turn a defect in one script version into a permanent claim about the capability.
 
@@ -156,7 +158,7 @@ uncommitted until they collide with the other machine.
   neither the changed skill's name nor `actor: curator` alone establishes review provenance.
 - `scripts/skill-repo-sync.py` publishes only a file whose ledger before/after SHA-256 chain matches `HEAD` and the current worktree; it refuses staged or unrelated changes and only operates on `main` tracking `origin/main`.
 - A new install requires the explicit `--bootstrap-current-ledger` choice, which skips historical entries. Gate findings and Git failures leave the ledger cursor pending and return a visible nonzero status; global `hooks_auto_accept` is not changed.
-- Multiple pending review runs touching the same file are held for manual reconciliation because the ledger records hashes, not intermediate file contents.
+- Multiple pending review runs touching the same file are held because the ledger records hashes, not intermediate file contents — and one held file stops push and cursor advance for the entire repository while clean runs still commit locally. Diagnose a stall from ledger timestamps and git history, never from the latest error or a written explanation: `references/shared-repo-sync.md` → *Diagnosing a stuck publisher*.
 - Procedure, retry/bootstrap semantics, cron jobs, verification and conflict recovery: `references/shared-repo-sync.md`.
 
 ## Background Review During Library Work
@@ -167,7 +169,7 @@ The background review (`auxiliary.background_review`, on by default) runs after 
 - **After verifying and committing, turn it back on:** `hermes config set auxiliary.background_review.enabled true`. Leaving it off silently stops the review-driven updates the library otherwise receives.
 - Small, single-file edits do not need the toggle; re-read the file immediately before patching instead.
 - If a pass ran with the review on, check `<HERMES_HOME>/skills/.curator_ledger.jsonl` for `actor: curator` entries whose `evidence.session_id` matches the session before treating a change as your own.
-- A missed toggle is diagnosable afterwards: multiple review runs touching one file are held by the publisher (`ledger-integrity … intermediate snapshots are unavailable`), and pull/push stays blocked until worktree and ledger chain agree again.
+- A missed toggle is diagnosable afterwards: multiple review runs touching one file are held by the publisher (`ledger-integrity … intermediate snapshots are unavailable`), and pull/push stays blocked until worktree and ledger chain agree again — a chain broken by a later commit outside the ledger does not self-heal (`references/shared-repo-sync.md` → *Diagnosing a stuck publisher*).
 
 ## Protect Existing Work
 

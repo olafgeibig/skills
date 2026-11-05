@@ -45,6 +45,8 @@ LIMIT 50
 
 Do not assume multi-table `json_each()` joins or `LIKE` against array-valued metadata will work. Prefer dedicated graph and metadata tools.
 
+**Optional columns are NULL on notes that lack the key, and NULL breaks `LIKE`.** The `files` table spans every note in the vault, so a frontmatter key only some notes carry (a custom field mid-rollout) yields `value: operator doesn't exist: Null LIKE Str(...)` and aborts the whole query. Wrap the column: `WHERE coalesce(scope, '') LIKE '%x%'` (same for `lower()`). `WHERE <col> IS NOT NULL` works and lists exactly the notes that already carry an optional key — useful as a rollout/progress view.
+
 ## Graph tools
 
 | Goal | Tool |

@@ -27,7 +27,7 @@ are also recorded as `actor: curator`.
 | Publish trigger | `on_skill_lifecycle` shell hook → seconds after a successful skill mutation |
 | Refresh trigger | `on_session_start` shell hook (`--pull-only`) + the hourly safety cron |
 | What gets committed | only ledger paths whose before/after SHA-256 chain matches the `HEAD` blob and worktree; staged or unrelated changes stop the run |
-| Commit granularity | one commit per review run when each path has one pending run; multiple pending runs touching the same file are held because the ledger has no intermediate content snapshots |
+| Commit granularity | one commit per publish trigger, not per review run: the `on_skill_lifecycle` hook fires per `skill_manage` edit and each invocation commits the newest consistent delta while the run's entry list accumulates in the trailers — a multi-edit review lands as a burst of single-file commits. Multiple pending runs touching the same file are held because the ledger has no intermediate content snapshots |
 | Commit message | names the skills whose files actually changed, plus `Review-Run: <timestamp>` and `Ledger-Entries: <ids>` for retry/recovery |
 | Conflict | fetch, rebase onto `origin/main`, abort an actual conflicted rebase, write a marker — never resolve by choosing a side; ordinary fetch/push errors are not conflicts |
 | Gate before commit | instance pointers, dangling references, duplicate rules, and exact ledger hash validation; a blocked run stays pending |
@@ -160,6 +160,48 @@ Optional softening for the meta-skills only (`skill-governance`, `skill-builder`
 `skill-library-maintenance`): `.gitattributes` with `merge=union` makes purely additive list
 edits merge without stopping. Price: a line both sides *rewrote* ends up duplicated and must be
 cleaned up by hand — so it stays an option, not the default.
+
+## Diagnosing a stuck publisher
+
+When sync has silently stopped, rebuild causality from the ledger and git history before trusting
+any explanation — a report or design draft names the most recent visible event, while the frozen
+cursor date marks where the failure actually began.
+
+1. Read `<repo git-dir>/hermes-skill-sync-report.json`, then compare `ledger_cursor` and its
+   timestamp in the state file against the ledger's entry count and newest entry: a frozen cursor
+   while entries keep arriving means runs have failed since the cursor date, not since the last
+   visible error.
+2. `git log --format='%ci %s'` over the held paths: local commits growing while the cursor is frozen
+   shows publish committing clean runs per trigger and aborting before fetch/push and the cursor
+   update whenever any file is held — a growing local commit log is not evidence of publication.
+3. Localize the chain break: hash every pending entry's before/after values against the path's blob
+   history (`git log --format=%h -- <path>`, then `git show <rev>:<path>`), or import the engine
+   module and call its own `manifest_hash` / `blob_hash_at_head` helpers instead of reimplementing
+   its hashing. The first entry whose before-hash matches neither the preceding entry's after-hash
+   nor any blob at its time marks where a commit outside the ledger intervened.
+
+Pitfalls:
+
+- **A before/after hash chain assumes the publisher is the only writer.** Any commit made outside
+  the ledger — audit, manual fix, merge — inserts a blob state the chain does not know; entries
+  across it stop chaining, the file is held indefinitely, and because publish aborts at the first
+  held file, one foreign commit stops push and cursor advance for the entire repository while clean
+  runs keep committing locally. The hold is retroactive: an entry valid when written breaks once
+  `HEAD` moves past it without carrying its id, and content already present at `HEAD` can never be
+  acknowledged as published — the stall clears only by external repair, never by retrying.
+- **Commit count is not review activity.** The lifecycle hook fires per `skill_manage` edit and
+  gap-based run grouping merges the entries, but every hook invocation publishes again, so one
+  multi-edit review lands as a burst of single-file commits seconds apart.
+
+Design constraints the failure mode establishes for a replacement:
+
+- Provenance must hold without old ledger entries matching current `HEAD` — verify against the
+  entry's own chain and git history; the ledger selects and attributes paths, it cannot certify
+  content against a moving `HEAD`.
+- Semantic review gates canonical writes even when git reports no conflict: duplication, scope
+  leaks and contradictory rules arrive conflict-free, so a design that reviews only merge
+  conflicts (or treats hash integrity as a quality gate) does not satisfy the review gate in
+  `skill-governance`. Hash integrity proves provenance, not quality.
 
 ## Removing it
 
