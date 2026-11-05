@@ -103,7 +103,15 @@ from agent.auxiliary_client import call_llm
 print(call_llm(task='<slot>', messages=[{'role':'user','content':'Antworte mit einem Wort: pong'}], max_tokens=8))"
 ```
 
-`<runtime python>` is the interpreter the `hermes` launcher shim execs (`head -2 "$(readlink -f "$(which hermes)")"`); a checkout's own `.hermes/bin/` may hold only the shim, not a python — do not assume a venv interpreter exists.
+`<runtime python>` is the interpreter the `hermes` launcher shim execs. **Extract it inside the shell; never copy it out of tool output** — output masking rewrites version strings with `****`, so a copied interpreter path fails with "No such file or directory" while the real interpreter is perfectly fine:
+
+```bash
+PYEXE=$(sed -n 's/^exec \([^ ]*python[^ ]*\) .*/\1/p' "$(readlink -f "$(which hermes)")" | head -1)
+[ -x "$PYEXE" ] || echo MISSING   # resolve check, not a printed path
+"$PYEXE" - <<'PY' … PY
+```
+
+A checkout's own `.hermes/bin/` may hold only the shim, not a python — do not assume a venv interpreter exists.
 
 Expect interpreter trouble here: the terminal layer can reroute a `python` invocation to its own bundled interpreter (the tell is a traceback whose first line is a rewritten `import sys, runpy; … runpy.run_path(…)`), which carries none of the checkout's dependencies — a probe dying on `ModuleNotFoundError` for a dependency the install plainly has is that reroute, not a broken install. Discover the runtime python as above instead of naming `venv/bin/python`; if the probe still cannot import, fall back to grep + ledger rather than cycling through interpreters.
 
