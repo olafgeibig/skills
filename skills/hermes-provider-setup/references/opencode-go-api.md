@@ -45,7 +45,7 @@ Hermes builds from PR #101864 send the `x-opencode-session` header on main and a
 
 ## Measuring own throughput / latency
 
-AA free-tier values (above) are the reference, but they cover a subset (family-level) and come from external infrastructure. To measure **your** token latency on this key, probe the model directly.
+Own probes answer **route** questions — what a given key, relay path and agent-shaped load actually do — not catalogue throughput (that is TokenDyno's job, above). AA free-tier values cover a subset (family-level) and come from external infrastructure. To measure **your** token latency on this key, probe the model directly.
 
 Method (used 2026-10-20 for five models):
 
