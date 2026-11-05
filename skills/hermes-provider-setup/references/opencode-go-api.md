@@ -39,6 +39,10 @@ Refresh = re-run the keyed `/models` + `/usage`, re-parse the docs tables, then 
 
 Hermes builds from PR #101864 send the `x-opencode-session` header on main and auxiliary OpenCode requests (merged after v0.21.0). It is not required to query the metadata endpoints, but it is how the provider meters sessions for clients that support it.
 
+## Third-party throughput data (TokenDyno)
+
+`GET https://api.ollamatps.com/api/sites/tokendyno/overview` (no auth) returns one row per (provider, slug): `latestTps`, `avgTps24h`, `latestTtftMs`, `successRate24h`, `sampleCount24h`, `sparkline`, `aaIntelligence` — lanes cover Ollama Pro/Free, OpenCode Zen and Go. Method: one fixed streaming request, 400-word prose prompt, `max_tokens` 300, hybrid inter-token/wall-clock decode rate (TTFT excluded), 120 s timeout (tokendyno.com/methodology). Prefer this over own probes for throughput columns in notes. Caveats: Go cadence is ~6 h for expensive models, so 24 h windows carry n = 2–4 samples; `successRate24h < 1` can mean *their* plan lacks the model (`quota` in their error taxonomy), not that the model is down; `latestTtftMs` is the latest run only, not a 24 h value.
+
 ## Measuring own throughput / latency
 
 AA free-tier values (above) are the reference, but they cover a subset (family-level) and come from external infrastructure. To measure **your** token latency on this key, probe the model directly.
