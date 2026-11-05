@@ -28,7 +28,7 @@ configured" must name them too:
 | Section | Routes | Read back |
 |---|---|---|
 | `tts`, `stt` | the audio subsystems — `tts.<provider>.*` / `stt.<provider>.*` hold per-provider models and voices, `tts.provider` / `stt.provider` select the one that runs | `hermes config get tts.provider` (depth: `references/audio-voice-slots.md`) |
-| `x_search` | the model behind the X/Twitter search tool | `hermes config get x_search` |
+| `x_search` | the model behind the X/Twitter search tool. The **capability** is vendor-hosted (an xAI service), not just its model — when that subscription ends the tool is dead and no other model pin revives it, unlike an ordinary model slot | `hermes config get x_search` |
 | `moa` | Mixture-of-Agents presets (`hermes moa` writes them) — distinct from the auxiliary `moa_reference` / `moa_aggregator` slots above | `hermes config get moa` |
 | `smart_model_routing` | the routing rules that steer which model serves a call | `hermes config get smart_model_routing` |
 
