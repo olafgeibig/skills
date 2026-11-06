@@ -33,19 +33,17 @@ A minimal probe needs only one committed file, one appended change, one ledger e
 
 | Case | Required result |
 |---|---|
-| Dry-run with a pending entry | Reports intended actions without changing cursor, config, index, report files, HEAD, fetch state, or remote refs. |
+| Dry-run with pending work | Reports intended actions without changing cursor, config, index, HEAD, fetch state, or remote refs. |
 | Missing sync state | Installer refuses unless the operator explicitly chooses `--bootstrap-current-ledger`; that baseline skips all historical entries. |
-| Ledgered file change | Before/after SHA-256 chain matches the current `HEAD` blob, every intervening ledger entry, and the current worktree. |
-| Validation or safety gate blocks an entry | Leaves the cursor unchanged, writes a diagnostic report only outside dry-run, and returns a visible failure. |
-| Corrected blocked entry | Re-run proves the original entry remains pending and the corrected ledger chain can publish. |
-| Multiple pending runs touch one file | Fails closed; hashes cannot reconstruct the intermediate file snapshots needed for one commit per run. |
-| Manual and ledgered edits share a file | Refuses the file when the worktree hash differs from the ledger's final after-hash. |
-| Unrelated staged file exists | Refuses before staging or committing any path. |
-| Unexpected branch or upstream | Stops before committing, fetching, rebasing, or pushing; requires `main` tracking `origin/main`. |
-| Commit succeeds, push fails | Preserves the local commit and cursor for retry; reports incomplete publication. |
-| Real rebase conflict | Aborts the rebase, keeps the local review commit, and writes a conflict marker; no side is selected automatically. |
-| Conflict recovery | Manual merge retains both lessons; a subsequent safety run recognizes `Ledger-Entries`, pushes the resolution, then clears the marker and advances the cursor. |
-| Fetch/pull/push failure in hook mode | Returns nonzero and emits stderr diagnostics; network/auth failures do not create conflict markers. |
+| Ledgered file change | `--stage` commits the path's current content with the ledger entry IDs in the commit trailers; the hash chain stays verifiable evidence for `--preflight`, never a hold on transport. |
+| Multiple pending runs touch one file | The sweep commits the path's current content once — no per-run reconstruction (the ledger has no intermediate snapshots) and no hold on other paths. |
+| Manual and ledgered edits share a file | Both ride along in the staging commit; attribution names the path and the ledger ids, not each change inside it. |
+| Review gate finding (instance pointer, dangling reference, duplicate rule) | `--preflight` reports it visibly and the consolidation stays blocked; nothing reaches `main` unreviewed. |
+| Unexpected branch | `--stage` refuses a dirty `main` checkout and no-ops on a clean one (the curator host's normal state); a transport branch runs only as `machine/<hostname>`. |
+| Cursor behind the ledger | The next sweep advances it over the entries it bundles — a stale cursor self-heals instead of replaying old content. |
+| Staging commit made, push fails | The commit is preserved and the retry pushes it without creating a duplicate. |
+| Transport branch consumed upstream | `--sync-from-main` resets the local branch to `origin/main`; dirty worktree content is never discarded (observer-only). |
+| Curator finds overlapping edits in two transport branches | Resolves to one home per rule and a SemVer increment beyond both; never `-X ours`/`-X theirs`, never a force-push of `main`. A resolution it cannot make stops the run before any `main` commit. |
 | No prior sync cursor exists | Historical path membership never authorizes today's dirty content; bootstrap is an explicit skip-history choice. |
 
 Repeat a blocked case after correcting the fixture to verify actual retry, not just preservation of an integer cursor. For push failure and conflict recovery, assert that the retry creates no duplicate review commit, the remote reaches the resolved local HEAD, and the cursor advances only after publication succeeds.
