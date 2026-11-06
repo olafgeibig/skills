@@ -46,7 +46,7 @@ A minimal probe needs only one committed file, one appended change, one ledger e
 | Curator finds overlapping edits in two transport branches | Resolves to one home per rule and a SemVer increment beyond both; never `-X ours`/`-X theirs`, never a force-push of `main`. A resolution it cannot make stops the run before any `main` commit. |
 | No prior sync cursor exists | Historical path membership never authorizes today's dirty content; bootstrap is an explicit skip-history choice. |
 
-Repeat a blocked case after correcting the fixture to verify actual retry, not just preservation of an integer cursor. For push failure and conflict recovery, assert that the retry creates no duplicate review commit, the remote reaches the resolved local HEAD, and the cursor advances only after publication succeeds.
+Repeat a blocked case after correcting the fixture to verify actual retry, not just preservation of an integer cursor. For push failure, assert that the retry creates no duplicate commit and the remote reaches the staged local HEAD; for consumption, assert the reset touches nothing but the transport branch.
 
 Preserve successful disposable-repository probes as bundled regression tests rather than leaving them as scratch commands; retry and cursor defects require a repeatable sequence of runs. Run `python3 -m pytest skills/skill-library-maintenance/tests -q` from the repository root after the final engine or installer edit. Treat the passing suite as behavioral evidence only; run the package validator and library audit separately before declaring the skill change complete.
 
