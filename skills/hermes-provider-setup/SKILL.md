@@ -280,13 +280,14 @@ Hermes has **~20 built-in providers** that don't require `providers:` config —
 
 ## Which Knob Decides Which Model: Session, Subagent, One-Shot
 
-Three separate knobs, easy to confuse:
+Four separate knobs, easy to confuse:
 
 | Scope | Config key | Controls |
 |---|---|---|
 | Session / main thread | `model.default` + `model.provider` | the model you are talking to; also the default for `hermes -z` unless overridden |
 | Subagents | `delegation.model` + `delegation.provider` | what **every** `delegate_task` child inherits — no per-child override exists in the tool schema |
 | One run | `hermes -z "<prompt>" --provider <P> -m <M> -t <toolsets>` | that invocation only: fresh context, own session, own tool grants |
+| Scheduled job (cron) | `hermes cron create/edit --provider <P> --model <M>`, recorded in `~/.hermes/cron/jobs.json` | what that job's agent run uses; an unpinned job resolves the config route at fire time and **fails closed** when `model.*` changes underneath it — pin every unattended job, and verify the recorded fields in `jobs.json` (`hermes cron status` shows the scheduler, not one job) |
 
 Read the value before quoting it (`hermes config get delegation.model`) — the model picker and other sessions write these keys, so a value read earlier in the day can already be stale.
 
