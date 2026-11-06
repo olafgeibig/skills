@@ -150,16 +150,32 @@ Use `references/repository-sync-safety.md` for the isolation recipe and behavior
 
 ## Shared Repositories: Publishing and Sync
 
-A skill repository mounted on more than one installation needs a publisher, or review writes sit
-uncommitted until they collide with the other machine.
+A skill repository mounted on more than one installation needs a sync design, or review writes sit
+uncommitted until they collide with the other machines. The design shipped in
+`scripts/skill-repo-sync.py` is **Stage & Curate**: no machine session writes `main`; each
+installation stages its work onto a transport branch `machine/<hostname>`, and one nightly curator
+consolidates every branch into a single `main` commit.
 
 - The background review can write into shared repos too. Correlate unexpected changes with
   paths, timestamps, and mutation details in `<HERMES_HOME>/skills/.curator_ledger.jsonl`;
   neither the changed skill's name nor `actor: curator` alone establishes review provenance.
-- `scripts/skill-repo-sync.py` publishes only a file whose ledger before/after SHA-256 chain matches `HEAD` and the current worktree; it refuses staged or unrelated changes and only operates on `main` tracking `origin/main`.
-- A new install requires the explicit `--bootstrap-current-ledger` choice, which skips historical entries. Gate findings and Git failures leave the ledger cursor pending and return a visible nonzero status; global `hooks_auto_accept` is not changed.
-- Multiple pending review runs touching the same file are held because the ledger records hashes, not intermediate file contents — and one held file stops push and cursor advance for the entire repository while clean runs still commit locally. Diagnose a stall from ledger timestamps and git history, never from the latest error or a written explanation: `references/shared-repo-sync.md` → *Diagnosing a stuck publisher*.
-- Procedure, retry/bootstrap semantics, cron jobs, verification and conflict recovery: `references/shared-repo-sync.md`.
+- Staging (`--stage`) bundles the pending ledger paths **and** the dirty worktree into one commit
+  on `machine/<hostname>` and pushes it; ledger entry IDs ride in the commit trailers. The ledger
+  holds hashes, not intermediate file contents, so per-run commits cannot be reconstructed — the
+  sweep commits the current content per path, once. A push failure keeps the commit for retry
+  without duplicating it.
+- `main` has exactly one writer: the nightly curator (a scheduled agent run, model-pinned). It
+  reads every transport branch's complete diff, deduplicates overlaps (one home per rule), bumps
+  SemVer, makes one `main` commit, then resets the consumed transport branches to `main`.
+- A transport branch is a landing strip, not a feature branch: `--reset-branch` (the only
+  sanctioned force, lease-guarded) resets it after consumption; never merge one back by hand.
+- A new install requires the explicit `--bootstrap-current-ledger` choice, which skips historical
+  entries; global `hooks_auto_accept` is not changed.
+- Long sessions: the skill *index* is a start-of-session snapshot (prompt-cache invariant); skill
+  *bodies* load from disk, so `/skill-name` always yields current content. Never pull mid-session to
+  "fix" an index.
+- Mechanics, install, cron wiring, the curator run book, manual fallback and failure diagnosis:
+  `references/shared-repo-sync.md`.
 
 ## Background Review During Library Work
 
