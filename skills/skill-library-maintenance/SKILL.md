@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing, dissolving or syncing a skill library."
 license: MIT
 metadata:
-  version: "0.14.3"
+  version: "0.15.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
