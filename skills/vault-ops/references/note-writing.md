@@ -44,6 +44,10 @@ A note is a **fact mirror**: it states the current knowledge, each fact once. It
 3. Rewrite the note in one `write_file` with the new minimal structure — not a chain of patches.
 4. Report the reduction (size / lines / sections before → after).
 
+## A Concept Note Carries the Complete Concept
+
+A concept, spec, or decision note states the whole current design in one place. When a draft is finalized or a new design replaces an old one, rewrite the note clean in one `write_file` (back up first, per the restructure rule above) — never layer the new concept partially over the old text and never leave adoption artifacts from the merge; a reader must not have to reconstruct the design from a delta against a document that is gone. Per-audience material — run books for agents on other machines, per-role instructions — is its own note or file, linked from the concept, not sections inside it: the concept stays one readable design document, and each audience gets one instruction artifact it can follow verbatim.
+
 ## Note Footer Format
 
 Notes end with a footer block after a `---` separator (3 dashes on their own line, blank line after) — plain labels, never heading markup (`## Siehe auch` is a common mistake):
