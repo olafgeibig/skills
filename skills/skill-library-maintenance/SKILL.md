@@ -125,7 +125,7 @@ When migrating a skill:
 
 ## Reviewing Repository Sync Automation
 
-Before installing or enabling a skill-repository publisher:
+Before installing or enabling skill-repository sync automation:
 
 1. Inspect the active checkout and fetched remote separately; fetching does not update the runtime-loaded skill. Preserve dirty work before integrating upstream changes.
 2. Test the publisher in disposable repositories with an isolated `HERMES_HOME`; syntax checks alone do not establish safe Git or cursor behavior.
