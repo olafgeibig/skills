@@ -190,9 +190,19 @@ def preflight_scan(repo: Path, outdir: Path) -> tuple[int, list[str]]:
     return 0, notes
 
 
-def reset_branches(repo: Path, hosts: list[str], dry_run: bool) -> tuple[int, list[str]]:
-    """Push origin/main onto the consumed transport branches. The ONLY allowed force in v2."""
+def reset_branches(repo: Path, hosts: list[str], dry_run: bool, confirmed: bool) -> tuple[int, list[str]]:
+    """Push origin/main onto the consumed transport branches. The ONLY allowed force in v2.
+
+    `--confirm-consumed` is the curator's assertion that it has consolidated the branch.
+    Git ancestry cannot replace that judgement: a curated commit on main rewrites the branch's
+    content instead of merging it, so the branch tip is never an ancestor and the content is
+    present all the same. Without the flag this refuses to touch anything.
+    """
     notes: list[str] = []
+    if not confirmed:
+        return 12, ["machine reset: refusing without --confirm-consumed — the curator asserts "
+                    "which branches it has consolidated; ancestry cannot decide this for a "
+                    "curated commit"]
     main, err = main_sha(repo)
     if err:
         return 12, [f"machine reset: {err}"]
@@ -206,15 +216,10 @@ def reset_branches(repo: Path, hosts: list[str], dry_run: bool) -> tuple[int, li
         if old == main:
             notes.append(f"machine/{host}: already at origin/main")
             continue
-        # Safety: never clamp a branch that still carries unique work.
-        ancestor = git(repo, "merge-base", "--is-ancestor", old, main).returncode == 0
-        if not ancestor:
-            return 12, ([f"machine/{host}: branch {old[:12]} has content main lacks — "
-                         "consolidate before resetting (refusing force)"] + notes)
         if dry_run:
             notes.append(f"[dry-run] would push {main[:12]}:{ref} (was {old[:12]})")
             continue
-        push = git(repo, "push", f"--force-with-lease={ref}:{old}", f"{main}:{ref}")
+        push = git(repo, "push", "origin", f"--force-with-lease={ref}:{old}", f"{main}:{ref}")
         if push.returncode != 0:
             notes.insert(0, f"machine/{host}: reset push failed: {(push.stderr or push.stdout).strip()[:300]}")
             return 12, notes
@@ -231,6 +236,8 @@ def main() -> int:
                       help="scan pending branch diffs for instance pointers and dangling refs")
     mode.add_argument("--reset-branch", metavar="HOST", nargs="+", action="store",
                       help="reset consumed machine branches to origin/main (force-with-lease)")
+    ap.add_argument("--confirm-consumed", action="store_true",
+                    help="curator assertion: the named branches are consolidated; required by --reset-branch")
     ap.add_argument("--repo", default=None, help="path to the shared skill repo (default: from state)")
     ap.add_argument("--outdir", default=None, help="where collect writes diffs (default: <repo>/.consolidate-scratch)")
     ap.add_argument("--dry-run", action="store_true")
@@ -257,7 +264,7 @@ def main() -> int:
         elif args.preflight:
             code, notes = preflight_scan(repo, outdir)
         else:
-            code, notes = reset_branches(repo, args.reset_branch, args.dry_run)
+            code, notes = reset_branches(repo, args.reset_branch, args.dry_run, args.confirm_consumed)
     except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
         code, notes = 12, [f"skill-repo-consolidate: {type(exc).__name__}: {exc}"]
     for line in notes:
