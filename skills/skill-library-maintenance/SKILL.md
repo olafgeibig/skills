@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing or dissolving a skill library."
 license: MIT
 metadata:
-  version: "0.14.2"
+  version: "0.14.3"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -157,7 +157,8 @@ uncommitted until they collide with the other machine.
 - `scripts/skill-repo-sync.py` publishes only a file whose ledger before/after SHA-256 chain matches `HEAD` and the current worktree; it refuses staged or unrelated changes and only operates on `main` tracking `origin/main`.
 - A new install requires the explicit `--bootstrap-current-ledger` choice, which skips historical entries. Gate findings and Git failures leave the ledger cursor pending and return a visible nonzero status; global `hooks_auto_accept` is not changed.
 - Multiple pending review runs touching the same file are held for manual reconciliation because the ledger records hashes, not intermediate file contents.
-- Procedure, retry/bootstrap semantics, cron jobs, verification and conflict recovery: `references/shared-repo-sync.md`.
+- Procedure, retry/bootstrap semantics, cron jobs, cross-machine deployment audit, verification and
+conflict recovery: `references/shared-repo-sync.md`.
 
 ## Background Review During Library Work
 

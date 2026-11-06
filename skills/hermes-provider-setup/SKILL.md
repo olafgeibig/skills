@@ -385,6 +385,14 @@ Rules:
 
 Slot semantics are not trigger semantics: the `session_search` tool is pure FTS5 (its own schema says "no LLM"), catalog search is lexical, and `auxiliary.mcp` serves MCP **sampling** (server-initiated completions) despite the config comment "MCP tool dispatch" — tool dispatch is direct RPC and tool search is BM25, so neither touches a model. Grep the install for `task="<slot>"` call sites before designing a verification around a tool; a pipeline trigger that can fail upstream (e.g. `tts_audio_tags` inside TTS) may never reach the aux call at all. The reliable sequence — config read → bare `call_llm(task=...)` resolver probe → ledger attribution on a real in-session call — is in `references/model-routing-slots.md`; bare out-of-session probes never land in `session_model_usage`.
 
+### Pitfall 14 — A 403 `permission_error` on inference is a key scope, not a broken config
+
+`api_key_expired` (401) has a sibling that looks like a provider outage and is not. OpenCode answers `403 permission_error` with `"This API key can't call models"` when the key's permission level is **Read-only**. Such a key authenticates happily — `/models` returns 200 with the full plan catalogue and `/usage` returns 200 with real percentages — so every metadata probe passes and only inference fails. A read-only key lists models, it does not call them.
+
+Diagnose it by separating the two surfaces: if the keyed `/models` and `/usage` answer 200 but `POST /chat/completions` (with `x-opencode-session`) returns 403, the key is scoped, not expired or misconfigured. Do not re-add credentials, do not change `base_url` or `api_mode`, and do not read the `/models` success as "the provider is fine". The fix is on the provider's side: issue a key whose permissions include model requests (member keys are personal and call as you; owner/admin keys need Restricted-with-Models-Request or All, never Read only).
+
+After the replacement, `hermes auth reset <provider>` clears the cached failure row — `hermes auth list` otherwise keeps showing `exhausted` / `permission_error` for a key that now works, and `hermes auth status` prints `logged in` for both states, so neither line alone tells you which key is live. Confirm with `secret_fingerprint` against the value in `.env`, then probe inference once.
+
 ## References
 
 - `references/model-routing-slots.md` — Which knob moves which model (session / `delegation.*` / `auxiliary.<slot>`), the writer-vs-reviewer rule, the two-step model probe (`-z` answer check, then `-t file`), the full auxiliary slot table, the aux-route verification sequence (trigger map + `call_llm(task=...)` resolver probe + ledger attribution) and the `/review` mechanics.

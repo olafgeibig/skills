@@ -140,6 +140,58 @@ interpreter with `--python`).
       marker file `<repo>/.git/hermes-skill-sync-audit` with the current HEAD."
    ```
 
+## Cross-machine deployment audit
+
+When asked whether a machine is prepared for the sync stack, or whether every installation is on
+the same version and has published its work, run this read-only checklist over SSH on each machine
+and compare the results:
+
+1. **Versions** — `SCRIPT_VERSION` in `scripts/skill-repo-sync.py`, `INSTALLER_VERSION` in
+   `scripts/install-skill-repo-sync.py`, and the `version:` frontmatter of
+   `skill-library-maintenance/SKILL.md`. Report drift between machines as a finding; the installer
+   comment demands engine/installer parity, so a mismatch is a defect to name, not to normalize away.
+2. **Wrapper** — `<hermes home>/bin/skill-repo-sync` exists and is executable.
+3. **State** — `<hermes home>/skill-repo-sync.json` exists; the engine's `--selfcheck --verbose`
+   is the authoritative check (it reports `not installed` when the state file is missing).
+4. **Hooks** — grep `<hermes home>/config.yaml` for `on_skill_lifecycle` and `on_session_start`;
+   both commands must point at the wrapper. `hermes hooks list` and `hermes hooks doctor` confirm
+   activation — configured is not activated.
+5. **Cron** — `hermes cron list` shows the hourly safety and monthly audit jobs.
+6. **Ledger** — `<hermes home>/skills/.curator_ledger.jsonl` exists and is non-empty.
+7. **Git state** — `git status --short --branch` (ahead/behind, uncommitted files),
+   `git log --oneline origin/main..HEAD` (unpushed commits and which paths they touch), and
+   `git push --dry-run origin HEAD:main` (push capability without side effects).
+8. **Publisher dry-run** — `--dry-run --verbose`: what the next run would do and which review runs
+   the gate is holding.
+
+Diagnosis:
+
+- **Unpushed commits while `push --dry-run` succeeds** → the publisher gate is holding runs, not
+  the network. `--dry-run --verbose` names the finding (`ledger-integrity`, `instance-pointer`,
+  `dangling-reference`); details live in the report marker `<repo git-dir>/hermes-skill-sync-report.json`.
+  Fix the findings, then let the safety run push. Treat a stalled gate as the default explanation
+  for a growing `ahead N` before suspecting credentials or connectivity.
+- **Uncommitted changes no human made** → background-review sediment; attribute from the ledger
+  before touching them (see the symptom note above).
+- **A machine holds unpushed commits touching a file another machine has edited** → remediate the
+  backlogged machine first (clear findings, push), then reconcile the other one. Installing or
+  writing on a second machine before the first has published turns a fast-forward into a file
+  collision.
+- **A deployment note disagrees with the live checkout** → the checkout wins. Notes describing
+  versions, paths, or install state are claims to verify against the scripts on disk, never state
+  to trust; report the note as stale rather than adopting its numbers.
+
+SSH and CLI pitfalls when auditing remote machines:
+
+- Machine names in a project's machine table are logical names, not guaranteed SSH hostnames.
+  Resolve through `known_hosts` variants (`<name>.lan`, `<name>.local`, `<name>.fritz.box`) and
+  known IPs before declaring a machine unreachable; when nothing resolves, report "unreachable —
+  need an access path" and stop. Never guess credentials or invent a hostname.
+- `hermes` is typically absent from `PATH` in a non-interactive SSH session. Inspect hook
+  configuration by reading `<hermes home>/config.yaml` directly; run `hermes hooks list`,
+  `hermes hooks doctor`, and `hermes cron list` through a login shell or with the profile's PATH
+  sourced when those are required.
+
 ## Integrating remote lessons and resolving conflicts
 
 Use this sequence for an explicit manual integration; keep automated conflict handling abort-only.
