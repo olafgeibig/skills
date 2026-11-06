@@ -45,6 +45,8 @@ Topics:
 
 Default `- description:` to 2-4 comparison-ready sentences for tool/repo entries, not terse one-liners — what it is / what problem it solves, the differentiating claim (benchmark, architecture, unique feature), and maturity signals (stars, version, license) when relevant. Keep `Install:` a separate field when installation is non-trivial; frontmatter `description:` rules elsewhere stay unchanged. For articles, videos, and other non-tool entries, keep to 1–2 sentences.
 
+For team documentation saved as inspiration, preserve that purpose in the description rather than presenting it as binding policy. Describe only the page actually read; mark child pages as unreviewed without guessing what they contain. Preserve organization acronyms unless the source explicitly expands them, because a plausible expansion introduces an unsupported claim. A landing-page bookmark does not require a recursive documentation review.
+
 ## Workflow
 
 1. **Identify the area:** Map the user's topic to the vault's area structure (area/INDEX.md → area map).
@@ -62,7 +64,7 @@ Default `- description:` to 2-4 comparison-ready sentences for tool/repo entries
 8. **Register the file in both MoCs** when it mirrors the area MoC's `## Bookmarks` section: the area MoC **and** the sub-MoC, each with a one-liner in the MoC body's language.
    - Without a MoC entry the file is invisible in the graph — no backlink, no triage.
    - Bump `updated:` in both MoCs.
-9. **Add a `See also` section** with 3–4 path links to sibling files and the next related note.
+9. **Add relevant sibling references** using body `[[wikilinks]]`, following the note's `See also` or footer `Related:` convention. Include only genuinely useful targets; do not pad a small bookmark collection to meet a fixed link count.
 
 ## Adding Entries to Existing Bookmark Notes
 

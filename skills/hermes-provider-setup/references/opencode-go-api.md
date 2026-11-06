@@ -8,14 +8,17 @@ Base URL: `https://opencode.ai/zen/go/v1` (the `model.base_url` of the `opencode
 
 ```bash
 BASE=https://opencode.ai/zen/go/v1
+UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'   # required, see below
 # 1. model list — the KEYED answer is authoritative (keyless returns the public zen
 #    catalogue with extra IDs that fail at request time)
-curl -sS "$BASE/models" -H "Authorization: Bearer $OPENCODE_GO_API_KEY" | jq -r '.data[].id' | sort
+curl -sS "$BASE/models" -H "Authorization: Bearer ***" -H "User-Agent: $UA" | jq -r '.data[].id' | sort
 # 2. usage — percentages only, no dollars, no per-model split; three windows
-curl -sS "$BASE/usage" -H "Authorization: Bearer $OPENCODE_GO_API_KEY" | jq .
+curl -sS "$BASE/usage"  -H "Authorization: Bearer ***" -H "User-Agent: $UA" | jq .
 ```
 
 `/usage` shape: `usage.rolling.percent / .resetsAt`, `usage.weekly.*`, `usage.monthly.*`.
+
+**Every request to `opencode.ai` needs a browser `User-Agent`.** Cloudflare fronts the host and answers HTTP 403 `error code: 1010` to the default curl/urllib user agent — on the metadata endpoints too, not only on the probes below. A bare `curl` that 403s is not a broken key.
 
 ## Auth pitfalls
 
@@ -35,19 +38,29 @@ The pricing page `https://opencode.ai/docs/go` renders the two plans as **tabs**
 
 Refresh = re-run the keyed `/models` + `/usage`, re-parse the docs tables, then diff against the vault note. Report the delta (added/removed IDs) in both directions and re-date the note — do not re-cite an older snapshot.
 
+Three things the diff itself does not tell you:
+
+- **Join on exact slugs.** The docs tables carry display names ("Claude Haiku 5.5"), `/models` carries ids (`claude-haiku-5-5`); a normalized join (lowercase, strip `.`/`-`) produces false pairs and phantom "unpriced" hits. Map display name → id one row at a time, then close with a count check: served ids = priced ids + served-but-unpriced + documented-but-not-served. If that arithmetic does not close, a join is wrong.
+- **Served is not reachable.** An ID in the keyed list proves the key may name it, not that the transport the slot uses can reach it — some ids exist only on another protocol surface (`ModelProtocolUnsupported` on `/chat/completions`), and Anthropic-shaped models answer only on `/messages`. Probe one completion on the surface the slot would use before recommending a new ID.
+- **The delta has config consequences.** A renamed or removed ID is not just a note update — grep every profile's config for the old slug before declaring the refresh done (SKILL.md Pitfall 17).
+
 ## Session header
 
-Hermes builds from PR #101864 send the `x-opencode-session` header on main and auxiliary OpenCode requests (merged after v0.21.0). It is not required to query the metadata endpoints, but it is how the provider meters sessions for clients that support it.
+Hermes builds from PR #101864 send the `x-opencode-session` header on main and auxiliary OpenCode requests (merged after v0.21.0). Not needed for the metadata endpoints. On chat calls the relay has answered HTTP 400 `MissingSessionID` without it (SKILL.md, "Wire Probes" section), while a headerless non-streaming `/chat/completions` probe has also been seen to pass — treat the header as required on chat, send any value (Hermes uses the conversation key, else an ephemeral `oneshot-<hex>`), and never read a headerless success as a guarantee.
+
+## Third-party throughput data (TokenDyno)
+
+`GET https://api.ollamatps.com/api/sites/tokendyno/overview` (no auth) returns one row per (provider, slug): `latestTps`, `avgTps24h`, `latestTtftMs`, `successRate24h`, `sampleCount24h`, `sparkline`, `aaIntelligence` — lanes cover Ollama Pro/Free, OpenCode Zen and Go. Method: one fixed streaming request, 400-word prose prompt, `max_tokens` 300, hybrid inter-token/wall-clock decode rate (TTFT excluded), 120 s timeout (tokendyno.com/methodology). Prefer this over own probes for throughput columns in notes. Caveats: Go cadence is ~6 h for expensive models, so 24 h windows carry n = 2–4 samples; `successRate24h < 1` can mean *their* plan lacks the model (`quota` in their error taxonomy), not that the model is down; `latestTtftMs` is the latest run only, not a 24 h value.
 
 ## Measuring own throughput / latency
 
-AA free-tier values (above) are the reference, but they cover a subset (family-level) and come from external infrastructure. To measure **your** token latency on this key, probe the model directly.
+Own probes answer **route** questions — what a given key, relay path and agent-shaped load actually do — not catalogue throughput (that is TokenDyno's job, above). AA free-tier values cover a subset (family-level) and come from external infrastructure. To measure **your** token latency on this key, probe the model directly.
 
 Method (used 2026-10-20 for five models):
 
 - Non-streaming completion, ~1,200 input tokens, `max_tokens: 600`, 3 runs per model.
 - Latency = end-to-end (request → full body), not TTFT — includes network + queueing.
-- Surface: `/chat/completions` (OpenAI-compatible, `Authorization: Bearer`) for most models; Anthropic-shaped models (`claude-haiku-5-5`, MiniMax, Qwen) must go to `/messages` with `x-api-key` + `anthropic-version` — the `/chat/completions` surface returns HTTP 400 `ModelProtocolUnsupported` for them.
+- Surface: `/chat/completions` (OpenAI-compatible, `Authorization: Bearer`) for most models; Anthropic-shaped models (`claude-haiku-5-5`, MiniMax, Qwen) must go to `/messages` with `x-api-key` + `anthropic-version` — the `/chat/completions` surface returns HTTP 400 `ModelProtocolUnsupported` for them. Scope: raw probes only — through Hermes the relay maps each model to its surface, so `hermes -z` works on anthropic- and responses-shaped models alike and a raw 400 is no routability verdict (`references/model-selection-workflow.md`).
 - **Cloudflare blocks plain urllib with HTTP 403 `error code: 1010`** — a browser `User-Agent` header (e.g. `Mozilla/5.0 … Chrome/126.0`) is required.
 - `max_tokens` may be hit (all 3 runs exactly 600) → the real tok/s is higher; report the truncation.
 

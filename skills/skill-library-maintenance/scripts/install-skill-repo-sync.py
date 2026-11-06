@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-# install-skill-repo-sync — install the shared-skill-repo publisher on this machine.
+# install-skill-repo-sync — install the v2 staging layer on this machine.
 #
-# INSTALLER_VERSION: 1.0.2   (must match SCRIPT_VERSION of skill-repo-sync.py)
+# INSTALLER_VERSION: 2.0.0   (must match SCRIPT_VERSION of skill-repo-sync.py)
 #
 #   1. writes the stable wrapper   <hermes home>/bin/skill-repo-sync  -> execs the engine in this repo
-#   2. writes the state file       <hermes home>/skill-repo-sync.json (repos, cursor, versions)
-#   3. with --apply-config:        the two hook entries only; never global hook auto-accept
+#   2. writes the state file       <hermes home>/skill-repo-sync.json (machine, repos, cursor, versions)
+#   3. with --apply-config:        sets the on_session_start hook ONLY (the v1 per-mutation
+#                                  on_skill_lifecycle hook is emptied, not re-registered);
+#                                  never global hook auto-accept
 #   4. prints cron, consent, and verification steps
 #
-# New installs require --bootstrap-current-ledger to explicitly skip historical ledger entries.
-# The wrapper path is deliberately constant: the shell-hook consent pair is (event, command), so a
-# moving target would need re-consent. Update only the engine in the repository — the wrapper stays.
+# The repo must be checked out on `machine/<name>` tracking the same remote branch — the staging
+# layer refuses everything else. The machine name is the logical name of the project's machine
+# table: pass it with --machine or set SKILL_REPO_MACHINE.
 #
 # Usage
-#   python3 install-skill-repo-sync.py --bootstrap-current-ledger [--apply-config] [--repo PATH ...] [--python BIN]
+#   python3 install-skill-repo-sync.py --apply-config [--machine NAME] [--repo PATH ...] [--python BIN]
 from __future__ import annotations
 
 import argparse
@@ -26,7 +28,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-INSTALLER_VERSION = "1.0.2"
+INSTALLER_VERSION = "2.0.0"
 ENGINE = "skill-repo-sync.py"
 WRAPPER_NAME = "skill-repo-sync"
 STATE_NAME = "skill-repo-sync.json"
@@ -57,18 +59,33 @@ def ledger_entry_count(home: Path) -> int:
             record = json.loads(line)
         except json.JSONDecodeError as exc:
             raise ValueError(f"invalid mutation ledger JSON on line {number}") from exc
-        if not isinstance(record, dict):
-            raise ValueError(f"mutation ledger line {number} is not an object")
-        count += 1
+        if isinstance(record, dict):
+            count += 1
     return count
 
 
-def main_branch_ready(repo: Path) -> tuple[bool, str]:
+def resolve_machine(explicit: str | None) -> str:
+    if explicit and explicit.strip():
+        return explicit.strip()
+    env_name = os.environ.get("SKILL_REPO_MACHINE", "").strip()
+    if env_name:
+        return env_name
+    raise SystemExit("error: pass --machine <logical name> — the machine name this installation "
+                     "uses for its transport branch (or set SKILL_REPO_MACHINE)")
+
+
+def machine_branch_ready(repo: Path, machine: str) -> tuple[bool, str]:
     branch = git(repo, "branch", "--show-current").stdout.strip()
     upstream = git(repo, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
     upstream_name = upstream.stdout.strip() if upstream.returncode == 0 else "<none>"
-    if branch != "main" or upstream_name != "origin/main":
-        return False, f"expected main tracking origin/main; found {branch or '<detached>'} tracking {upstream_name}"
+    expected = f"machine/{machine}"
+    if branch != expected:
+        if branch == "main":
+            return False, (f"the repo is on 'main' — the stage layer never writes main. "
+                           f"checkout {expected} first")
+        return False, f"expected {expected}; found {branch or '<detached>'} tracking {upstream_name}"
+    if upstream_name != f"origin/{expected}":
+        return False, f"expected upstream origin/{expected}; found {upstream_name}"
     return True, ""
 
 
@@ -85,13 +102,14 @@ def resolve_interpreter(name: str) -> tuple[str, str]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="install the shared-skill-repo publisher for this machine")
-    ap.add_argument("--apply-config", action="store_true", help="write the config.yaml hook entries too")
+    ap = argparse.ArgumentParser(description="install the v2 staging layer for the shared skill repo")
+    ap.add_argument("--apply-config", action="store_true",
+                    help="set the on_session_start hook; empty the v1 lifecycle hook")
+    ap.add_argument("--machine", default=None,
+                    help="logical machine name (default: SKILL_REPO_MACHINE env var)")
     ap.add_argument("--repo", action="append", default=[], help="additional shared repo (repeatable)")
     ap.add_argument("--python", default="python3", help="interpreter the wrapper execs (default: python3)")
     ap.add_argument("--selfcheck", action="store_true", help="report the current install and exit")
-    ap.add_argument("--bootstrap-current-ledger", action="store_true",
-                    help="explicitly set a new install's cursor to the current ledger end (skip history)")
     args = ap.parse_args()
     interpreter, interpreter_note = resolve_interpreter(args.python)
 
@@ -107,17 +125,8 @@ def main() -> int:
     if not engine.is_file():
         print(f"error: engine missing: {engine}")
         return 1
-    try:
-        existing_state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else None
-    except json.JSONDecodeError as exc:
-        print(f"error: invalid state file {state_path}; preserve and repair it before installing")
-        return 1
-    if existing_state is None and not args.bootstrap_current_ledger:
-        print("error: new install requires explicit --bootstrap-current-ledger; historical entries are not auto-published")
-        return 1
-    if existing_state is not None and not isinstance(existing_state, dict):
-        print(f"error: state file must contain a JSON object: {state_path}")
-        return 1
+    machine = resolve_machine(args.machine)
+
     try:
         ledger_count = ledger_entry_count(home)
     except (OSError, ValueError) as exc:
@@ -136,15 +145,15 @@ def main() -> int:
         root_path = Path(root.stdout.strip())
         remotes = git(root_path, "remote").stdout.split()
         if not remotes:
-            print(f"skip: no remote (never conflicts, nothing to publish): {root_path}")
+            print(f"skip: no remote (nothing to transport): {root_path}")
             continue
-        ready, reason = main_branch_ready(root_path)
+        ready, reason = machine_branch_ready(root_path, machine)
         if not ready:
             print(f"error: cannot register {root_path}: {reason}")
             return 1
         repos.append({"name": root_path.name, "path": str(root_path), "remote": remotes[0]})
     if not any(r["path"] == str(repo) for r in repos):
-        print(f"error: the repo holding this installer has no git remote: {repo}")
+        print(f"error: the repo holding this installer must be registerable: {repo}")
         return 1
 
     # 1) stable wrapper — written only when its content changes, so the hook consent
@@ -164,45 +173,55 @@ def main() -> int:
         print(f"wrapper: written {wrapper} -> {engine}")
     print(f"python:  {interpreter_note}")
 
-    # 2) state file; a new installation starts after existing history only by explicit request.
+    # 2) state file — the staging layer is publish-safe by construction (machine branch only),
+    #    so a fresh install simply starts at the current ledger end. An existing cursor is kept:
+    #    an upgrade must not rewind already-staged history.
+    existing_state = None
+    if state_path.is_file():
+        try:
+            existing_state = json.loads(state_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            print(f"error: invalid state file {state_path}; correct or remove it and reinstall")
+            return 1
+        if not isinstance(existing_state, dict):
+            print(f"error: state file must contain a JSON object: {state_path}")
+            return 1
     state = existing_state or {}
-    state.update({"version": INSTALLER_VERSION, "hermes_home": str(home), "repos": repos,
-                  "wrapper": str(wrapper), "script": str(engine), "python": interpreter,
+    state.update({"version": INSTALLER_VERSION, "hermes_home": str(home), "machine": machine,
+                  "repos": repos, "wrapper": str(wrapper), "script": str(engine),
+                  "python": interpreter, "sync_model": "stage-curate-v2",
                   "installed_at": datetime.now(tz=timezone.utc).isoformat()})
-    if existing_state is None:
-        state["ledger_cursor"] = ledger_count
-        state["ledger_baseline"] = "current-ledger-end"
-    elif not isinstance(state.get("ledger_cursor"), int):
+    state.setdefault("ledger_cursor", ledger_count)
+    if not isinstance(state.get("ledger_cursor"), int):
         print(f"error: existing state has no valid ledger_cursor: {state_path}")
         return 1
     tmp_state = state_path.with_suffix(".tmp")
     tmp_state.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(tmp_state, state_path)
-    print(f"state: {state_path} ({len(repos)} repo(s), cursor={state['ledger_cursor']})")
+    print(f"state: {state_path} (machine={machine}, {len(repos)} repo(s), cursor={state['ledger_cursor']})")
 
-    # 3) config entries
-    parent_cmd = f"{wrapper} --hook"
-    pull_cmd = f"{wrapper} --pull-only --hook"
-    settings = [
-        ("hooks.on_skill_lifecycle", json.dumps([{"command": parent_cmd, "timeout": 20}]), parent_cmd),
-        ("hooks.on_session_start", json.dumps([{"command": pull_cmd, "timeout": 20}]), pull_cmd),
-    ]
+    # 3) config: session-start refresh in; the v1 per-mutation publisher hook out.
     hermes = shutil.which("hermes") if args.apply_config else None
     config_failed = False
-    for key, value, needle in settings:
-        if not args.apply_config:
-            print(f"config: pending (run with --apply-config) — hermes config set {key} '{value}'")
-            continue
+    session_cmd = f"{wrapper} --sync-from-main --hook"
+    actions = [
+        ("hooks.on_session_start", json.dumps([{"command": session_cmd, "timeout": 20}]), session_cmd),
+        ("hooks.on_skill_lifecycle", "[]", None),
+    ]
+    for key, value, needle in actions:
         if not hermes:
-            print(f"error: `hermes` not on PATH; cannot apply {key}")
-            config_failed = True
+            print(f"config: pending (run with --apply-config) — hermes config set {key} '{value}'")
             continue
         current = subprocess.run([hermes, "config", "get", key],
                                  capture_output=True, text=True, timeout=60)
-        if current.returncode == 0 and needle in current.stdout:
+        if needle and current.returncode == 0 and needle in current.stdout:
             print(f"config: {key} already carries this hook")
             continue
-        done = subprocess.run([hermes, "config", "set", key, value], capture_output=True, text=True, timeout=120)
+        if needle is None and current.returncode == 0 and current.stdout.strip() in ("[]", ""):
+            print(f"config: {key} already emptied")
+            continue
+        done = subprocess.run([hermes, "config", "set", key, value],
+                              capture_output=True, text=True, timeout=120)
         if done.returncode == 0:
             message = (done.stdout or done.stderr).strip()
             print("config: " + (message.splitlines()[0] if message else f"updated {key}"))
@@ -213,8 +232,9 @@ def main() -> int:
     # 4) next steps
     print()
     print("next steps (once per machine):")
-    print("  1. approve only these two hook (event, command) pairs; global hooks_auto_accept stays unchanged")
-    print("  2. create cron jobs only after the behavioral test suite passes (see references/shared-repo-sync.md § Cron)")
+    print("  1. approve only the on_session_start hook pair; global hooks_auto_accept stays unchanged")
+    print("  2. staging cron: hourly no_agent script running `<wrapper> --stage` "
+          "(see references/shared-repo-sync.md § Crons)")
     print("  3. verify: hermes hooks list && hermes hooks doctor")
     print(f"  4. verify: {interpreter} {engine} --selfcheck --verbose")
     return 1 if config_failed else 0

@@ -45,6 +45,8 @@ LIMIT 50
 
 Do not assume multi-table `json_each()` joins or `LIKE` against array-valued metadata will work. Prefer dedicated graph and metadata tools.
 
+**Optional columns are NULL on notes that lack the key, and NULL breaks `LIKE`.** The `files` table spans every note in the vault, so a frontmatter key only some notes carry (a custom field mid-rollout) yields `value: operator doesn't exist: Null LIKE Str(...)` and aborts the whole query. Wrap the column: `WHERE coalesce(scope, '') LIKE '%x%'` (same for `lower()`). `WHERE <col> IS NOT NULL` works and lists exactly the notes that already carry an optional key — useful as a rollout/progress view.
+
 ## Graph tools
 
 | Goal | Tool |
@@ -64,6 +66,8 @@ Start routine navigation with forward links, backlinks, or one-hop related notes
 ## Bare-name vs path wikilinks
 
 Obsidian resolves `[[other-note]]` (bare name) fine, but TurboVault graph tools may not see the edge: `get_links`/`get_links(direction="outgoing")` can miss a bare link where the path form `[[area/dir/note|Alias]]` is seen. Use the path form wherever the edge must count (MoC ↔ note, cross-area references); frontmatter `topics:` never creates an edge (YAML string — expected, not a bug). Detection: after creating or linking a note, run `get_links(direction="outgoing")` on the source — if the target is absent, convert to path form and re-check.
+
+**Unicode-equivalent filenames:** if a visible target exists but its edge is missing or reported broken, compare the actual filename's Unicode code points before changing the source filename. macOS filenames may use decomposed characters (NFD) while a typed wikilink uses composed characters (NFC); visually identical strings can fail graph resolution. Obtain the exact vault-relative filename from discovery (or a read-only filesystem listing when needed), preserve its Unicode spelling in a path-form wikilink, and edit only that link through TurboVault. Re-read the note, confirm the target appears in `get_links(direction="outgoing")`, and re-run `graph_report(kind="broken_links")`; do not rename a source document merely to fix a navigation edge.
 
 **Index lag:** after a mass conversion, per-note queries update at once while aggregate counters (`vault_health()` totals) still show old values — verify per note, not by aggregate.
 

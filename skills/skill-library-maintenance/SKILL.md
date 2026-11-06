@@ -1,9 +1,9 @@
 ---
 name: skill-library-maintenance
-description: "Use when auditing or dissolving a skill library."
+description: "Use when auditing, dissolving or syncing a skill library."
 license: MIT
 metadata:
-  version: "0.14.2"
+  version: "0.16.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -30,6 +30,7 @@ Audit, consolidate, and restructure Git-backed skill libraries without losing us
 - Adopt or migrate a profile-local skill into a canonical owned repository.
 - Split a generic skill into a core and domain or project overlays.
 - Reconcile duplicate skill names across configured roots.
+- Diagnose a stuck cross-installation repository sync.
 - Dissolve a migration-source skill into its canonical owners and retire the shell.
 
 Use `skill-builder` for the quality rules of one skill package. Use `skill-governance` for ownership, scope, sidecars, and canonical destinations. This skill applies those rules across a library.
@@ -112,6 +113,14 @@ Answer questions about a skill's history with evidence from runtime telemetry an
 - Never edit a third-party checkout directly.
 - Do not call a profile-local skill committed merely because it exists on disk.
 
+### Answering “committed and pushed?”
+
+1. Start from the `skill_dir` returned by a fresh `skill_view`; resolve the actual checkout with `git -C <skill_dir> rev-parse --show-toplevel`. Do not guess the repository root from a parent directory's name — discovery roots may be nested inside the checkout.
+2. At that root, run `git status --short --branch` and `git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}'`. Fetch the upstream remote before comparing; if fetching fails, label the tracking ref as cached rather than claiming current remote state.
+3. Run `git rev-list --left-right --count HEAD...@{upstream}` and `git log --oneline '@{upstream}..HEAD'`. The first count is local-only commits, the second remote-only commits; inspect the commits before attributing them to particular skills.
+4. Report working-tree cleanliness, local commits, and publication separately. A clean tree does not mean pushed; local-only commits do not prove their content is absent remotely, since another branch may have merged or cherry-picked it.
+5. If both counts are nonzero, report divergence and the need for integration. A status question authorizes inspection, not a merge, rebase, commit, or push; use `references/shared-repo-sync.md` only after integration is authorized.
+
 When migrating a skill:
 
 1. Validate the source package.
@@ -124,7 +133,7 @@ When migrating a skill:
 
 ## Reviewing Repository Sync Automation
 
-Before installing or enabling a skill-repository publisher:
+Before installing or enabling skill-repository sync automation:
 
 1. Inspect the active checkout and fetched remote separately; fetching does not update the runtime-loaded skill. Preserve dirty work before integrating upstream changes.
 2. Test the publisher in disposable repositories with an isolated `HERMES_HOME`; syntax checks alone do not establish safe Git or cursor behavior.
@@ -132,6 +141,7 @@ Before installing or enabling a skill-repository publisher:
 4. Check file-level staging against mixed manual and automated edits; ledger membership identifies a path, not ownership of every change inside it.
 5. Verify branch and upstream guards in code, and approve only the exact hook commands needed; documentation does not enforce a branch policy, and global hook auto-accept widens consent beyond the installer. Distinguish configured hooks from approved and healthy hooks: installer success alone does not establish activation.
 6. Verify failures remain observable in unattended execution; do not treat a zero exit code or quiet hook as evidence of a successful pull or publication.
+7. Falsify the single-writer assumption before trusting any hash-chain gate: other writers (audits, manual fixes, merges) make it hold forever — `references/shared-repo-sync.md` → *Diagnosing a stuck sync*.
 
 Use `references/repository-sync-safety.md` for the isolation recipe and behavioral acceptance matrix. Record findings against the inspected revision; do not turn a defect in one script version into a permanent claim about the capability.
 
@@ -148,16 +158,33 @@ Use `references/repository-sync-safety.md` for the isolation recipe and behavior
 
 ## Shared Repositories: Publishing and Sync
 
-A skill repository mounted on more than one installation needs a publisher, or review writes sit
-uncommitted until they collide with the other machine.
+A skill repository mounted on more than one installation needs a sync design, or review writes sit
+uncommitted until they collide with the other machines. The design shipped in
+`scripts/skill-repo-sync.py` is **Stage & Curate**: no machine session writes `main`; each
+installation stages its work onto a transport branch `machine/<hostname>`, and one nightly curator
+consolidates every branch into a single `main` commit.
 
 - The background review can write into shared repos too. Correlate unexpected changes with
   paths, timestamps, and mutation details in `<HERMES_HOME>/skills/.curator_ledger.jsonl`;
   neither the changed skill's name nor `actor: curator` alone establishes review provenance.
-- `scripts/skill-repo-sync.py` publishes only a file whose ledger before/after SHA-256 chain matches `HEAD` and the current worktree; it refuses staged or unrelated changes and only operates on `main` tracking `origin/main`.
-- A new install requires the explicit `--bootstrap-current-ledger` choice, which skips historical entries. Gate findings and Git failures leave the ledger cursor pending and return a visible nonzero status; global `hooks_auto_accept` is not changed.
-- Multiple pending review runs touching the same file are held for manual reconciliation because the ledger records hashes, not intermediate file contents.
-- Procedure, retry/bootstrap semantics, cron jobs, verification and conflict recovery: `references/shared-repo-sync.md`.
+- Staging (`--stage`) bundles the pending ledger paths **and** the dirty worktree into one commit
+  on `machine/<hostname>` and pushes it; ledger entry IDs ride in the commit trailers. The ledger
+  holds hashes, not intermediate file contents, so per-run commits cannot be reconstructed — the
+  sweep commits the current content per path, once. A push failure keeps the commit for retry
+  without duplicating it.
+- `main` has exactly one writer: the nightly curator (a scheduled agent run, model-pinned). It
+  reads every transport branch's complete diff, deduplicates overlaps (one home per rule), bumps
+  SemVer, makes one `main` commit, then resets the consumed transport branches to `main`.
+- A transport branch is a landing strip, not a feature branch: `--reset-branch` (the only
+  sanctioned force, lease-guarded) resets it after consumption; never merge one back by hand.
+- A new install requires the explicit `--bootstrap-current-ledger` choice, which skips historical
+  entries; global `hooks_auto_accept` is not changed.
+- Long sessions: the skill *index* is a start-of-session snapshot (prompt-cache invariant); skill
+  *bodies* load from disk, so `/skill-name` always yields current content. Never pull mid-session to
+  "fix" an index.
+- Mechanics, install, cron wiring, the curator run book, the cross-machine deployment audit,
+  manual fallback and failure diagnosis:
+  `references/shared-repo-sync.md`.
 
 ## Background Review During Library Work
 
@@ -167,7 +194,7 @@ The background review (`auxiliary.background_review`, on by default) runs after 
 - **After verifying and committing, turn it back on:** `hermes config set auxiliary.background_review.enabled true`. Leaving it off silently stops the review-driven updates the library otherwise receives.
 - Small, single-file edits do not need the toggle; re-read the file immediately before patching instead.
 - If a pass ran with the review on, check `<HERMES_HOME>/skills/.curator_ledger.jsonl` for `actor: curator` entries whose `evidence.session_id` matches the session before treating a change as your own.
-- A missed toggle is diagnosable afterwards: multiple review runs touching one file are held by the publisher (`ledger-integrity … intermediate snapshots are unavailable`), and pull/push stays blocked until worktree and ledger chain agree again.
+- A missed toggle is diagnosable afterwards: background-pass writes arrive as `actor: curator` ledger entries and ride into the next staging commit — grep the ledger for the session id and review what landed. A hash chain broken by a commit outside the ledger surfaces in the curator's `--preflight` findings, not as a blocked transport (`references/shared-repo-sync.md` → *Diagnosing a stuck sync*).
 
 ## Protect Existing Work
 

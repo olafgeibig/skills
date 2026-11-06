@@ -14,9 +14,9 @@ Replacement text
 
 Rules:
 
-- Read the note first and copy exact text into SEARCH.
+- Read the note first and copy exact text into SEARCH. When the note was already written earlier in this session, re-read it before building SEARCH — text from a pre-write read skips lines that changed in between, fuzzy-matches into the gap, and splices adjacent lines together.
 - Include enough surrounding context for uniqueness.
-- Use the complete delimiters, including `REPLACE` on the closing line.
+- Use the complete delimiters, including `REPLACE` on the closing line. **Each block needs its own opening `<<<<<<< SEARCH` and closing `>>>>>>> REPLACE`** — two edits written as one block with two `=======` dividers is a parse error (`block contains 3 `=======` divider lines`), not two blocks.
 - End the `edits` string exactly at the `>>>>>>> REPLACE` line — no trailing XML-style closing tag. A stray `</edits>` is parsed as more block content and fails with `Parse error: Incomplete SEARCH/REPLACE block (state: InReplace). Expected >>>>>>> REPLACE`.
 - No wrapper tags around the block (`<edits>`, `<search>`, `<replace>`) and no quote-escaping of the delimiters — the parser reads them as content and fails with `Parse error: No SEARCH/REPLACE blocks found`.
 - After a parse error, do not retry the same shape: rebuild the call correctly, or fall back to `write_note` with the full content in overwrite mode.
@@ -91,6 +91,6 @@ A successful write response is not sufficient for external-state claims:
 2. Confirm the intended content and frontmatter.
 3. Check graph effects where links changed.
 4. For a batch, verify every operation and determine whether partial state remains; do not assume completed operations were rolled back.
-5. For `edit_note`, `blocks_applied` must equal `total_blocks` in the response. The response never says whether a block matched exactly or fuzzily (only hashes and counts come back), so treat every SEARCH that is not byte-identical to a complete line as potentially fuzzy-matched: re-read the touched region and confirm no orphaned tail remains.
+5. For `edit_note`, `blocks_applied` must equal `total_blocks` in the response. The response flags fuzzy blocks in a `warnings` array (`Block N used fuzzy (Levenshtein) matching`); no warning on complete-line SEARCH blocks means an exact match. Any fuzzy warning is mandatory: re-read the whole touched region and confirm no orphaned tail, glued line, or rewritten neighbor remains. Without that signal (older servers), treat every SEARCH that is not byte-identical to a complete line as potentially fuzzy-matched.
 6. Fuzzy matching can damage adjacent tokens (a date value can gain a stray digit) — re-read the frontmatter character-exact and parse date values, `topics:`, and lists as YAML after any non-exact edit; do not trust the success response.
 7. When a block failed to match (`Could not find search text (tried 4 strategies)`), re-read with the same tool the parser uses (`read_note` — a filesystem read can normalize differently) and rebuild the SEARCH text byte-for-byte from that output before re-issuing; whitespace, typographic quotes/dashes, and invisible characters are the usual mismatch causes.

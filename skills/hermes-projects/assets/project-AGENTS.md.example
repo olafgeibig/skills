@@ -14,14 +14,18 @@ Project directory: {{this directory | the work tree — its AGENTS.md is the ope
 - **Work tree** (per machine): `{{machine}}` → `{{/absolute/path}}` · `{{machine}}` → not present
 - **Working vault:** `{{subdirectory}}`, kind `{{knowledge-base|authoring|csl}}` — or `none`
 
+Work inside a working vault starts with its skill, not with this file: load `{{authoring-vault|csl-vault|none}}`, then read `{{subdirectory}}/AGENTS.md` before the first write there. Inside that directory the vault's own manual governs — layout, metadata, navigation, project-specific overrides; out here this file does. Never drive the vault from this manual alone, and do not treat the skill as a substitute for the vault's local rules: the skill carries the reusable conventions for its kind, the vault file carries the decisions this vault made.
+
 {{With a work tree this file is the router: purpose, where the project lives per machine, and
 what the notes here are for — knowledge source, and publication target when they are one. The
 manual lives next to the code, because AGENTS.md loads from the working directory and every other
 agent working in that repo reads it there. Without a work tree this directory is the project
 directory, so this file is the manual itself.}}
 
-Machines are logical names; resolve `hostname` against the table in the vault `AGENTS.md`.
-Unknown hostname → ask. Never write an OS hostname here, and never reuse another machine's path.
+Machines are logical names; resolve `hostname` against the machine table in the `hermes-projects`
+skill — that table is the one place to edit when an installation changes, so never restate its
+hostnames or roles here. Unknown hostname → ask. Never write an OS hostname here, and never reuse
+another machine's path.
 Paths go one way: this file names the work tree's path per machine (nothing else can discover a
 checkout location); the work tree's file names the vault by **name** and resolves it with
 `list_vaults`, because a vault path differs per machine.

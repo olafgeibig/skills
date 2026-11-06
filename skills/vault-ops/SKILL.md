@@ -2,7 +2,7 @@
 name: vault-ops
 description: "Use when managing Obsidian vault structure and notes."
 metadata:
-  version: "0.22.1"
+  version: "0.24.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
@@ -27,7 +27,7 @@ Use this skill as the default workflow for working with markdown note vaults. Va
 - Always read AGENTS.md.
 - Read VAULT.md when deeper understanding of the vault is needed. It contains context for understanding vault content, such as a glossary of vault-specific terms or additional structure notes.
 - Load the reference file that matches the user intent before acting.
-- Load `./references/source-verification.md` when the source is claim-heavy (headline numbers, availability claims, model cards).
+- Load `./references/source-verification.md` when the source is claim-heavy (headline numbers, availability claims, model cards, downloadable artifacts).
 - Before creating, editing, or moving notes under `projects/<dir>/` or `area/<dir>/`, load the project skill (`project-<dir>`) if one exists. When none exists, read the project directory's `AGENTS.md` and the long-form file it links (typically `conventions.md`) before improvising project conventions.
 - When asked to park work for later, create the requested contextual note with an actionable open task; do not execute the deferred change or invent a due date. Keep the task in that note and link it from the MoC; a MoC may aggregate tasks with a query, not duplicate their checkbox lines. Follow `references/task-management.md` for the capture and verification sequence.
 - Before deleting an allegedly obsolete note, resolve the exact target and test whether its whole purpose is superseded; a replacement for one mechanism does not retire independent requirements. Treat “this note” as ambiguous when multiple recent notes fit, and clarify before deletion rather than explaining the assumption afterwards. Follow the retirement procedure in `references/refactoring-workflows.md`; keep related-note cleanup limited to links and directly invalidated claims.
@@ -37,7 +37,7 @@ Use this skill as the default workflow for working with markdown note vaults. Va
 
 ### Check prerequisites
 
-The `turbovault-use` skill handles TurboVault availability checks, vault selection, and all tool-level mechanics. Load it — it is listed in `related_skills` and should be available. Follow its prerequisites and vault selection sections before proceeding with vault operations.
+The `turbovault-use` skill handles TurboVault availability checks, vault selection, and all tool-level mechanics. Load it — it is listed in `related_skills` and should be available. Follow its prerequisites and vault selection sections before proceeding with vault operations. For a request naming an area, resolve it through the registered vault's area index and MoC before searching similarly named work-tree directories; an area name is not a repository locator.
 
 ## Working with a vault
 Read the vault's root `AGENTS.md`. If it doesn't exist, tell the user that it is important. If TurboVault reports "subdirectory context discovered" (AGENTS.md/VAULT.md), treat it as authoritative and read it via filesystem tools if needed.
@@ -117,6 +117,7 @@ Use default templates unless AGENTS.md defines different templates
 - Project documentation must follow the repository or vault language rules. Do not infer the language from the current chat language.
 - If the user requests a project document/note/file and the project convention says documentation is English, write the artifact in English even when the surrounding conversation is in German.
 - When unsure whether a requested file is project documentation or a casual scratch note, ask only if that distinction changes the output language or publication expectations; otherwise prefer the documented project convention over chat language.
+- For an **area note**, the area's established language (its sub-index/MoC entry and sibling notes) governs — it beats both the chat language and a profile-level default like "notes in English". Check the area's language before writing, not after.
 
 ### Tags
 Default tags that can be overridden and extended in AGENTS.md
@@ -166,6 +167,7 @@ topics: ["[[+related-moc]]"]
 - Putting tags or paths into `topics` (e.g., `interfaces`, `analysis`, `analysis/+Dataflows`) — only MoC wikilinks belong there.
 - Descriptions that just restate the filename (e.g., `Analysis: Foo`) — write a one‑sentence content summary that adds value.
 - Extending `type:` with new values for cross-cutting distinctions (audience, export visibility): this fragments the canonical type table and breaks `WHERE type = '...'` queries — reuse a canonical `type:` and add a separate descriptive frontmatter property instead.
+- Linking to another vault note with a filesystem-path Markdown link (a body link whose target is an absolute filesystem path): invisible to `get_links` and the Obsidian graph — body links to vault notes are `[[wikilinks]]`.
 
 ### Verification checklist (bulk)
 - Frontmatter topics:

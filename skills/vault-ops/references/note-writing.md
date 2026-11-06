@@ -33,6 +33,8 @@ The vault's AGENTS.md defines a language per area (e.g., `agents` → EN, `gesun
 
 **Pitfall:** A zettel written in German for an English-language area will need to be rewritten — the area's language policy is authoritative regardless of how the user asked for the note.
 
+**Pitfall (typography):** In German prose the closing curly quote “ is easily emitted as a straight `"` when authoring JSON-encoded tool payloads; the straight quote lands in the note and breaks the „…“ pair silently, and no tool flags it. After any German write, grep the note for `"` outside the frontmatter and wikilink lines and repair the pairs via `edit_note` before reporting the note done.
+
 ## Consolidation Style — Fact Mirror, Not Audit Trail
 
 A note is a **fact mirror**: it states the current knowledge, each fact once. It is not an audit trail — no iteration history, no superseded statements, no rejected-findings tables, no decision-recommendation menus, no inline ✅/⚠️/❌ as evaluation — status only where the facts justify it. Verification checklists and correction history belong in pitfall captures or skill references, not in the note body.
@@ -43,6 +45,10 @@ A note is a **fact mirror**: it states the current knowledge, each fact once. It
 2. Inventory the user's explicit requirements, and what moves out of the note (general pitfalls → a skill).
 3. Rewrite the note in one `write_file` with the new minimal structure — not a chain of patches.
 4. Report the reduction (size / lines / sections before → after).
+
+## A Concept Note Carries the Complete Concept
+
+A concept, spec, or decision note states the whole current design in one place. When a draft is finalized or a new design replaces an old one, rewrite the note clean in one `write_file` (back up first, per the restructure rule above) — never layer the new concept partially over the old text and never leave adoption artifacts from the merge; a reader must not have to reconstruct the design from a delta against a document that is gone. Per-audience material — run books for agents on other machines, per-role instructions — is its own note or file, linked from the concept, not sections inside it: the concept stays one readable design document, and each audience gets one instruction artifact it can follow verbatim.
 
 ## Note Footer Format
 
@@ -62,7 +68,13 @@ Related:
 
 ## Importing Legacy Notes
 
-When the user copies notes from an external vault into the active vault, they arrive without frontmatter, with legacy task formats, and unlinked from the graph. Follow this procedure:
+When the user copies notes from an external vault into the active vault, they arrive without frontmatter, with legacy task formats, and unlinked from the graph.
+
+**The source vault usually lives on another machine and is not mounted here.** A foreign path (another computer's home directory) cannot be read from the agent host — ask the user to attach the notes to the chat and read them from the attachments directory; do not attempt mounts or guess the content.
+
+**A transfer with restructure is not a copy.** When the user asks to transfer notes and restructure them, treat the old notes as raw material: extract every fact and rebuild into the target project's note classes per its `AGENTS.md`, splitting one oversized legacy note into several (overview/akte, checklist, receipt or log, data table). Carry dates and checklist items over verbatim; mark unknown values as not-yet-recorded instead of dropping or inventing them. The source note's layout is no template — the target's sibling notes decide the shape — and the project MoC lists the new notes in the same pass.
+
+For a straight copy-in-place import, follow this procedure:
 
 1. **Discover all imported files — don't rely on search alone.** Keyword searches like `query: "<search-term>"` may miss notes without any content that matches your search terms. Verify all notes in the target directory using `query_frontmatter_sql`:
    ```sql
@@ -78,6 +90,15 @@ When the user copies notes from an external vault into the active vault, they ar
 8. **Verify zero unprocessed files** — re-run the discovery SQL; every file must have `type IS NOT NULL` and `tags IS NOT NULL`, otherwise return to step 2.
 
 **Pitfall:** In a session where the user copies 3 notes, a keyword search may find those 3 — but there could be 6 more that happen not to contain the search term. Always verify via SQL with the directory path filter.
+
+## New Evidence Supersedes Stale Claims
+
+Recording a source document (receipt, certificate, statement) is only half the job: the notes carrying derived or historical claims must be reconciled in the same change.
+
+1. Mirror the document's facts into a dated note with a source line naming the document. One document can carry several records (a certificate with an invoice attached) — read the whole extracted text and give each record its own dated note or a clearly separated section.
+2. Find the notes that depend on those facts: chronology tables, status fields, open-question lists, upcoming-appointment notes. Search by the entity, not by the document.
+3. Correct them in the same pass: replace stale values, name the source note as authority, and remove open items the evidence has answered. Never leave the old and the new version standing side by side — the fact-mirror rule is each fact once, current.
+4. Compute derived numbers (sums, distances, next-due dates) instead of estimating them, and label a derivation where the source does not state the value.
 
 ## Topological Linking
 

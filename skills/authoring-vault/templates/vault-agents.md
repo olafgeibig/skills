@@ -1,6 +1,6 @@
 # Authoring Vault
 
-This directory is one self-contained working vault of kind `authoring`: analysis and deliverables, whose outputs publish into a notes vault. Apply the `authoring-vault` skill. Replace these setup placeholders before adoption; merge with existing instructions rather than overwrite them.
+This directory is one self-contained working vault of kind `authoring`: analysis and deliverables, whose outputs publish into a notes vault. Apply the `authoring-vault` skill. This file governs everything *inside* the vault — layout, metadata, navigation, language, local overrides; the enclosing project's `AGENTS.md` governs the work tree around it and carries the checkout paths and the declared publication target. Read both, and let this one win inside. Replace these setup placeholders before adoption; merge with existing instructions rather than overwrite them.
 
 ## Scope
 
@@ -12,6 +12,8 @@ This directory is one self-contained working vault of kind `authoring`: analysis
 ## Structure
 
 INDEX.md is the main MoC and holds the quoted project version. Optional +Topic.md files organize aspects. Working research and analysis live in notes/, reusable conclusions in distilled/, audience- and format-specific outputs in deliverables/, originals in resources/, and project context, publication instructions, topical templates, and optional deliverable briefs in system/. Create directories only when used. No area/project hierarchy or mandatory plugins.
+
+An autonomous run keeps its `plan.md` and `log.md` in system/ (see the skill's plan-driven-run reference); read them before continuing such a run.
 
 AGENTS.md should point agents to essential context and publication instructions. Support instructions, templates, and briefs are not content notes by default; factual context maintained as a content note needs appropriate metadata, provenance, and input links.
 

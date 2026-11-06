@@ -2,7 +2,7 @@
 name: hermes-projects
 description: "Use when structuring a project that Hermes works in."
 metadata:
-  version: "1.0.5"
+  version: "1.2.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   scope: personal
@@ -38,6 +38,8 @@ How a project that Hermes works in is structured: what its project directory is,
 | **C — hybrid** | the work tree | `projects/<x>/`, a knowledge source or a publication target, often both | possible |
 
 A **working vault** is a vault inside the work tree that is not a notes vault: it holds the analysis and the deliverables, and its kind names the skill that governs it — `knowledge-base` (hand-written, no publication target, no skill), `authoring` → `authoring-vault`, `csl` → `csl-vault` (where installed). It lives in a **subdirectory** of the work tree, never at its root: two contexts need two `AGENTS.md`, one for how the work is done and one for what is known.
+
+**The chain is stated on both sides, never assumed.** The project's `AGENTS.md` names the vault, its kind and the skill that governs it, and says that work inside the vault begins by loading that skill and reading the vault's own `AGENTS.md`. The skill states the same from its side and makes the vault-local file the manual inside the vault — its rules override the skill's defaults, and the skill overrides generic vault conventions. A project manual that names a working vault without that line is incomplete, and a kind-skill that does not require the vault-local `AGENTS.md` is equally incomplete: an agent that reads only the project manual will otherwise work in the vault on the wrong rules, and one that loads only the skill will miss the project's layout, language and publication target.
 
 A working vault is **unregistered by default**. Registration is a per-profile decision; without it there are no TurboVault hashes, audit, rollback or drift check, so its own version control is the safety net — or state before the first large write that none exists. **When a task needs those guarantees, say that the vault is unregistered and, after the user's approval, register it** in the active profile's TurboVault config — do not silently work on without an audit trail, and do not register without asking. Never register a work project's vault in a private profile.
 
@@ -92,13 +94,52 @@ Declare the publication target per project; the shape alone does not determine i
 
 ## Writing these files safely
 
+- **Resolve “here” before choosing the manual.** For a request to create or update the project-root `AGENTS.md`, target the work-tree root, not the embedded vault root; inspect the directory context and existing manuals first. Preserve an adequate vault manual unless its own changes were requested, because the two files govern different contexts.
+- **State mandatory skills explicitly.** In the project manual's `Setup`, add a `Mandatory skills` subsection naming `hermes-projects` and, when a working vault exists, its kind-skill plus the requirement to read its local `AGENTS.md`. A passing mention of the vault kind does not tell the next agent what to load.
+
 - **A vault-side `AGENTS.md` or `conventions.md` goes through TurboVault.** It is audited and rollback-able but *not* approval-gated, while the same filename outside the vault is a protected file. Treat every vault-side edit as a change to agent behaviour: read the section back and quote what changed.
 - **A work-tree `AGENTS.md` is protected.** Read its full current content first — an overwrite from a stale copy is refused — then expect an approval prompt. A timed-out prompt means nothing was written: report it and hand over the intended content, never retry through another tool.
 - **One `AGENTS.md` per context, not per project.** A hybrid project can legitimately have a work-tree manual, a working-vault `AGENTS.md`, and a vault router. Two in the *same* directory are the defect, and that is why a working vault goes into a subdirectory.
 
+## Indexing originals and working-vault conversions
+
+When asked for a work-tree document index connecting originals outside the vault to converted source notes inside it:
+
+1. Resolve the requested root and inventory both directories before writing. Read the existing resource MoC for descriptions; do not assume every original already has a conversion.
+2. Create the requested root-level navigation file, link to the resource MoC, and use one table row per original: **Original | Conversion | Description**. Keep the MoC authoritative for source descriptions rather than adding independent analysis to this bridge.
+3. Match files using their actual directory entries. Unicode normalization may help compare names, but build each link from the target's exact filename; composed and decomposed accents can differ between originals and conversions. Use relative Markdown links across the vault boundary, percent-encoding path characters with `urllib.parse.quote(path, safe='/')` so spaces, parentheses, ampersands and combining marks survive Markdown parsing.
+4. Mark unmatched originals explicitly as having no conversion found; do not invent conversion links or silently convert documents during an indexing task. Label descriptions inferred only from filenames as such.
+5. Verify the generated artifact: extract and URL-decode its local link destinations, resolve them relative to the index file, and check each target exists. Compare the table's original-document rows against the actual directory inventory, not a second hand-maintained expected list; otherwise both lists can omit the same file. Report missing conversions separately from broken links.
+
+Keep this file a navigation bridge, not a second resource MoC; leave originals and source notes unchanged unless their modification was requested.
+
+## Project kinds (notes projects)
+
+Shapes say where the files live; **kinds** say what the work is. A notes project may declare a kind in its `AGENTS.md` (`Projekttyp: <kind>`); the kind's skill holds the method — class tables, templates, care rules — while the project's `AGENTS.md` keeps facts and deviations only. One vocabulary per kind, enumerated in the vault root `AGENTS.md`'s type table; never a per-project dialect.
+
+| kind | What it is | Skill |
+|---|---|---|
+| `casefile` | administration of real-world affairs: cases (Vorgänge), files (Akten), master data, evidence, correspondence | `casefile` |
+
+**When a project deserves its own vault** — exactly three reasons: an access or device boundary (work versus private), a publication or deployment target that needs its own home, or shared custody with its own sync history. Rule volume is not a reason; new document types call for a new kind, not a new vault.
+
 ## Renaming a genus or a kind
 
 A rename touches more than the skill: the vault root `AGENTS.md`, every project `AGENTS.md`, the skill's own frontmatter and template, and any note naming the term. Patch the skill contents first, then `git mv` the directory (the frontmatter `name:` must equal the directory name), grep every skill root and vault for the old name, and verify discovery with the skills list — trust the listing, not the rename.
+
+## Auditing an existing project manual
+
+Asked whether a project's `AGENTS.md` still matches these conventions, the deliverable is the audit plus a proposed patch — check first, rewrite only after approval. Read the manual, the `conventions.md` beside it, and every note that points at the manual, then work the list in order:
+
+1. **Five sections, in order, about a page.** A missing `Project directory: …` line is the most common gap: nothing else states which file *is* the manual.
+2. **Shape stated literally** (`Shape: notes only — …`) and consistent with the file tree and the rest of the file. If the shape claim itself is wrong, rewrite rather than patch around it.
+3. **Instance data not restated.** Hostnames and per-machine roles belong in the table above; naming which machines are in play is enough. A manual that calls one machine "the work laptop" is a second place to edit.
+4. **Every cross-reference resolves.** The longest-lived defect is a note claiming "the table of installations lives in `AGENTS.md`" while the manual has no such table: each file reads correctly alone, so only a grep finds it. Grep the project for `AGENTS.md`, `conventions`, and the MoC link, and test every claim against the file's actual content.
+5. **`conventions.md` is a real link, not a code span**, from the `Extending the rules` section — the agent told to extend the rules must be able to follow it.
+6. **Important resources carry a reason** (`open before …`) and a stated selection rule. The MoC is the index; a second complete list is the defect.
+7. **Rules state the publication position** even when it is "nothing publishes", and name the `wiki/` ownership boundary where the vault has one.
+
+Report as a numbered list with `file:line` and, for each, the exact replacement; distinguish what is wrong from what is merely terse. Apply after approval — through TurboVault for a vault-side file — and read each edit back. A validator warning on a correct `[text](https://…)` link is a false positive: say so instead of rewriting it.
 
 ## Setting up a new project
 
@@ -107,7 +148,7 @@ A rename touches more than the skill: the vault root `AGENTS.md`, every project 
 3. Shape A/C: create the work tree, `git init` and commit — or state that it is unversioned.
 4. Write `AGENTS.md` from the template, on the side where the work happens. For C, add a vault router only when vault-only discovery requires it. Create `conventions.md` from `assets/project-conventions.md.example` with the first rule that overflows the page, and link it in the same change.
 5. Declare per-machine checkout paths in their one authoritative home; in the work tree name the vault by name, never by path.
-6. If a working vault exists: install it in a subdirectory, declare its kind, name the skill that governs it.
+6. If a working vault exists: install it in a subdirectory, declare its kind, name the skill that governs it, and add the chain sentence — load that skill and read the vault's `AGENTS.md` before the first write inside it.
 7. Only then start working. The files exist before the first write, not after.
 
 ## What this skill does not own

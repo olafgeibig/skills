@@ -1,7 +1,7 @@
 ---
 name: hermes-provider-setup
 description: Set up Hermes providers, keys, rate limits and model slots.
-version: 0.10.2
+version: 0.13.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -32,11 +32,18 @@ Class-level reference for the **mechanics** of provider setup in Hermes. This sk
 - User asks about the three api_mode values (chat_completions, codex_responses, anthropic_messages)
 - User wants one step — a review, a second opinion — to run on a *different* (stronger) model than the session, or asks how to pin a model for a single run
 - User asks whether model or provider can be changed mid-session, or which credential of a pool gets used first
-- User asks *which* model belongs in *which* slot on a plan he already pays for (make routing smarter, pick a model per purpose) — see `references/model-selection-workflow.md`
+- User asks *which* model belongs in *which* slot on a plan he already pays for (make routing smarter, pick a model per purpose), or which model is strongest at a specific capability (vision, coding, long context) — see `references/model-selection-workflow.md`
 - User asks whether the subscription is still enough, where the monthly quota went, or whether to upgrade a plan tier — attribute the burn before recommending money (see "Subscription Adequacy" below)
+- A provider's dashboard shows near-zero usage for a model the user pinned somewhere, and they ask where the calls went or why nothing routes there — attribute from the ledger, then check the slot's wiring and trigger gate (Pitfall 13) before re-pinning anything
+- User says a provider they configured "doesn't work" — a call error, or a probe that answers on some other model — diagnose with "When a configured provider fails outright" before changing config
 - User asks whether speech input / dictation works, where a dictated message is actually transcribed, or why a voice feature leaves no trace in the server logs
 - User asks what Hermes actually puts on the wire for a provider — whether a configured field (reasoning effort, thinking flag, `extra_body` key) reaches the endpoint — or why the API ignores a parameter Hermes seems to send
 - User asks whether a provider-specific reasoning/thinking level (anything outside `low|medium|high`) can be made to reach the API
+- User wants one Hermes installation aligned with another (slots, providers, fallback chain brought in line), or an existing config cleaned up after a version change — verify the change surface (Pitfall 15)
+
+## Work on the installation that is actually here
+
+Provider and slot config is machine-local, and a request can name a machine the session is not running on. Before touching config, confirm the target (`hostname`, plus the kernel signature when the host names are project-specific); if the user named a different machine, say so plainly and ask whether to work on the one you are on — never do machine-local config work silently on another host, and never claim the named machine's state from here. And when a credential or provider the user says they added is missing, check the local `.env` mtime and the `providers:` keys before hunting for a failed write: the change may have landed on a different host.
 
 ## Config Schema: `providers:` vs `custom_providers:`
 
@@ -87,7 +94,7 @@ hermes config set providers.<key>.context_length <from live /models>
 hermes config set 'providers.<key>.models' '{"<model-id>": {}}'   # JSON string, parsed into the dict
 ```
 
-Then `hermes config get providers` to confirm the merge (an existing sibling entry survives), `hermes config check` to validate, and a probe (`hermes -z "..." --provider <key> -m <model-id>`, then again with `-t file`) before touching `model.default` — a configured provider is not a working one. Before naming `<key>`, grep the install for the name: a key that matches a built-in provider (see the transport table below) shadows or collides with it.
+Then `hermes config get providers` to confirm the merge (an existing sibling entry survives), `hermes config check` to validate, and a probe (`hermes -z "..." --provider <key> -m <model-id>`, then again with `-t file`) before touching `model.default` — a configured provider is not a working one. Before naming `<key>`, check `hermes_cli/providers.py` for the name in BOTH tables: `HERMES_OVERLAYS` (built-ins — `ollama-cloud` already serves `https://ollama.com/v1`) and `_ALIAS_GROUPS` (aliases of the legacy `custom` placeholder: `ollama`, `local`, `vllm`, `llamacpp`, `llama.cpp`, `llama-cpp`). A key equal to one of them collides with or shadows that entry instead of extending it — the obvious name `ollama` for an Ollama Cloud provider hits the `custom` alias while the built-in is `ollama-cloud`. If a built-in already serves the endpoint, drop the custom entry (`hermes config unset providers.<key>` is the removal counterpart of `hermes config set`) and wire the built-in's `key_env` instead.
 
 ## Credential Pool with Multiple Keys
 
@@ -185,12 +192,22 @@ Rules that survive the next docs update:
 - **`/models` often answers without a key — fine for early reconnaissance, but not a plan inventory.** The unauthenticated answer can be the provider's **public catalogue**, a superset carrying IDs the plan rejects at request time. Plan membership comes from the **keyed** call (`Authorization: Bearer <key>`) — quote that list for config decisions, report the delta to the public catalogue in both directions, and take `context_length`, max output and per-token prices from the keyed response where offered. A `pricing` value of `0` is the catalogue's silence (unpublished), not free.
 - **A vendor's integration page for your exact tool names the values to plug in** (base URL, api_mode, model id, context length) and is often newer than the vendor's pricing page — but treat it as the second-best source and confirm every value against live `/models`.
 - **Diff the live IDs against the published list and report the delta in both directions.** Curated pages lag: a live-only model exists, and a documented model can already be retired.
+- **A keyed `/models` hit is catalogue evidence, not proof of inference entitlement or protocol support.** Even an authenticated listing marked enabled can contain a model that the same credential cannot invoke; confirm access with a real request using the intended credential and transport. A provider profile carries one `api_mode`, so a model whose serving surface differs from the profile's (e.g. a native Google Responses surface behind an OpenAI-compatible relay) is unreachable through that provider however prominently the picker offers it. The break surfaces only at request time — as a silent fallback to the chain (Pitfall 11), never as an error in the picker — so confirm a candidate with a real `hermes -z -m <id>` and attribute the answer before routing any slot to it.
 - A model with no documented cap has an **unknown** cap — not zero, not unlimited.
 - **OpenCode's relay rejects bare chat calls.** `POST /chat/completions` on `opencode.ai/zen…` returns `400 MissingSessionID` without an `x-opencode-session` header; Hermes adds it on every OpenCode target (conversation key, else an ephemeral `oneshot-<hex>` — `agent/opencode_affinity.py`). A hand-rolled `curl` that omits it produces a false "provider broken" finding: probe `/models` (200 = auth fine) or go through `hermes -z`, and add the header if you must hit chat directly.
 - Window caps (rolling ≈5 h / weekly / monthly) and per-model dollar caps are two layers that both apply; plan tiers are **not** constant multiples of each other, so never derive one tier's column from the other — and some plans have only one tier (OpenCode Go is not one of them: Go $10 → Go Plus $40, per-model caps growing 2×–8× — `references/opencode-go-plan.md`).
 - Quote the fetch time with the numbers, and re-fetch rather than re-citing an earlier run.
 
 See `references/live-provider-probes.md` for the key-loading one-liner (the value never enters the transcript), endpoint response shapes, and the credential-visibility chain.
+
+## When a configured provider fails outright
+
+Symptom: a registered provider "doesn't work" — error at call time, silence, or a probe that answers on some other model. Diagnose in this order before editing anything:
+
+1. **Key present?** `grep -c '^<KEY_ENV>' ~/.hermes/.env` plus the `hermes config check` badge (`○ <KEY_ENV>` = missing). A missing key is the most common cause; hand over the Pitfall 6 ingest one-liner — never accept a pasted key.
+2. **Key name collides with a built-in or alias?** `HERMES_OVERLAYS` / `_ALIAS_GROUPS` in `hermes_cli/providers.py` (Headless registration above).
+3. **Keyed `GET $base_url/models`** (probe recipe above): 401 = bad key; 200 without the model ID = wrong model name; 200 with it = auth fine, the fault is routing.
+4. **Probe through Hermes, then attribute.** `hermes -z "..." --provider <key> -m <model>`, then read the ledger row (Pitfall 11): only a row whose `billing_provider` is your provider proves the route — a green answer billed elsewhere is the fallback.
 
 ## Wire Probes: What Hermes Actually Sends
 
@@ -244,10 +261,15 @@ Hermes has **~20 built-in providers** that don't require `providers:` config —
 | Transport | Providers | Notes |
 |---|---|---|
 | `openai_chat` (default) | openrouter, nous, lmstudio, qwen-oauth, ollama-cloud, kimi-coding, opencode-zen, opencode-go | Most common; OpenAI-compatible chat completions |
-| `codex_responses` | openai-codex, openai-api, xai-oauth, xai, copilot-acp | OpenAI Responses API (`/v1/responses`) — not just for Codex |
+| `codex_responses` | openai-codex, openai-api, xai-oauth, xai | OpenAI Responses API — not just for Codex; resolve the endpoint path from the provider implementation |
+| ACP subprocess | copilot-acp | Runs the local Copilot CLI over ACP; its Hermes-facing `chat_completions` adapter is not a direct HTTP chat endpoint |
 | `anthropic_messages` | any Claude endpoint configured with that `api_mode` | Anthropic Messages API (`/v1/messages`) |
 | `bedrock_converse` | bedrock | AWS Bedrock |
 | `virtual` | moa | Mixture-of-Agents local router |
+
+**Copilot transport distinction.** Inspect the selected provider before diagnosing it: `copilot` calls the API directly; `copilot-acp` launches the CLI. An absent CLI does not explain a failure on the direct API route. For plugin-backed providers, resolve the installed plugin under the active profile and inspect its implementation before widening a core-source search; an empty legacy provider directory can reflect extraction into a plugin, not a damaged checkout. The plugin catalog entry identifies the source package when core contains only compatibility shims.
+
+When comparing a working Hermes Copilot route with another client, distinguish source GitHub credentials from exchanged Copilot API tokens. First resolve each client's actual credential source and account/SKU, then isolate token, endpoint and headers with the same minimal inference body. Keep secrets in process memory; print only allowlisted status, error and account fields, never whole configs or auth objects. Do not copy credentials between clients without explicit authorization. A direct upstream success does not verify the proxy: finish through the intended proxy endpoint and validate generated output before claiming the route works. See `references/live-provider-probes.md` § 7 for the controlled comparison procedure.
 
 ### Quick provider-selection heuristic
 
@@ -256,23 +278,39 @@ Hermes has **~20 built-in providers** that don't require `providers:` config —
 3. **Local / private:** `lmstudio`, `ollama-cloud`.
 4. **Aggregator:** `openrouter` (400+ models behind one key).
 
+### Standing routing preferences (this user)
+
+- **Same slug on several lanes → the fastest lane wins, measured not assumed** (decode tok/s per lane from a live throughput source, `references/opencode-go-api.md`). The MiMo family in particular runs on the Ollama Cloud lane — never on a shared aggregator lane that serves the same slug slower.
+- **Intelligence-heavy side tasks default to `mimo-v2.6-pro`** (Ollama Cloud); for judgment slots (`goal_judge`, `review`) the user ranks `kimi-k3.1-pro` top. Keep "the user's ranking" and "the benchmark's ranking" as separate claims — the newest models often carry no figure in the comparison indexes, so attribute an uncited ranking to the user.
+- **Models that train on prompts/completions are excluded regardless of score** — the privacy filter of `references/model-selection-workflow.md` Step 3 is a standing decision here, not a per-task trade-off.
+
 ## Which Knob Decides Which Model: Session, Subagent, One-Shot
 
-Three separate knobs, easy to confuse:
+Four separate knobs, easy to confuse:
 
 | Scope | Config key | Controls |
 |---|---|---|
-| Session / main thread | `model.default` + `model.provider` | the model you are talking to; also the default for `hermes -z` unless overridden |
-| Subagents | `delegation.model` + `delegation.provider` | what **every** `delegate_task` child inherits — no per-child override exists in the tool schema |
+| Profile default | `model.default` + `model.provider` | route for new sessions and `hermes -z` unless overridden; not proof of the current session's route |
+| Subagents | `delegation.*`, including `backend`, `default_backend`, and `backends` where supported | default child routing; inspect the live tool schema for per-task backend selection |
 | One run | `hermes -z "<prompt>" --provider <P> -m <M> -t <toolsets>` | that invocation only: fresh context, own session, own tool grants |
+| Scheduled job (cron) | `hermes cron create/edit --provider <P> --model <M>`, recorded in `~/.hermes/cron/jobs.json` | what that job's agent run uses; an unpinned job resolves the config route at fire time and **fails closed** when `model.*` changes underneath it — pin every unattended job, and verify the recorded fields in `jobs.json` (`hermes cron status` shows the scheduler, not one job) |
 
 Read the value before quoting it (`hermes config get delegation.model`) — the model picker and other sessions write these keys, so a value read earlier in the day can already be stale.
 
 **These three knobs are not the whole inventory.** Exactly five more top-level config sections carry model choices: `tts`, `stt`, `x_search`, `moa`, `smart_model_routing`. An audit of "every place a model is configured" — or a cleanup after removing a provider — must cover the three layers **plus** those five, and `tts`/`stt` are whole subsystems with per-provider subkeys, so a single top-level grep is not an audit. What each of the five routes: `references/model-routing-slots.md`.
 
-**Review independence.** Every `delegate_task` child inherits `delegation.model`, so an implementer and a reviewer on the delegation rail share the same blind spots. Either keep `delegation.*` on the cheap model and run each review as a pinned one-shot, or use the native `review` slot instead of hand-rolling one. **Probe before building on a model:** the list in `provider_models_cache.json` is a catalogue, not a credential check — first ask the model to answer, then ask it to read a file with `-t file`.
+**Review independence.** Resolve the actual writer and reviewer routes before assuming they differ: children using the same backend can share model-family blind spots. Select different configured backends with the live tool's per-task `option` when available, use a pinned one-shot, or use the native `review` slot. **Probe before building on a model:** the list in `provider_models_cache.json` is a catalogue, not a credential check — first ask the model to answer, then ask it to read a file with `-t file`.
 
 Commands, the one-shot recipe and what a failed probe names verbatim: `references/model-routing-slots.md`.
+
+## Read-only routing inventory
+
+For a routing snapshot, inspect first; do not change config or run paid inference merely to document it.
+
+1. Scope commands to the intended profile (`HERMES_HOME=<profile-home> hermes …`). Read `model`, the complete `delegation` block, `auxiliary`, fallback and the other model-bearing sections described above. Report the profile default separately from the active session route: launch flags and session switches can make them differ.
+2. Run `hermes config check`, `hermes fallback list`, and `hermes auth status <provider>` for referenced providers. Treat these as schema, chain-resolution and credential-state checks, not successful inference. An auth listing alone does not establish that another credential source is absent.
+3. Distinguish **configured**, **resolver-tested**, and **production-attributed** routes. A model missing from a local `providers.<key>.models` map is a verification gap, not proof the endpoint cannot serve it. Do not silently replace its literal ID. State which probes were not run.
+4. Update the existing profile routing note, or create one only after checking for an existing topic. Keep operational routing facts there and generic procedures in this skill. Link it from the project MoC; label an older overview as historical rather than repeating its stale provider claim as current. Read back the changed notes and validate the routing note.
 
 ## Auxiliary (side-task) model slots
 
@@ -335,16 +373,17 @@ read -rsp '<Provider> API key: ' K; echo "<KEY_ENV_NAME>=$K" >> ~/.hermes/.env; 
 
 **A key found outside `.env` is a finding, not a wiring task.** When a credential turns up somewhere unexpected (credential pool under a mismatched provider ID, a stale `auth.json` entry), report name and location and hand over the ingest one-liner above — do not re-home the discovered key under the "correct" provider ID to clear a 401. The user's key-injection path is theirs to redo the standard way; silently rewiring a discovered key is a repair nobody asked for and it gets undone.
 
-### Pitfall 7 — `delegate_task` is a model tool, and the tool schema has no per-task model
+### Pitfall 7 — Resolve delegation through the live schema and backend map
 
-1. **`delegate_task` is a model tool, not a user command.** There is no `/tool delegate_task` and no `/delegate`. The running model calls it when it decides to spawn subagents, so a user asks for delegation through the *goal* ("use a subagent to investigate X in parallel") rather than by naming the tool.
-2. **No per-task model override.** The tool schema exposes no `model`/`provider` argument — children inherit the parent's routing, and `delegation.model` / `delegation.provider` in `config.yaml` pin it for *all* children. Never suggest `delegate_task(goal="…", model="…")`; it is not a parameter.
+1. **`delegate_task` is a model tool, not a user command.** Ask for delegation through the goal rather than inventing a slash command.
+2. **Inspect per-task `option` support before claiming all children share one model.** With `delegation.backend: model_map`, read `delegation.default_backend` and every `delegation.backends` entry; `option` selects a configured backend such as `fast`, `workhorse`, `smart`, or `professional`. Record each backend's provider, model and reasoning settings. A top-level `delegation.model` read alone misses these routes.
+3. **Do not invent direct `model` or `provider` task arguments.** Use only fields present in the live tool schema; backend selection is not an arbitrary model override.
 
-**What works instead:**
+**Other routing scopes:**
 
 1. **Per invocation:** `-p <profile>` — profiles are separate homes (`~/.hermes/profiles/<name>/config.yaml`, no live config inheritance), created with `hermes profile create` (`--clone` copies an existing one), listed with `hermes profile list`, made sticky with `hermes profile use`.
 2. **Per session:** `/model <model> --provider <p>` (Pitfall 5).
-3. **Per single step:** `hermes -z … --provider <P> -m <M>` — the only route that puts one step on another model while session and children keep theirs.
+3. **Per single step:** `hermes -z … --provider <P> -m <M>` pins an arbitrary route without changing the session or child defaults.
 4. **Advisor plus aggregator:** MoA — `/moa <prompt>` for a one-shot, `hermes moa` to configure the presets (`agent/moa_*.py`).
 
 ### Pitfall 8 — Provider config auto-applies once credentials are in the pool
@@ -362,13 +401,18 @@ If the user says "xai-oauth is configured but Hermes doesn't see it" — verify 
 
 Provider doc pages list *curated* models; the provider's own `/models` is the truth, and the two drift in both directions. Quote endpoint output with its fetch time, or re-fetch — never re-cite a docs table as "current". For caps this matters twice over: an undocumented model's limit is unknown, and the doc's headline tier is not necessarily the tier the user is on, so read the plan (or ask) before picking a column.
 
-### Pitfall 10 — Headless OAuth flows are the user's to run
+### Pitfall 10 — Stage account changes and coordinate interactive OAuth
 
-On a headless host (Pi, VPS, container, remote shell) an OAuth provider setup (`hermes auth add xai-oauth --no-browser --manual-paste`, Spotify PKCE, ...) needs a human to paste the callback: started from a tool harness the paste prompt collapses to an **empty string** and the flow fails with `missing authorization code` (or `state mismatch`), because the harness cannot wait out a browser dance happening on another machine. **Hand it over, don't execute it:** give the user the command, the authorize URL and the step list, let them run it in their own terminal, then verify afterwards with `hermes auth status <provider>` — the result is debuggable after the fact, the live flow never is. Even after success the running session does not re-point itself: switch with `/model <model> --provider <provider>` (Pitfall 5) or open a fresh session. Do NOT carry over the old "sessions lock to their starting provider" claim — Pitfall 5 supersedes it.
+1. **Keep the current credential intact while obtaining its replacement.** Prefer a supported isolated credential directory for the candidate login; verify the new account and requested model before promotion. If isolation is unavailable, obtain agreement on the interruption and rollback before removing active auth files. A backup alone does not preserve service, and a scratch backup is not durable recovery storage.
+2. **Choose the interaction path before starting OAuth.** For callback-paste flows without usable interactive stdin, let the user run the supported command in their own terminal; never ask them to paste a callback or authentication code into chat. For device authorization, get the user ready on the verification page before starting, then surface the current user-facing code promptly through the approved auth UI. Do not start a short-lived flow and then spend its validity window investigating logs. Do not automatically exhaust repeated codes while the user is absent; a timeout is not evidence that they used the wrong account.
+3. **Verify identity and inference separately.** After authorization, check allowlisted account metadata, then exercise the requested model through the intended client. A liveness HTTP 200 proves only that the server is alive, not that credentials, deployment readiness or inference work. Report those states separately.
+4. **Read back route changes after auth.** A running session does not automatically re-point itself: switch with `/model <model> --provider <provider>` (Pitfall 5) or open a fresh session; check the default model block as described in Pitfall 13.
+
+For LiteLLM/Copilot-specific preflight and staging, see `references/live-provider-probes.md` § 8.
 
 ### Pitfall 11 — A green probe after a credential fix can be the fallback answering
 
-On an auth failure Hermes falls back silently (Knob 3), so a probe that "works" right after a key fix proves only that *some* model answered — often the configured fallback, not the provider you just repaired. Before calling the fix verified, attribute the answer: `state.db`'s `session_model_usage` (`scripts/attribute-provider-burn.py`) names the model that actually served the call, and the provider's server-side 401 log names the one that didn't. Report both sides before claiming the route works.
+On an auth failure Hermes falls back silently (Knob 3), so a probe that "works" right after a key fix proves only that *some* model answered — often the configured fallback, not the provider you just repaired. Before calling the fix verified, attribute the answer: `state.db`'s `session_model_usage` (`scripts/attribute-provider-burn.py`) names the model that actually served the call, and the provider's server-side 401 log names the one that didn't. For a single probe, query `session_model_usage` directly ordered by `last_seen` (`sqlite3 ~/.hermes/state.db "SELECT datetime(last_seen,'unixepoch','localtime'), model, billing_provider, billing_base_url, task FROM session_model_usage ORDER BY last_seen DESC LIMIT 5"`) — the burn script aggregates a whole window and merges the probe with unrelated traffic. Report both sides before claiming the route works.
 
 ### Pitfall 12 — A `-free` / `-preview-free` slug is time-boxed, and it breaks config silently
 
@@ -383,11 +427,37 @@ Rules:
 
 ### Pitfall 13 — A same-named tool is not a trigger for the aux slot
 
-Slot semantics are not trigger semantics: the `session_search` tool is pure FTS5 (its own schema says "no LLM"), catalog search is lexical, and `auxiliary.mcp` serves MCP **sampling** (server-initiated completions) despite the config comment "MCP tool dispatch" — tool dispatch is direct RPC and tool search is BM25, so neither touches a model. Grep the install for `task="<slot>"` call sites before designing a verification around a tool; a pipeline trigger that can fail upstream (e.g. `tts_audio_tags` inside TTS) may never reach the aux call at all. The reliable sequence — config read → bare `call_llm(task=...)` resolver probe → ledger attribution on a real in-session call — is in `references/model-routing-slots.md`; bare out-of-session probes never land in `session_model_usage`.
+Slot semantics are not trigger semantics: the `session_search` tool is pure FTS5 (its own schema says "no LLM"), catalog search is lexical, and `auxiliary.mcp` serves MCP **sampling** (server-initiated completions) despite the config comment "MCP tool dispatch" — tool dispatch is direct RPC and tool search is BM25, so neither touches a model. Grep the install for `task="<slot>"` call sites before designing a verification around a tool, and read what the hits are: a slot whose only mentions are the picker's slot list (`hermes_cli/main_provider_setup.py`) and the defaults table (`hermes_cli/config_defaults.py`) is declared but unwired — the pin silently costs zero — and even a wired slot can sit behind a closed trigger gate (`approval` needs `approvals.mode: "smart"`, `tts_audio_tags` the Gemini TTS path), while a pipeline trigger that can fail upstream (e.g. `tts_audio_tags` inside TTS) may never reach the aux call at all. The reliable sequence — config read → bare `call_llm(task=...)` resolver probe → ledger attribution on a real in-session call — is in `references/model-routing-slots.md`; bare out-of-session probes never land in `session_model_usage`.
+
+### Pitfall 14 — a `delegation.*` pin also costs the children's fallback chain
+
+Pinning `delegation.model` / `delegation.provider` is not only a route choice: a pinned child resolves its own fallback chain instead of inheriting the session's (`tools/delegate_tool_config.py:_resolve_child_fallback_chain`, `pinned=True`), so subagents lose failover silently while the session keeps it. Leave `delegation.*` empty when children should inherit route **and** fallback; pin only when cutting children off the session chain is the intent (separate quota, independent provider). A pin that merely duplicates the parent route buys nothing and pays this cost.
+
+### Pitfall 15 — a config cleanup can sweep more than intended
+
+A multi-block edit of `config.yaml` (dead blocks, duplicate entries, stale pins) can do more than the intended change when a merge writes extra keys or a pattern matches too much. Back the file up first (`cp ~/.hermes/config.yaml ~/.hermes/backups/config.yaml.pre-<tag>-<timestamp>`) and verify the change surface afterwards: diff the key paths of both files and require the delta to be exactly the keys you meant to touch — anything else is a regression to undo before continuing. Name the backup path in the report so rollback is one copy away.
+
+### Pitfall 16 — An auth flow rewrites the session route
+
+`hermes auth add <provider>` captures the `model:` block: it sets `model.provider` and `model.base_url` to the new provider and **drops `model.api_mode`**, while leaving `model.default` (the old model id) untouched. The profile then starts sessions with a model the new endpoint does not serve — every new session fails with a 404 (`The model <id> does not exist or your team … does not have access to it`), and because the failure happens at request time, an already-running session keeps working and hides the breakage.
+
+After any `auth add`, `auth status`/`auth list` is not enough — read `hermes config get model` and confirm provider, base_url, api_mode and the model id form one valid route, then probe a fresh `hermes -z` (no `--provider`) to prove the default route, not just the new provider. Repair with one `hermes config set` per field; `model.base_url` is cleared automatically when the provider changes.
+
+### Pitfall 17 — A free slug belongs in no slot
+
+Free / zero-cost slugs are the entries a plan renames or retires first, and both failure modes are quiet: the slug keeps working but gains a price and the **smallest cap on the plan** (the volume slots then drain a fixed bucket), or the slug disappears and every call fails while `config.yaml` still reads as valid. **Standing preference: route nothing at a free slug** — no aux slot, no `fallback_providers` entry, no `delegation.*` pin, not even a rarely-firing one. Put the volume slots on the cheapest **priced** model with a wide cap instead, and re-verify every pinned ID against the keyed catalogue at each refresh (`references/opencode-go-api.md`). When a refresh reports a renamed or removed ID, grep every profile's config for the old slug — aux slots, `fallback_providers`, `delegation.*`, `tts`/`stt` — before calling the refresh done.
+
+### Pitfall 18 — A 403 `permission_error` on inference is a key scope, not a broken config
+
+`api_key_expired` (401) has a sibling that looks like a provider outage and is not. OpenCode answers `403 permission_error` with `"This API key can't call models"` when the key's permission level is **Read-only**. Such a key authenticates happily — `/models` returns 200 with the full plan catalogue and `/usage` returns 200 with real percentages — so every metadata probe passes and only inference fails. A read-only key lists models, it does not call them.
+
+Diagnose it by separating the two surfaces: if the keyed `/models` and `/usage` answer 200 but `POST /chat/completions` (with `x-opencode-session`) returns 403, the key is scoped, not expired or misconfigured. Do not re-add credentials, do not change `base_url` or `api_mode`, and do not read the `/models` success as "the provider is fine". The fix is on the provider's side: issue a key whose permissions include model requests (member keys are personal and call as you; owner/admin keys need Restricted-with-Models-Request or All, never Read only).
+
+After the replacement, `hermes auth reset <provider>` clears the cached failure row — `hermes auth list` otherwise keeps showing `exhausted` / `permission_error` for a key that now works, and `hermes auth status` prints `logged in` for both states, so neither line alone tells you which key is live. Confirm with `secret_fingerprint` against the value in `.env`, then probe inference once.
 
 ## References
 
-- `references/model-routing-slots.md` — Which knob moves which model (session / `delegation.*` / `auxiliary.<slot>`), the writer-vs-reviewer rule, the two-step model probe (`-z` answer check, then `-t file`), the full auxiliary slot table, the aux-route verification sequence (trigger map + `call_llm(task=...)` resolver probe + ledger attribution) and the `/review` mechanics.
+- `references/model-routing-slots.md` — Which knob moves which model (session / `delegation.*` / `auxiliary.<slot>`), the writer-vs-reviewer rule, the two-step model probe (`-z` answer check, then `-t file`), the full auxiliary slot table, the aux-route verification sequence (wiring read + trigger-gate map + `call_llm(task=...)` resolver probe + ledger attribution) and the `/review` mechanics.
 - `references/live-provider-probes.md` — How to answer "is this key live here", "which models does this plan have", "how much quota is left": key loading without printing values, `/models` + `/usage` response shapes, honest reading of unlabeled percentages, burn attribution from the local ledger (`state.db`, driven by `scripts/attribute-provider-burn.py`), and the credential-visibility chain per consumer.
 - `references/model-selection-workflow.md` — Turning a provider plan into config decisions: purposes first, hard filters before ranking, caps as a budget, quality data over the same slugs, which knob each decision lands in, and the probe that closes it.
 - `references/opencode-go-plan.md` — OpenCode Go billing facts: the two tiers (Go $10 / Go Plus $40), per-model buckets, Zen-balance overflow, MiniMax M3 on-plan, and the two auth shapes under one base URL.
@@ -397,3 +467,4 @@ Slot semantics are not trigger semantics: the `session_search` tool is pure FTS5
 - `scripts/attribute-provider-burn.py` — aggregates `session_model_usage` over a billing window (per provider/model/task: calls, tokens, plan-priced dollars): the attribution step of "where did my quota go".
 - `scripts/voice-config-probe.py` — prints the desktop's resolved client voice config (`mode`/`wire`/`provider`/`model`/`language`, key presence) with secrets masked: the decisive probe for "does dictation work", which server logs cannot answer.
 - `scripts/wire-echo-server.py` — localhost capture server that logs the exact request body Hermes sends (stream and non-stream) and answers a minimal completion; pair with a throwaway provider entry to see the wire instead of guessing.
+- `scripts/vision-capability-battery.py` — ground-truth vision battery: generated test images with known answers, per-protocol callers, fact-vs-format grading — the Step 5 capability probe, run instead of rebuilt.

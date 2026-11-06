@@ -8,13 +8,13 @@ Three separate knobs, easy to confuse:
 
 | Scope | Config key | Controls |
 |---|---|---|
-| Session / main thread | `model.default` + `model.provider` | the model you are talking to; also the default for `hermes -z` unless overridden |
-| Subagents | `delegation.model` + `delegation.provider` | what **every** `delegate_task` child inherits — no per-child override exists in the tool schema |
+| Profile default | `model.default` + `model.provider` | route for new sessions and `hermes -z` unless overridden; the active session can differ |
+| Subagents | complete `delegation` block | inspect `backend`, `default_backend`, and `backends` for model-map routing; use per-task `option` only when exposed by the live tool schema |
 | One run | `hermes -z "<prompt>" --provider <P> -m <M> -t <toolsets>` | that invocation only: fresh context, own session, own tool grants |
 
-Read the value before quoting it (`hermes config get delegation.model`) — the model picker and other sessions write these keys, so a value read earlier in the day can already be stale.
+Read the value before quoting it (`hermes config get delegation.model`) — the model picker and other sessions write these keys, so a value read earlier in the day can already be stale. Pinning `delegation.*` also decides the children's fallback chain (SKILL.md Pitfall 14).
 
-**Separating writer from reviewer.** Because all subagents inherit `delegation.model`, an implementer and a reviewer dispatched through `delegate_task` run on the *same* model — correlated blind spots, which defeats the review. Keep `delegation.*` on the cheap model for the writers and run each review as a pinned one-shot:
+**Separating writer from reviewer.** Resolve both routes before dispatch. With model-map delegation, select distinct configured backends through per-task `option` when the live tool exposes it; choose different model families when review independence matters. If backend selection is unavailable or the desired model is not mapped, run a pinned one-shot:
 
 ```bash
 hermes -z "$REVIEW_PROMPT" --provider <P> -m <M> -t file,terminal
@@ -28,9 +28,9 @@ configured" must name them too:
 | Section | Routes | Read back |
 |---|---|---|
 | `tts`, `stt` | the audio subsystems — `tts.<provider>.*` / `stt.<provider>.*` hold per-provider models and voices, `tts.provider` / `stt.provider` select the one that runs | `hermes config get tts.provider` (depth: `references/audio-voice-slots.md`) |
-| `x_search` | the model behind the X/Twitter search tool | `hermes config get x_search` |
+| `x_search` | the model behind the X/Twitter search tool. The **capability** is vendor-hosted (an xAI service), not just its model — when that subscription ends the tool is dead and no other model pin revives it, unlike an ordinary model slot | `hermes config get x_search` |
 | `moa` | Mixture-of-Agents presets (`hermes moa` writes them) — distinct from the auxiliary `moa_reference` / `moa_aggregator` slots above | `hermes config get moa` |
-| `smart_model_routing` | the routing rules that steer which model serves a call | `hermes config get smart_model_routing` |
+| `smart_model_routing` | **nothing in current versions** — write-only legacy key (`enabled` / `max_simple_chars` / `max_simple_words` / `cheap_model`). `hermes_cli/setup_quick.py` writes `enabled: False` on a blank slate and `_EXTRA_KNOWN_ROOT_KEYS` keeps it warning-free, but no module reads it: a repo-wide search for `cheap_model`, `max_simple_chars` or `max_simple_words` returns zero hits. Setting a model there has no effect, enabled or not — do not present it as a live routing knob | `hermes config get smart_model_routing` (shows the written block, not behaviour) |
 
 Because `tts`/`stt` are subsystems rather than single fields, "checked `tts:`" is not an audit — walk the
 per-provider subkeys. Desktop dictation resolves on top of `stt:` through the client-direct layer
@@ -64,15 +64,17 @@ Hermes routes side tasks through their own slots under `auxiliary:` in `config.y
 | `triage_specifier`, `kanban_decomposer` | the kanban specifier and decomposition passes |
 | `monitor` | high-volume scorers (e.g. important-mail 0-10) — a small model is fine |
 | `mcp` | MCP **sampling** requests only — an MCP server asking the client to run an LLM completion (`tools/mcp_tool_sampling.py`). Tool dispatch is direct RPC and tool search is BM25 — neither touches a model, despite the config comment "MCP tool dispatch" |
-| `title_generation`, `skills_hub`, `vision`, `memory_query_rewrite`, `tts_audio_tags`, `profile_describer`, `goal_judge`, `moa_reference`, `moa_aggregator` | whatever the name says |
+| `title_generation`, `skills_hub`, `vision`, `memory_query_rewrite`, `tts_audio_tags`, `profile_describer`, `goal_judge`, `moa_reference`, `moa_aggregator` | whatever the name says — but "listed in the picker" is not "wired in your build": confirm the call site and the trigger gate (below) before trusting a pin |
 
 **The `compression` slot has a window requirement the others do not.** It summarises up to the session's compression threshold (default 75 % of the session window), so its context must clear that number. When it does not, Hermes does not fail — it **lowers the session threshold to the compressor's window** and warns, so the session compresses earlier and carries less context; below 64,000 tokens (`MINIMUM_CONTEXT_LENGTH`) it refuses the model outright. Summary *output* is capped at 10,000 tokens, so output headroom never binds. `auxiliary.compression.context_length` overrides a wrong detected window. Consequence: a cheap small-window model is right for the tiny-prompt volume slots and wrong here — for `compression` the window decides, after that price.
 
 ### Sizing slots by measured volume
 
-**Size the slots by measured volume before choosing models.** The routing table above is a design intent, not a usage profile — read `state.db`'s `session_model_usage` per `task` over the last 30 days first (`scripts/attribute-provider-burn.py`). Match units when comparing: convert the candidate model's monthly request allowance into a daily call budget (÷ 30) and set it beside the slot's measured call rate — a month of calls that already exceeds the request ceiling rules the model out before its price or quality enters the picture. Real profiles are lopsided: `background_review` can run per turn and reach hundreds of calls a month, while `curator`, `review`, `kanban_decomposer`, `triage_specifier` and `monitor` may sit at zero. That decides the assignment: on the high-volume slots the binding constraint is the plan's per-model **monthly cap and per-window request limit** (a strong $2/$10 model with a $15 cap and a few-hundred-request month cannot host them), while a zero-volume judgment slot costs nothing to upgrade to the strongest reachable model. Never assign a slot by its name's implied importance alone.
+**Size the slots by measured volume before choosing models.** The routing table above is a design intent, not a usage profile — read `state.db`'s `session_model_usage` per `task` over the last 30 days first (`scripts/attribute-provider-burn.py`). Match units when comparing: convert the candidate model's monthly request allowance into a daily call budget (÷ 30) and set it beside the slot's measured call rate — a month of calls that already exceeds the request ceiling rules the model out before its price or quality enters the picture. Real profiles are lopsided: `background_review` can run per turn and reach hundreds of calls a month, while `curator`, `review`, `kanban_decomposer`, `triage_specifier` and `monitor` may sit at zero — and `goal_judge` fires after **every** turn of an active goal (up to `max_turns`, default 20). That decides the assignment: on the high-volume slots the binding constraint is the plan's per-model **monthly cap and per-window request limit** (a strong $2/$10 model with a $15 cap and a few-hundred-request month cannot host them), while a zero-volume judgment slot costs nothing to upgrade to the strongest reachable model. A scarce, small-cap model's bucket belongs to the slots the user deliberately triggers — not to the ones volume happens to find. Never assign a slot by its name's implied importance alone.
 
-**Tiering the slots.** Three questions sort them: how many calls, how much judgment, how much context. High-volume / low-judgment (`approval`, `monitor`, `title_generation`, `tts_audio_tags`, `skills_hub`, `mcp`, `memory_query_rewrite`, `profile_describer`) → the cheapest model with a wide cap; these prompts are tiny, so their window is irrelevant. Judgment (`curator`, `background_review`, `goal_judge`, `triage_specifier`, `kanban_decomposer`) → a mid-tier strong model, few calls per session. `compression` → window first. `review` → the strongest model reachable, ideally on a *different provider* than the session, so the review neither inherits the writer's blind spots nor spends the session's quota.
+**Tiering the slots.** Three questions sort them: how many calls, how much judgment, how much context. High-volume / low-judgment (`approval`, `monitor`, `title_generation`, `tts_audio_tags`, `skills_hub`, `mcp`, `memory_query_rewrite`, `profile_describer`) → the cheapest model with a wide cap; these prompts are tiny, so their window is irrelevant. Judgment (`curator`, `background_review`, `goal_judge`, `triage_specifier`, `kanban_decomposer`) → a mid-tier strong model on the **measured** volume above. `compression` → window first. `review` → the strongest model reachable, ideally on a *different model family* than the writer (that is what breaks correlated blind spots; a second vendor serving the same weights does not), with a budget that is not the session's — a plan whose caps and request limits are **per model** (OpenCode Go is one) already gives the review its own bucket inside the same provider, so "different provider" is not the operative test. A genuinely different provider still buys failure-domain independence: when the session's provider is rate-limited or down, the review still runs.
+
+**A stronger model can only use what the slot can see.** Every aux call carries a hard input budget, and for most slots it is tiny: `goal_judge` gets the goal (≤2,000 chars) plus a snippet of the last response (≤4,000 chars) and returns one JSON verdict — no model can look deeper than that prompt. Spend the strong model where the slot can *pull* more context itself (`review` is pointed at the artifacts and investigates: opens files, reads the diff, runs the tests), and keep snippet-sized slots on whatever is priced and reliable. For a snippet-sized slot the quality lever is its **input contract** (`goal_judge`'s `outcome`/`verification`/`constraints`/`boundaries`/`stop_when`, typed inline into `/goal` as `verify: …`, `constraints: …`) — not the model's rank.
 
 **Speed-class models (700+ tok/s) rank on latency, not cost.** Throughput pays where a call is synchronous on a human-visible path, fires often and emits little — exactly the high-volume / low-judgment group above. It buys nothing on the judgment group (the budget there is correctness; a downgrade saves milliseconds nobody sees and costs quality where it matters) and little on `compression` (long input = prefill-bound, so decode speed matters less than the window requirement).
 
@@ -83,6 +85,10 @@ Slot semantics are not trigger semantics: a slot whose name matches a tool or fe
 ```bash
 rg 'task="<slot>"' <install root> -g '*.py'
 ```
+
+Read what the hits *are*, not just that they exist: `hermes_cli/main_provider_setup.py` (the picker's slot list) and `hermes_cli/config_defaults.py` (the defaults table) declare **every** slot and prove nothing. If those two are the only hits, the slot is unwired in this build — no config value can make it fire, and the pin silently costs zero. A wired slot still sits behind an **enabling gate** upstream of the call: `approval` fires only under `approvals.mode: "smart"`, `tts_audio_tags` only inside the Gemini TTS path, `memory_query_rewrite` only where the memory provider calls the rewrite helper (the builtin provider does not). So a pinned slot with zero ledger rows is a completed diagnosis, not a mystery: call site first, trigger gate second, pin last.
+
+For "why is my pinned model never used", the wiring read plus the ledger query (step 3) close the question — step 2's bare probe is optional and the flakiest part of the sequence; skip it once the grep and the ledger agree.
 
 Then verify in three steps, cheapest first.
 
@@ -99,9 +105,23 @@ from agent.auxiliary_client import call_llm
 print(call_llm(task='<slot>', messages=[{'role':'user','content':'Antworte mit einem Wort: pong'}], max_tokens=8))"
 ```
 
-`<runtime python>` is the interpreter the `hermes` launcher shim execs (`head -2 "$(readlink -f "$(which hermes)")"`); a checkout's own `.hermes/bin/` may hold only the shim, not a python — do not assume a venv interpreter exists.
+`<runtime python>` is the interpreter the `hermes` launcher shim execs. **Extract it inside the shell; never copy it out of tool output** — output masking rewrites version strings with `****`, so a copied interpreter path fails with "No such file or directory" while the real interpreter is perfectly fine:
 
-**Step 3 — ledger attribution:** after the first genuine in-session call of that task, read `state.db`'s `session_model_usage` for `task`, `model`, `billing_provider`, `billing_base_url`. Bare out-of-session probes are **not** ledgered — only session-loop calls land there — so step 2 proves the resolver and step 3 proves the production route.
+```bash
+PYEXE=$(sed -n 's/^exec \([^ ]*python[^ ]*\) .*/\1/p' "$(readlink -f "$(which hermes)")" | head -1)
+[ -x "$PYEXE" ] || echo MISSING   # resolve check, not a printed path
+"$PYEXE" - <<'PY' … PY
+```
+
+A checkout's own `.hermes/bin/` may hold only the shim, not a python — do not assume a venv interpreter exists.
+
+Expect interpreter trouble here: the terminal layer can reroute a `python` invocation to its own bundled interpreter (the tell is a traceback whose first line is a rewritten `import sys, runpy; … runpy.run_path(…)`), which carries none of the checkout's dependencies — a probe dying on `ModuleNotFoundError` for a dependency the install plainly has is that reroute, not a broken install. Discover the runtime python as above instead of naming `venv/bin/python`; if the probe still cannot import, fall back to grep + ledger rather than cycling through interpreters.
+
+**Step 3 — ledger attribution:** after the first genuine in-session call of that task, read `state.db`'s `session_model_usage` for `task`, `model`, `billing_provider`, `billing_base_url`. Bare out-of-session probes are **not** ledgered — only session-loop calls land there — so step 2 proves the resolver and step 3 proves the production route. Rows with a non-empty `task` are the aux calls; group them to see which slot ever fired and where it routed:
+
+```bash
+sqlite3 ~/.hermes/state.db "select task, billing_provider, model, sum(api_call_count) from session_model_usage where task <> '' group by 1,2,3 order by 4 desc"
+```
 
 Configure interactively: `hermes model` → "Configure auxiliary models" (same picker in the dashboard's Models tab). **Read a slot back** with `hermes config get auxiliary.<slot>` (e.g. `hermes config get auxiliary.review`); to see several at once, read the YAML:
 

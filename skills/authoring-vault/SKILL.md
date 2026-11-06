@@ -2,7 +2,7 @@
 name: authoring-vault
 description: "Use when authoring deliverables in a working vault: notes → distilled → publication."
 metadata:
-  version: "2.1.1"
+  version: "2.5.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -23,19 +23,22 @@ metadata:
 
 Operate one small, self-contained **working vault** of kind `authoring`: the vault a project's work is done in, whose outputs are published to a declared target, commonly a notes vault. Use this standalone model instead of importing the area/project hierarchy from `vault-ops` or the compliance machinery from `csl-vault` (a separate package, installed only where CSL work is set up). No mandatory plugins, manifests, evidence IDs, or independent per-note versions.
 
-A working vault without a publication target is just a hand-written knowledge base and needs none of this. This skill is the `authoring` kind, not the whole genus: a `csl` working vault is governed by `csl-vault`, where that package is installed.
+Use the working-vault kind declared by the project, not the presence of a publication target, to select this skill. An explicitly declared `authoring` vault may develop local research and deliverables with no publication target; keep publication disabled until a destination and authorization exist. This skill is the `authoring` kind, not the whole genus: a `csl` working vault is governed by `csl-vault`, where that package is installed.
 
 **Scope gate — the vault's `AGENTS.md` chooses the skill.** Apply this model only where the vault's `AGENTS.md` declares the `authoring` kind or names this skill, or the user explicitly sets the vault up as one. When a vault's `AGENTS.md` names no skill, `vault-ops` plus that vault's specific skill governs it. A notes vault (MoC-based `area/`/`projects/`/`wiki/` Zettelkasten) keeps its own structure, note types, and metadata — never give it this layout, SemVer versions, or `checked`/`reviewed_for` markers. The session offering this skill is not the vault choosing it.
 
 ## Before working
 
-- Read applicable `AGENTS.md` files; local rules override defaults. Read `VAULT.md` when relevant.
+- **Read the chain before any work in the vault.** `AGENTS.md` at the vault root is the manual for everything inside it: directory layout, metadata rules, navigation entry points, language and any project-specific override. Read it first — even when the task starts in the surrounding work tree and the enclosing project's `AGENTS.md` was already read. That project file governs the work tree; this skill supplies reusable `authoring` conventions; neither substitutes for the vault's own rules. If the vault-local `AGENTS.md` is missing or unreadable, say so and do not infer layout or rules — continue only with work that does not depend on them. Where the vault file and this skill disagree, the vault wins; where this skill and generic vault convention disagree, this skill wins.
+- **Initializing a new vault is the one exception to that prerequisite.** Read the enclosing project's `AGENTS.md` first when one exists, then create the vault-local manual from `templates/vault-agents.md` as the first artifact and read it back before creating any content. With no project manual, use only setup facts the user gave you — invent no paths, language, or publication target. Declaring the vault's own rules before its content is what keeps the read-first rule satisfiable.
+- **"Initialize" means the scaffold, not just AGENTS.md.** Unless the user says otherwise, create in the same run: all layout directories (`notes/`, `distilled/`, `deliverables/`, `system/`; empty directories are fine), the vault `AGENTS.md`, the root `INDEX.md` with `version: "0.1.0"` (structure and links only). Put the user's setup facts (purpose, scope, inputs, sensitivity) into `AGENTS.md`, not into separate content files. Do not create topic MoCs, resource notes, context notes, or plans during initialization: topics are decided with the user once the content is known, and the plan is a separate step. Never summarize unread sources. Leave original files unchanged.
 - Establish the working vault's own directory as the vault root. When the project has a work tree, this is a **subdirectory** of that work tree — never the work tree root, the enclosing repository, or a destination vault. The work tree and working vault keep separate `AGENTS.md` files; `hermes-projects` owns that placement decision.
-- Follow project documentation language; default to English, not the chat language.
+- Follow project documentation language; default to English only when no project-specific choice exists, not from the chat language. When the user changes that choice, record its requested scope in the relevant project/vault manuals and apply it to authored navigation and summaries; preserve source language, identifiers, and requested filenames. Do not turn a project-local language choice into a global preference or translate unrelated existing notes without a request.
 - Filesystem tools suffice. When using TurboVault, load `turbovault-use` and verify the selected vault and scope. Registration is not required for an Obsidian mini-vault, but without it there is no TurboVault audit, rollback or drift coverage: use the project's version control as the safety net and do not claim those guarantees.
 - Do not restructure existing material, initialize Git, commit, or publish without a request. Preserve unrelated work.
 - For new notes load `references/note-templates.md`; for initialization load `templates/vault-agents.md`.
-- For multi-step knowledge work, coverage decisions, composition choices, or refreshes, load `references/knowledge-workflow.md`.
+- For document inventories, multi-step knowledge work, coverage decisions, composition choices, or refreshes, load `references/knowledge-workflow.md`. Inventory requests update navigation and source/conversion mappings, not the source files or substantive analyses.
+- When the user wants an agent to work autonomously from research to distilled or deliverable, load `references/plan-driven-run.md`: interview with `grilling`, an approved plan in `system/plan.md`, subagent execution, review gates.
 - Treat template body headings as defaults: preserve the user's requested section names, order, and brevity while applying the required metadata and navigation, because a valid note must also match the requested reading structure.
 
 ## Capture an existing discussion as a note
@@ -43,7 +46,9 @@ A working vault without a publication target is just a hand-written knowledge ba
 1. Read INDEX and the relevant existing notes before adding a Zettel; update the authoritative note when the subject already exists rather than creating a duplicate.
 2. Carry forward the purpose and sequence already stated in the conversation. Record genuinely undecided boundaries separately; an unexplained project acronym does not make the user's stated goal unknown. Keep analysis, distilled findings, and later deliverables distinct when the user requested that sequence.
 3. For a request to save completed research, write a focused `research` note from the available findings and actual source locators, then link it from INDEX and update the iteration reason/version. Preserve the research's original as-of date and attribution; saving or reformatting findings is not a fresh source check. Re-fetch sources only when a refresh is requested or a material claim needs verification, and disclose missing evidence instead of treating an earlier assistant assertion as a checked source.
-4. When asked for a project-context note, keep the AGENTS summary to short sentences about the subject, current phase, and intended next phase; place essential facts, limitations, and links to detailed research in the context note. Add the requested read-before-work instruction to AGENTS and a curated link from INDEX. Preserve the user-specified filename even when documentation uses another language; translating the basename breaks the requested artifact and its incoming links.
+4. When asked for a project-context note, keep the AGENTS summary to short sentences about the subject, current phase, and intended next phase; place essential facts, limitations, and links to detailed research in the context note. For context loaded on every task, use compact bullets containing only decision-relevant baseline facts and uncertainties; link detailed evidence instead of repeating it, because every extra paragraph becomes recurring context cost. Treat user-provided remit, focus, environment patterns, and policies as authoritative within their stated scope; do not blanket-label them unverified merely because they were dictated. Use context to select relevant research, not as a cited technical source or a finding about every system. Distinguish policy requirements from inspected deployment state and leave uncertain product or tier names unresolved, because a required control is not proof of implementation. Add the requested read-before-work instruction with a resolvable link to every applicable entry manual (work tree and embedded vault when both govern the task), plus a curated link from INDEX; an agent may enter through either manual. Preserve the user-specified filename even when documentation uses another language; translating the basename breaks the requested artifact and its incoming links.
+
+For factual context notes, reconcile historical documents with current user statements before finalizing: keep formal titles/assignments separate from work actually performed, attribute each to its source, and retain the historical baseline rather than silently replacing it. Ask only for decision-relevant gaps, batch independent questions, then integrate the answers into the authoritative context note; a clarification left only in chat will be unavailable to the next task. Date status confirmations and preferences separately from the original source event, because “unchanged” confirms the known status rather than establishing new offers, rights, or approvals. Keep sensitive identifiers out of recurring context unless needed for the task.
 
 ## Formal migration of an existing vault
 
@@ -68,7 +73,7 @@ working-vault/       # a subdirectory of the work tree when one exists
 └── system/            # project context, publication instructions, local templates, optional briefs
 ```
 
-Create directories only when used. No area/project wrappers, per-type folders, or mandatory per-directory MoCs.
+At initialization, create the four scaffold directories listed above (`notes/`, `distilled/`, `deliverables/`, `system/`) even when empty. Create optional directories such as `resources/` only when used; the lazy-creation rule must not leave an explicitly requested initialization incomplete. No area/project wrappers, per-type folders, or mandatory per-directory MoCs.
 
 ## Navigation and Obsidian compatibility
 
@@ -96,7 +101,7 @@ Atomic means a bounded subject, not one sentence. Split for independent reuse. P
 
 Grounding is the work of establishing relevant knowledge. `resource` represents a concrete source, `research` reports findings across sources, `analysis` evaluates or interprets, and `idea` records proposals or assumptions. These roles can complement one another; they are not mandatory sequential steps.
 
-Normally, working research and analysis lead to distilled knowledge, then deliverables. Distillation turns relevant grounding into concise, reusable conclusions with scope, qualifications, unresolved limits, and actual input links. A deliverable may assemble distilled material or rewrite it for its audience and format. It may use analysis or resources directly when a separate distilled note adds no value. Create distinct artifacts linked by `Based on:`, not repeated renaming of one file. Cite sources next to claims where a general dependency list is ambiguous. Separate source statements, interpretations, assumptions, and open questions.
+Normally, working research and analysis lead to distilled knowledge, then deliverables. Distillation turns relevant grounding into concise, reusable conclusions with scope, qualifications, unresolved limits, and actual input links. A deliverable may assemble distilled material or rewrite it for its audience and format. It may use analysis or resources directly when a separate distilled note adds no value. Create distinct artifacts linked by `Based on:`, not repeated renaming of one file. Cite sources next to claims where a general dependency list is ambiguous. Separate source statements, interpretations, assumptions, and open questions. For source-based option analyses, establish each source's personal, organizational, geographic, and temporal applicability before deriving eligibility or recommendations; a presentation or oral explanation is not proof of an individual entitlement. Use the option-analysis recipe in `references/knowledge-workflow.md` when these boundaries affect the decision.
 
 ## Knowledge workflow
 
@@ -115,7 +120,7 @@ Use `system/` for project-specific operating instructions, topical templates, co
 
 Required: `description`, `type`, `updated`, `topics`. Descriptions explain content rather than echo titles. Obtain actual local dates with a tool; use `YYYY-MM-DD`.
 
-- `updated`: last substantive content change, not a review-only metadata update.
+- `updated`: last substantive content change, not a review-only metadata update. Adding or changing a curated MoC entry counts as a content change: update the affected MoC's date in the same edit, not only the root INDEX.
 - `created` and `tags`: optional; no area/project tags required.
 - Root INDEX: quoted SemVer `version`, the shared working/release target; start at `"0.1.0"` unless directed otherwise.
 - Content notes: `checked` and `reviewed_for` are absent until reviewed; both are required to claim review for a target version. `checked` is the actual review date; `reviewed_for` is the quoted project version, not an independent note version.
@@ -159,8 +164,10 @@ Project versions label iterations; they do not archive history. Existing Git sup
 
 ## Verify before completion
 
-- Validate YAML, allowed types, quoted version strings, descriptions, and actual date values.
+- Name the vault-local `AGENTS.md` you read and how its layout, metadata and navigation rules were applied. A completion report that cannot name that file has not followed the chain, however conformant the notes look.
+- Validate YAML, allowed types, quoted version strings, descriptions, and actual date values. Check Git tracking status before treating `git diff` or `git diff --check` as validation: untracked notes are omitted, so validate their actual contents and link targets directly; an empty diff does not establish that they are correct.
 - Check local note/attachment targets and reachability of every content note from INDEX. Inspect list indentation as well as link existence: insert a new sibling after an existing parent's entire nested child block, not between the parent and its children, because valid links can still imply the wrong hierarchy. Verify requested filenames and AGENTS read-before-work links explicitly; after a rename, update incoming links together and check that no stale target remains.
+- Resolve reported broken links before editing them: resolve bare wikilink basenames across the entire vault, not just its root; report multiple matches as ambiguous and use a vault-relative target to disambiguate. Resolve path-qualified wikilinks from the vault root and ordinary relative Markdown links from the containing note's directory. Distinguish missing vault notes from deliberate relative links to sources outside the vault, and check those source paths against the filesystem. Preserve valid Markdown links and report validator scope limitations; do not convert links to HTML merely to hide them from the graph checker, because an undiscovered link is not a repaired or rendering-tested link.
 - Check non-root MoC membership in both directions and matching frontmatter/footer topics.
 - Exclude instructions, templates, raw resources, and `.obsidian` settings from content metadata requirements.
 - Verify review order and coverage against the agreed subject scope and output briefs; distinguish changed, reviewed, deferred, omitted, and blocked work honestly. Keep publication records on deliverable notes, not distilled inputs.

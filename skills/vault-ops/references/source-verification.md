@@ -2,7 +2,7 @@
 
 ## Primary-source hierarchy on conflict
 - On conflict, the order is: repo/`README`/`SCHEMA` → vendor docs → trade press → social announcement.
-- The primary source wins; state the deviation in the note ("`README` calls X untested; the post calls X supported — `README` governs").
+- The primary source wins; state the deviation in the note ("`README` calls X untested; the post calls X supported — `README` governs"). Put the corrected value into the claim sentence itself: the body is what gets copied, so a wrong figure left in place with its correction reachable only in the Source check is a live error.
 - Silently smoothing a conflict over is data loss.
 
 ## Claim-heavy sources
@@ -31,6 +31,8 @@ A note that states a version, a flag or a feature must be checked against the in
 - `Quoted figures — not independently verified`: everything carried from the source unreviewed.
 - `Source check`: separates right from incomplete/misleading claims, claim by claim.
 - These two sections are the difference between a note and an advertorial; never omit them for a claim-heavy source.
+- A claim the source itself admits is an unsourced circulating figure stays in the note, marked `not to be used`, instead of being silently dropped — the reader should see the number exists and why it fails.
+- Search budget goes to the headline figures a reader would quote back; a background figure with no cheaply reachable primary source rides in the not-verified section rather than blocking the note.
 
 ## Named examples: stepped verdicts
 - Check every named user or customer against a filing, the commercial register or office listings — never confirm in bulk.
@@ -48,6 +50,7 @@ A note that states a version, a flag or a feature must be checked against the in
 ## Large primary documents
 - Never search a filing, statute or regulator PDF through a paginated extractor: it returns head+tail only, so a passage in the middle is missing and zero hits look like "not in there".
 - Fetch the raw document, strip tags, regex the passage, quote it verbatim.
+- MediaWiki pages: the rendered extraction returns section headings with empty bodies — tables and list items never make it through. Fetch `?title=<Page>&action=raw` and read the wikitext; an empty section is extraction loss, not absent content.
 - Cite it with URL in the sources section; details only the primary document carries (transitional dates, applied rates) become their own sentence in the note.
 
 ## Thread fact-checks
@@ -59,6 +62,11 @@ A note that states a version, a flag or a feature must be checked against the in
 - Document where the short link points, which repo the bootstrap script comes from and whether it can be read before execution.
 - State the security caveat explicitly — foreign code runs directly; the execution decision stays with the user.
 - Name the weights licence separately: it can differ from the code licence (non-commercial weights under a permissive code licence).
+
+## Downloadable artifacts (firmware, installers, binaries)
+- A vendor download URL is not the artifact: URLs get repointed to a newer release while third-party docs, installers and older notes still cite the old one. Verify identity before citing — download, record size + SHA-256, and cross-check a second independent mirror; only a byte-identical pair counts as `verified`.
+- Prefer the vendor's own source/SDK repo as the primary source for an exact file when one exists (firmware blobs are often committed there), and cite embedded product identifiers (product strings, version headers) alongside size/hash — they expose a repointed file even without a baseline hash.
+- When the canonical URL no longer serves the documented artifact, say so in the note and give the reader a copy-paste fetch + hash-check snippet with the expected hash inline — this user acts on verified commands, not prose descriptions.
 
 ## Cost/decision notes
 - Every figure with an as-of date and a source; prices change weekly.

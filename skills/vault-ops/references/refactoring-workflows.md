@@ -2,6 +2,12 @@
 
 User-directed structural refactors and note retirement. Scope the affected files before writing; run multi-file structural changes as explicit work with verification, never as a quick patch.
 
+## Measure the Link Cost Before Pricing a Restructure
+
+Before proposing or pricing a move, count inbound wikilinks per affected note across the whole vault: build a basename→path map of every note, resolve each `[[target]]` (strip directory prefixes, aliases and heading anchors), count references per target, and report totals split into consumers inside the touched directory versus consumers outside it — that split is what says whether the restructure is one directory's business or vault-wide work.
+
+- **Count by resolving link targets against a basename map, never by grepping the bare filename** — a vault that links with full paths (`[[projects/x/Name]]`) or carries date-prefixed filenames returns zero for a naive name grep, so an expensive move looks free and the cost surfaces as broken links after the fact.
+
 ## Promote a Sub-MoC to a Top-Level Project
 
 Use when a sub-MoC nested under a parent project accumulates enough notes to warrant its own directory, tag, and INDEX entry. Promote when: the sub-project holds 3+ notes; the parent `project/*` tag is too generic to filter them; the parent MoC becomes a dump container mixing unrelated topics; task filters like `path includes projects/<parent>` catch unrelated notes; or the topic is an active project with ongoing obligations.
@@ -32,7 +38,7 @@ Use when the boundary between two areas shifts: notes, bookmark files or zettels
 2. **Check the destination for a name collision.** List `area/<to>/` for the same topic before choosing the target name. Two near-identical filenames in one directory (`agent-tool-bookmarks.md` beside `agent-tools-bookmarks.md`) is a defect you create yourself: rename the moved file by its distinguishing scope, or merge its entries verbatim into the existing file and retire the source.
 3. **Move with explicit backlink rewriting** — one `move_note(from=…, to=…, update_backlinks: true)` per file. On Direct the flag defaults to false, so omitting it strands every inbound link. Read `link_sources_updated` as the list of files to spot-check.
 4. **Rewrite each moved note's own metadata** — `tags`: swap `area/<from>` for `area/<to>`, keeping descriptive tags; frontmatter `topics`: `[[+NewMoC]]`; body `Topics:` footer: the same MoC link, added if the note had no footer. Skipping this leaves the note tagged to the old area and invisible to the new MoC.
-5. **Fix links between moved notes.** Moving the referenced file first rewrites inbound links to it, including links inside notes that move later. Finish with a grep for the old path across the vault.
+5. **Fix links between moved notes.** Moving the referenced file first rewrites inbound links to it, including links inside notes that move later. Finish with a grep for the old path across the vault. When the destination area's notes relate to the moved note — sibling notes, or a second note created in the same change — add `Related:` cross-links both ways so the new area's graph is connected beyond the MoC edge from the start.
 6. **Update both MoCs in opposite directions** — drop the entries from the source MoC, add one line each to the target MoC in that MoC's language, bump `updated:` on both. Do not mirror the moved notes in the source MoC — not even as a short "these moved to X" list, which is the same duplicate with a friendlier heading and drifts the moment one of them moves again. A single routing line naming the target area's MoC is the whole entry, plus the stale description fix in step 7.
 7. **Re-scope the area descriptions.** When the area's purpose changed, rewrite the sub-index abstract (`area/INDEX.md`) and the MoC's `description:` plus orientation paragraph to state the new boundary and where the moved class of note now lives. The MoC `description:` is the routing filter — leave it stale and the next note lands in the wrong area.
 8. **Verify** — `grep -rn 'area/<from>/<name>' --include='*.md' .` returns nothing; `get_links(direction=incoming)` on a moved note lists the target MoC; `query_frontmatter_sql` shows `area/<to>` in `tags` and `[[+<NewMoC>]]` in `topics`; `ls area/<from>` holds only what stayed.

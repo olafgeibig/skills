@@ -2,7 +2,7 @@
 name: artificial-analysis-cli
 description: "Use when comparing AI models via the model-analysis CLI."
 metadata:
-  version: "0.1.2"
+  version: "0.1.3"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -112,7 +112,9 @@ jq -r '.data[]
   intelligence index was present on 680, coding on 258, economics 213, engineering 205,
   agentic 164, healthcare 80. `null` means "not in this tier".
 - **No vision index in the free tier at all** — visual capability is not measured here;
-  probe the model with a generated test image instead of citing an index.
+  probe the model with a generated test image instead of citing an index (a ready-made
+  ground-truth battery with per-protocol callers ships with the `hermes-provider-setup`
+  skill — run that instead of rebuilding).
 - **No raw benchmark results**: only the aggregated `artificial_analysis_*_index` fields;
   MMLU/HumanEval-style raw scores are not part of the free shape.
 - **Small quota**: 100 requests per window. One `models list` plus `jq` beats many
