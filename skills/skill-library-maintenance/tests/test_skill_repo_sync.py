@@ -181,7 +181,7 @@ def test_stage_refuses_to_run_on_main(tmp_path: Path) -> None:
     result = invoke_engine(home, "--stage")
 
     assert result.returncode == 12
-    assert "never writes 'main'" in result.stdout + result.stderr
+    assert "stage never touches main" in result.stdout + result.stderr
     assert run_git(repo, "rev-parse", "HEAD").stdout.strip() == head_before
     assert run_git(repo, "diff", "--cached", "--name-only").stdout == ""
 
