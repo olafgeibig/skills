@@ -185,7 +185,7 @@ The background review (`auxiliary.background_review`, on by default) runs after 
 - **After verifying and committing, turn it back on:** `hermes config set auxiliary.background_review.enabled true`. Leaving it off silently stops the review-driven updates the library otherwise receives.
 - Small, single-file edits do not need the toggle; re-read the file immediately before patching instead.
 - If a pass ran with the review on, check `<HERMES_HOME>/skills/.curator_ledger.jsonl` for `actor: curator` entries whose `evidence.session_id` matches the session before treating a change as your own.
-- A missed toggle is diagnosable afterwards: multiple review runs touching one file are held by the publisher (`ledger-integrity … intermediate snapshots are unavailable`), and pull/push stays blocked until worktree and ledger chain agree again — a chain broken by a later commit outside the ledger does not self-heal (`references/shared-repo-sync.md` → *Diagnosing a stuck publisher*).
+- A missed toggle is diagnosable afterwards: background-pass writes arrive as `actor: curator` ledger entries and ride into the next staging commit — grep the ledger for the session id and review what landed. A hash chain broken by a commit outside the ledger surfaces in the curator's `--preflight` findings, not as a blocked transport (`references/shared-repo-sync.md` → *Diagnosing a stuck sync*).
 
 ## Protect Existing Work
 
