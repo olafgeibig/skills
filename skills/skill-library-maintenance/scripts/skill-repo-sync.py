@@ -195,9 +195,9 @@ def stage(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, 
     branch = git(repo, "branch", "--show-current").stdout.strip()
     if branch == "main":
         # The curator host may legitimately work on main between runs. Nothing to do here —
-        # but a DIRTY main is kept refused: feature/mixed work on main must be checked out
-        # explicitly, never swept silently.
-        if git(repo, "status", "--porcelain").stdout.strip():
+        # but TRACKED local changes on main are kept refused: mixed work must be checked out
+        # explicitly, never swept silently. Untracked debris (helper scripts, scratch) is benign.
+        if git(repo, "diff", "--quiet").returncode != 0 or git(repo, "diff", "--cached", "--quiet").returncode != 0:
             return 12, [f"machine/{machine}: repo sits on main with local changes — decide where "
                         f"they belong, then checkout machine/{machine} (stage never touches main)"]
         if verbose:
@@ -299,7 +299,7 @@ def sync_from_main(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tu
     branch = git(repo, "branch", "--show-current").stdout.strip()
     if branch == "main":
         # Same tolerance as stage: a clean main checkout is the curator's normal state.
-        if git(repo, "status", "--porcelain").stdout.strip():
+        if git(repo, "diff", "--quiet").returncode != 0 or git(repo, "diff", "--cached", "--quiet").returncode != 0:
             return 12, [f"machine/{machine}: repo sits on main with local changes — resolve them "
                         f"explicitly, then checkout machine/{machine}"]
         if verbose:

@@ -36,7 +36,13 @@ STATE_NAME = "skill-repo-sync.json"
 
 # Reuse the canonical instance-pointer patterns from the engine (single source of truth).
 _here = Path(__file__).resolve().parent
-_spec = spec_from_file_location("srs_engine", _here / "skill-repo-sync.py")
+_engine_candidates = [
+    _here / "skill-repo-sync.py",  # beside this script inside the repo
+    Path("/home/olaf/work/agent-skills/skills/skills/skill-library-maintenance/scripts/skill-repo-sync.py"),
+]
+_engine_path = next((p for p in _engine_candidates if p.is_file()), None)
+assert _engine_path is not None, "engine module not found beside this script or in the repo"
+_spec = spec_from_file_location("srs_engine", _engine_path)
 assert _spec is not None and _spec.loader is not None, "engine module missing beside this script"
 srs = module_from_spec(_spec)
 _spec.loader.exec_module(srs)
