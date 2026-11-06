@@ -2,7 +2,7 @@
 name: hermes-projects
 description: "Use when structuring a project that Hermes works in."
 metadata:
-  version: "1.0.5"
+  version: "1.1.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   scope: personal
@@ -95,6 +95,16 @@ Declare the publication target per project; the shape alone does not determine i
 - **A vault-side `AGENTS.md` or `conventions.md` goes through TurboVault.** It is audited and rollback-able but *not* approval-gated, while the same filename outside the vault is a protected file. Treat every vault-side edit as a change to agent behaviour: read the section back and quote what changed.
 - **A work-tree `AGENTS.md` is protected.** Read its full current content first — an overwrite from a stale copy is refused — then expect an approval prompt. A timed-out prompt means nothing was written: report it and hand over the intended content, never retry through another tool.
 - **One `AGENTS.md` per context, not per project.** A hybrid project can legitimately have a work-tree manual, a working-vault `AGENTS.md`, and a vault router. Two in the *same* directory are the defect, and that is why a working vault goes into a subdirectory.
+
+## Project kinds (notes projects)
+
+Shapes say where the files live; **kinds** say what the work is. A notes project may declare a kind in its `AGENTS.md` (`Projekttyp: <kind>`); the kind's skill holds the method — class tables, templates, care rules — while the project's `AGENTS.md` keeps facts and deviations only. One vocabulary per kind, enumerated in the vault root `AGENTS.md`'s type table; never a per-project dialect.
+
+| kind | What it is | Skill |
+|---|---|---|
+| `casefile` | administration of real-world affairs: cases (Vorgänge), files (Akten), master data, evidence, correspondence | `casefile` |
+
+**When a project deserves its own vault** — exactly three reasons: an access or device boundary (work versus private), a publication or deployment target that needs its own home, or shared custody with its own sync history. Rule volume is not a reason; new document types call for a new kind, not a new vault.
 
 ## Renaming a genus or a kind
 
