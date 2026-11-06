@@ -27,7 +27,7 @@ Inspect the installer as well as the engine. Identify state files, ledger cursor
 5. Compare state-file bytes, ledger cursor, `git status --porcelain`, `git diff --cached`, HEAD, and bare-remote refs before and after. An exit code alone cannot demonstrate non-mutation.
 6. Keep all pushes inside the disposable local remote. Do not run the installer against a live profile merely to discover its side effects.
 
-A minimal cursor probe needs only one committed file, one appended change, one ledger entry naming that file, and an initial cursor. Run dry-run, compare the cursor, then run normally to prove the same entry remains actionable.
+A minimal probe needs only one committed file, one appended change, one ledger entry naming that file, and an initial cursor. Run dry-run and compare the cursor, then run `--stage` to prove the sweep bundles the change into one transport-branch commit and advances the cursor.
 
 ## 3. Behavioral acceptance matrix
 
