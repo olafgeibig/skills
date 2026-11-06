@@ -192,6 +192,17 @@ def stage(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, 
     """Bundle ledger + worktree changes into one commit on machine/<name>, then push."""
     notes: list[str] = []
     state = load_state()
+    branch = git(repo, "branch", "--show-current").stdout.strip()
+    if branch == "main":
+        # The curator host may legitimately work on main between runs. Nothing to do here —
+        # but a DIRTY main is kept refused: feature/mixed work on main must be checked out
+        # explicitly, never swept silently.
+        if git(repo, "status", "--porcelain").stdout.strip():
+            return 12, [f"machine/{machine}: repo sits on main with local changes — decide where "
+                        f"they belong, then checkout machine/{machine} (stage never touches main)"]
+        if verbose:
+            notes.append(f"machine/{machine}: repo checkout sits on main (curator state) — stage skipped")
+        return 0, notes
     allowed, reason = repository_preflight(repo, machine)
     if not allowed:
         return 12, [f"machine/{machine}: {reason}"]
@@ -285,6 +296,15 @@ def push_stage(repo: Path, machine: str, notes: list[str], state: dict,
 def sync_from_main(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, list[str]]:
     """Session-start refresh: fetch; when the branch was consumed by the curator, reset to origin/main."""
     notes: list[str] = []
+    branch = git(repo, "branch", "--show-current").stdout.strip()
+    if branch == "main":
+        # Same tolerance as stage: a clean main checkout is the curator's normal state.
+        if git(repo, "status", "--porcelain").stdout.strip():
+            return 12, [f"machine/{machine}: repo sits on main with local changes — resolve them "
+                        f"explicitly, then checkout machine/{machine}"]
+        if verbose:
+            notes.append(f"machine/{machine}: repo checkout on main — session-start sync skipped")
+        return 0, notes
     allowed, reason = branch_policy(repo, machine)
     if not allowed:
         return 12, [f"machine/{machine}: {reason}"]
