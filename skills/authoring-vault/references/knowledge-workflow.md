@@ -16,6 +16,15 @@ Use this reference when planning multi-step knowledge work, deciding whether cov
 
 **Exit check:** the scope is specific enough to guide research and deliverable briefs. Record exclusions and unresolved boundaries. Do not claim exhaustive coverage of an open-ended subject.
 
+## Inventory existing documents and conversions
+
+1. Enumerate the actual source directory and conversion directory, then read the existing inventory and resource MoC. Match originals to conversions by inspected filenames; preserve both files unchanged. Read enough of each new conversion to describe its role accurately, distinguishing a main document from its annexes rather than counting them as independent statements.
+2. Add each requested source/conversion pair to the existing inventory and a short, descriptive entry to the appropriate MoC section. Keep sensitive identifiers and financial figures out of navigation unless needed to distinguish documents. Use the date stated inside the source for its description; a filename date may differ and must not be silently corrected.
+3. Update root navigation and the iteration reason under the core version rules. Keep this inventory-only scope separate from analysis or confirmation of benefits, rights, and current applicability.
+4. Validate mappings programmatically: parse every Markdown link in each inventory row, URL-decode targets, resolve them from the inventory's directory, and check original and conversion files independently. Select rows by their links or parsed columns, not by whether the visible label contains a file extension; descriptive labels otherwise disappear from the count.
+5. Compare the enumerated originals and mapped originals as sets; report missing mappings, duplicate mappings, and broken targets separately. Use Unicode normalization for comparison where needed, while preserving literal filenames and link targets. Check directory-entry spelling and case explicitly; existence checks on a case-insensitive filesystem can accept a non-portable link.
+6. Check table column counts and MoC links as well as file existence. Build edits from raw Markdown, not the line-numbered read-tool presentation; an extra leading pipe creates an empty table column even when every link resolves. Report the verified scope and counts, not a whole-vault or visual-rendering guarantee.
+
 ## Grounding
 
 **Inputs:** scope, questions, existing knowledge, and available sources.
@@ -23,6 +32,18 @@ Use this reference when planning multi-step knowledge work, deciding whether cov
 **Work:** use `resource` notes for concrete sources, `research` for findings across sources, `analysis` for evaluation or interpretation, and `idea` for proposals or assumptions. Combine roles as useful; none is a mandatory prerequisite for another. Preserve source provenance, reasoning, attribution, assumptions, and unresolved points at the level needed for later review. Keep source statements separate from inference and recommendation.
 
 **Exit check:** the material findings and proposals needed for the intended outputs have identifiable support or are explicitly marked as uncertain, assumed, or unresolved. Continue grounding when a material gap remains.
+
+## Source-based option analyses
+
+Use this recipe when comparing personal or organizational options whose availability depends on contracts, policies, agreements, or program conditions.
+
+1. Read the resource MoC and relevant existing analyses; select the actual source notes for each requested option before drafting. Reuse shared evidence, but keep independently useful options in separate notes with reciprocal comparison links rather than duplicating their full contents.
+2. Establish applicability separately from content: identify source authority, covered organization/location/persons, effective period, and amendments or successor rules. Distinguish an individual contract, a governing agreement, a local presentation, and an oral explanation. Keep legal employer, contractual work location, current organizational assignment, and the agreement's covered establishment separate; organizational membership alone does not establish coverage by another location's agreement. Report what each establishes; do not promote examples or an approval still being requested into an entitlement.
+3. Extract the decision-critical conditions: entry criteria, deadlines, duration, cash-flow components, exclusions, side activities, insurance or other continuing obligations, and termination consequences. Read the enclosing section and employee-group/model headings before assigning a condition; neighboring program sections can use similar labels while covering different populations. Keep general eligibility, an enforceable entitlement, and discretionary program admission distinct. Label each quota by its population, denominator, and period, and each deadline by its application route; an annual admission quota is not a simultaneous-participation cap, and a program deadline is not necessarily the deadline for asserting a contractual right. For tables or diagrams whose text conversion obscures their structure, inspect the original local document. Distinguish physical PDF page numbers from printed slide numbers in citations, because they may diverge.
+4. Check personal milestones and time windows with a computation tool. Keep the calculated milestone separate from the governing rule: reaching an age or service anniversary does not itself establish eligibility, credited service, or the effective benefit start. Check expiry, transitional effects, and successor agreements before extending a source's conditions into the future.
+5. Draft a compact decision note: short conclusion, applicability and baseline, mechanics and conditions, benefits/risks, unresolved questions, and concrete next steps. Put source links beside material conditions and list actual inputs under `Based on:`. Treat unexplained neighboring program names as unresolved rather than inventing a distinction. Do not equate gross lump sums, net-income reference values, or illustrated benefits with guaranteed spendable income.
+6. State the minimum evidence needed for a reliable comparison: written availability/approval, an individualized calculation with explicit assumptions, and confirmation from the authority responsible for disputed consequences. Keep unavailable figures as gaps rather than fabricating a scenario. Preserve the option of continuing the current arrangement as the baseline when relevant.
+7. Validate metadata, navigation, and link resolution separately from substantive applicability. Report static checks as static checks; they do not prove entitlement, current law, or visual rendering.
 
 ## Distillation
 

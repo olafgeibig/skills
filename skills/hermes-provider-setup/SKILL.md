@@ -1,7 +1,7 @@
 ---
 name: hermes-provider-setup
 description: Set up Hermes providers, keys, rate limits and model slots.
-version: 0.9.2
+version: 0.11.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -185,7 +185,7 @@ Rules that survive the next docs update:
 - **`/models` often answers without a key — fine for early reconnaissance, but not a plan inventory.** The unauthenticated answer can be the provider's **public catalogue**, a superset carrying IDs the plan rejects at request time. Plan membership comes from the **keyed** call (`Authorization: Bearer <key>`) — quote that list for config decisions, report the delta to the public catalogue in both directions, and take `context_length`, max output and per-token prices from the keyed response where offered. A `pricing` value of `0` is the catalogue's silence (unpublished), not free.
 - **A vendor's integration page for your exact tool names the values to plug in** (base URL, api_mode, model id, context length) and is often newer than the vendor's pricing page — but treat it as the second-best source and confirm every value against live `/models`.
 - **Diff the live IDs against the published list and report the delta in both directions.** Curated pages lag: a live-only model exists, and a documented model can already be retired.
-- **A keyed `/models` hit is a plan promise, not a protocol promise.** The catalogue says the plan *includes* the model; it does not say the configured transport can *serve* it. A provider profile carries one `api_mode`, so a model whose serving surface differs from the profile's (e.g. a native Google Responses surface behind an OpenAI-compatible relay) is unreachable through that provider however prominently the picker offers it. The break surfaces only at request time — as a silent fallback to the chain (Pitfall 11), never as an error in the picker — so confirm a candidate with a real `hermes -z -m <id>` and attribute the answer before routing any slot to it.
+- **A keyed `/models` hit is catalogue evidence, not proof of inference entitlement or protocol support.** Even an authenticated listing marked enabled can contain a model that the same credential cannot invoke; confirm access with a real request using the intended credential and transport. A provider profile carries one `api_mode`, so a model whose serving surface differs from the profile's (e.g. a native Google Responses surface behind an OpenAI-compatible relay) is unreachable through that provider however prominently the picker offers it. The break surfaces only at request time — as a silent fallback to the chain (Pitfall 11), never as an error in the picker — so confirm a candidate with a real `hermes -z -m <id>` and attribute the answer before routing any slot to it.
 - A model with no documented cap has an **unknown** cap — not zero, not unlimited.
 - **OpenCode's relay rejects bare chat calls.** `POST /chat/completions` on `opencode.ai/zen…` returns `400 MissingSessionID` without an `x-opencode-session` header; Hermes adds it on every OpenCode target (conversation key, else an ephemeral `oneshot-<hex>` — `agent/opencode_affinity.py`). A hand-rolled `curl` that omits it produces a false "provider broken" finding: probe `/models` (200 = auth fine) or go through `hermes -z`, and add the header if you must hit chat directly.
 - Window caps (rolling ≈5 h / weekly / monthly) and per-model dollar caps are two layers that both apply; plan tiers are **not** constant multiples of each other, so never derive one tier's column from the other — and some plans have only one tier (OpenCode Go is not one of them: Go $10 → Go Plus $40, per-model caps growing 2×–8× — `references/opencode-go-plan.md`).
@@ -239,10 +239,15 @@ Hermes has **~20 built-in providers** that don't require `providers:` config —
 | Transport | Providers | Notes |
 |---|---|---|
 | `openai_chat` (default) | openrouter, nous, lmstudio, qwen-oauth, ollama-cloud, kimi-coding, opencode-zen, opencode-go | Most common; OpenAI-compatible chat completions |
-| `codex_responses` | openai-codex, openai-api, xai-oauth, xai, copilot-acp | OpenAI Responses API (`/v1/responses`) — not just for Codex |
+| `codex_responses` | openai-codex, openai-api, xai-oauth, xai | OpenAI Responses API — not just for Codex; resolve the endpoint path from the provider implementation |
+| ACP subprocess | copilot-acp | Runs the local Copilot CLI over ACP; its Hermes-facing `chat_completions` adapter is not a direct HTTP chat endpoint |
 | `anthropic_messages` | any Claude endpoint configured with that `api_mode` | Anthropic Messages API (`/v1/messages`) |
 | `bedrock_converse` | bedrock | AWS Bedrock |
 | `virtual` | moa | Mixture-of-Agents local router |
+
+**Copilot transport distinction.** Inspect the selected provider before diagnosing it: `copilot` calls the API directly; `copilot-acp` launches the CLI. An absent CLI does not explain a failure on the direct API route. For plugin-backed providers, resolve the installed plugin under the active profile and inspect its implementation before widening a core-source search; an empty legacy provider directory can reflect extraction into a plugin, not a damaged checkout. The plugin catalog entry identifies the source package when core contains only compatibility shims.
+
+When comparing a working Hermes Copilot route with another client, distinguish source GitHub credentials from exchanged Copilot API tokens. First resolve each client's actual credential source and account/SKU, then isolate token, endpoint and headers with the same minimal inference body. Keep secrets in process memory; print only allowlisted status, error and account fields, never whole configs or auth objects. Do not copy credentials between clients without explicit authorization. A direct upstream success does not verify the proxy: finish through the intended proxy endpoint and validate generated output before claiming the route works. See `references/live-provider-probes.md` § 7 for the controlled comparison procedure.
 
 ### Quick provider-selection heuristic
 
@@ -365,9 +370,14 @@ If the user says "xai-oauth is configured but Hermes doesn't see it" — verify 
 
 Provider doc pages list *curated* models; the provider's own `/models` is the truth, and the two drift in both directions. Quote endpoint output with its fetch time, or re-fetch — never re-cite a docs table as "current". For caps this matters twice over: an undocumented model's limit is unknown, and the doc's headline tier is not necessarily the tier the user is on, so read the plan (or ask) before picking a column.
 
-### Pitfall 10 — Headless OAuth flows are the user's to run
+### Pitfall 10 — Stage account changes and coordinate interactive OAuth
 
-On a headless host (Pi, VPS, container, remote shell) an OAuth provider setup (`hermes auth add xai-oauth --no-browser --manual-paste`, Spotify PKCE, ...) needs a human to paste the callback: started from a tool harness the paste prompt collapses to an **empty string** and the flow fails with `missing authorization code` (or `state mismatch`), because the harness cannot wait out a browser dance happening on another machine. **Hand it over, don't execute it:** give the user the command, the authorize URL and the step list, let them run it in their own terminal, then verify afterwards with `hermes auth status <provider>` — the result is debuggable after the fact, the live flow never is. Even after success the running session does not re-point itself: switch with `/model <model> --provider <provider>` (Pitfall 5) or open a fresh session. Do NOT carry over the old "sessions lock to their starting provider" claim — Pitfall 5 supersedes it.
+1. **Keep the current credential intact while obtaining its replacement.** Prefer a supported isolated credential directory for the candidate login; verify the new account and requested model before promotion. If isolation is unavailable, obtain agreement on the interruption and rollback before removing active auth files. A backup alone does not preserve service, and a scratch backup is not durable recovery storage.
+2. **Choose the interaction path before starting OAuth.** For callback-paste flows without usable interactive stdin, let the user run the supported command in their own terminal; never ask them to paste a callback or authentication code into chat. For device authorization, get the user ready on the verification page before starting, then surface the current user-facing code promptly through the approved auth UI. Do not start a short-lived flow and then spend its validity window investigating logs. Do not automatically exhaust repeated codes while the user is absent; a timeout is not evidence that they used the wrong account.
+3. **Verify identity and inference separately.** After authorization, check allowlisted account metadata, then exercise the requested model through the intended client. A liveness HTTP 200 proves only that the server is alive, not that credentials, deployment readiness or inference work. Report those states separately.
+4. **Read back route changes after auth.** A running session does not automatically re-point itself: switch with `/model <model> --provider <provider>` (Pitfall 5) or open a fresh session; check the default model block as described in Pitfall 13.
+
+For LiteLLM/Copilot-specific preflight and staging, see `references/live-provider-probes.md` § 8.
 
 ### Pitfall 11 — A green probe after a credential fix can be the fallback answering
 

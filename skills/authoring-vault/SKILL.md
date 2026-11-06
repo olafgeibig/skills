@@ -2,7 +2,7 @@
 name: authoring-vault
 description: "Use when authoring deliverables in a working vault: notes → distilled → publication."
 metadata:
-  version: "2.3.0"
+  version: "2.4.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -35,7 +35,7 @@ Use the working-vault kind declared by the project, not the presence of a public
 - Filesystem tools suffice. When using TurboVault, load `turbovault-use` and verify the selected vault and scope. Registration is not required for an Obsidian mini-vault, but without it there is no TurboVault audit, rollback or drift coverage: use the project's version control as the safety net and do not claim those guarantees.
 - Do not restructure existing material, initialize Git, commit, or publish without a request. Preserve unrelated work.
 - For new notes load `references/note-templates.md`; for initialization load `templates/vault-agents.md`.
-- For multi-step knowledge work, coverage decisions, composition choices, or refreshes, load `references/knowledge-workflow.md`.
+- For document inventories, multi-step knowledge work, coverage decisions, composition choices, or refreshes, load `references/knowledge-workflow.md`. Inventory requests update navigation and source/conversion mappings, not the source files or substantive analyses.
 - When the user wants an agent to work autonomously from research to distilled or deliverable, load `references/plan-driven-run.md`: interview with `grilling`, an approved plan in `system/plan.md`, subagent execution, review gates.
 - Treat template body headings as defaults: preserve the user's requested section names, order, and brevity while applying the required metadata and navigation, because a valid note must also match the requested reading structure.
 
@@ -44,7 +44,9 @@ Use the working-vault kind declared by the project, not the presence of a public
 1. Read INDEX and the relevant existing notes before adding a Zettel; update the authoritative note when the subject already exists rather than creating a duplicate.
 2. Carry forward the purpose and sequence already stated in the conversation. Record genuinely undecided boundaries separately; an unexplained project acronym does not make the user's stated goal unknown. Keep analysis, distilled findings, and later deliverables distinct when the user requested that sequence.
 3. For a request to save completed research, write a focused `research` note from the available findings and actual source locators, then link it from INDEX and update the iteration reason/version. Preserve the research's original as-of date and attribution; saving or reformatting findings is not a fresh source check. Re-fetch sources only when a refresh is requested or a material claim needs verification, and disclose missing evidence instead of treating an earlier assistant assertion as a checked source.
-4. When asked for a project-context note, keep the AGENTS summary to short sentences about the subject, current phase, and intended next phase; place essential facts, limitations, and links to detailed research in the context note. Add the requested read-before-work instruction to AGENTS and a curated link from INDEX. Preserve the user-specified filename even when documentation uses another language; translating the basename breaks the requested artifact and its incoming links.
+4. When asked for a project-context note, keep the AGENTS summary to short sentences about the subject, current phase, and intended next phase; place essential facts, limitations, and links to detailed research in the context note. For context loaded on every task, use compact bullets containing only decision-relevant baseline facts and uncertainties; link detailed evidence instead of repeating it, because every extra paragraph becomes recurring context cost. Treat user-provided remit, focus, environment patterns, and policies as authoritative within their stated scope; do not blanket-label them unverified merely because they were dictated. Use context to select relevant research, not as a cited technical source or a finding about every system. Distinguish policy requirements from inspected deployment state and leave uncertain product or tier names unresolved, because a required control is not proof of implementation. Add the requested read-before-work instruction with a resolvable link to every applicable entry manual (work tree and embedded vault when both govern the task), plus a curated link from INDEX; an agent may enter through either manual. Preserve the user-specified filename even when documentation uses another language; translating the basename breaks the requested artifact and its incoming links.
+
+For factual context notes, reconcile historical documents with current user statements before finalizing: keep formal titles/assignments separate from work actually performed, attribute each to its source, and retain the historical baseline rather than silently replacing it. Ask only for decision-relevant gaps, batch independent questions, then integrate the answers into the authoritative context note; a clarification left only in chat will be unavailable to the next task. Date status confirmations and preferences separately from the original source event, because “unchanged” confirms the known status rather than establishing new offers, rights, or approvals. Keep sensitive identifiers out of recurring context unless needed for the task.
 
 ## Formal migration of an existing vault
 
@@ -69,7 +71,7 @@ working-vault/       # a subdirectory of the work tree when one exists
 └── system/            # project context, publication instructions, local templates, optional briefs
 ```
 
-Create directories only when used. No area/project wrappers, per-type folders, or mandatory per-directory MoCs.
+At initialization, create the four scaffold directories listed above (`notes/`, `distilled/`, `deliverables/`, `system/`) even when empty. Create optional directories such as `resources/` only when used; the lazy-creation rule must not leave an explicitly requested initialization incomplete. No area/project wrappers, per-type folders, or mandatory per-directory MoCs.
 
 ## Navigation and Obsidian compatibility
 
@@ -97,7 +99,7 @@ Atomic means a bounded subject, not one sentence. Split for independent reuse. P
 
 Grounding is the work of establishing relevant knowledge. `resource` represents a concrete source, `research` reports findings across sources, `analysis` evaluates or interprets, and `idea` records proposals or assumptions. These roles can complement one another; they are not mandatory sequential steps.
 
-Normally, working research and analysis lead to distilled knowledge, then deliverables. Distillation turns relevant grounding into concise, reusable conclusions with scope, qualifications, unresolved limits, and actual input links. A deliverable may assemble distilled material or rewrite it for its audience and format. It may use analysis or resources directly when a separate distilled note adds no value. Create distinct artifacts linked by `Based on:`, not repeated renaming of one file. Cite sources next to claims where a general dependency list is ambiguous. Separate source statements, interpretations, assumptions, and open questions.
+Normally, working research and analysis lead to distilled knowledge, then deliverables. Distillation turns relevant grounding into concise, reusable conclusions with scope, qualifications, unresolved limits, and actual input links. A deliverable may assemble distilled material or rewrite it for its audience and format. It may use analysis or resources directly when a separate distilled note adds no value. Create distinct artifacts linked by `Based on:`, not repeated renaming of one file. Cite sources next to claims where a general dependency list is ambiguous. Separate source statements, interpretations, assumptions, and open questions. For source-based option analyses, establish each source's personal, organizational, geographic, and temporal applicability before deriving eligibility or recommendations; a presentation or oral explanation is not proof of an individual entitlement. Use the option-analysis recipe in `references/knowledge-workflow.md` when these boundaries affect the decision.
 
 ## Knowledge workflow
 
@@ -116,7 +118,7 @@ Use `system/` for project-specific operating instructions, topical templates, co
 
 Required: `description`, `type`, `updated`, `topics`. Descriptions explain content rather than echo titles. Obtain actual local dates with a tool; use `YYYY-MM-DD`.
 
-- `updated`: last substantive content change, not a review-only metadata update.
+- `updated`: last substantive content change, not a review-only metadata update. Adding or changing a curated MoC entry counts as a content change: update the affected MoC's date in the same edit, not only the root INDEX.
 - `created` and `tags`: optional; no area/project tags required.
 - Root INDEX: quoted SemVer `version`, the shared working/release target; start at `"0.1.0"` unless directed otherwise.
 - Content notes: `checked` and `reviewed_for` are absent until reviewed; both are required to claim review for a target version. `checked` is the actual review date; `reviewed_for` is the quoted project version, not an independent note version.
@@ -161,9 +163,9 @@ Project versions label iterations; they do not archive history. Existing Git sup
 ## Verify before completion
 
 - Name the vault-local `AGENTS.md` you read and how its layout, metadata and navigation rules were applied. A completion report that cannot name that file has not followed the chain, however conformant the notes look.
-- Validate YAML, allowed types, quoted version strings, descriptions, and actual date values.
+- Validate YAML, allowed types, quoted version strings, descriptions, and actual date values. Check Git tracking status before treating `git diff` or `git diff --check` as validation: untracked notes are omitted, so validate their actual contents and link targets directly; an empty diff does not establish that they are correct.
 - Check local note/attachment targets and reachability of every content note from INDEX. Inspect list indentation as well as link existence: insert a new sibling after an existing parent's entire nested child block, not between the parent and its children, because valid links can still imply the wrong hierarchy. Verify requested filenames and AGENTS read-before-work links explicitly; after a rename, update incoming links together and check that no stale target remains.
-- Resolve reported broken links before editing them: distinguish missing vault notes from deliberate relative links to sources outside the vault, and check those source paths against the filesystem from the containing note's directory. Preserve valid Markdown links and report validator scope limitations; do not convert links to HTML merely to hide them from the graph checker, because an undiscovered link is not a repaired or rendering-tested link.
+- Resolve reported broken links before editing them: resolve bare wikilink basenames across the entire vault, not just its root; report multiple matches as ambiguous and use a vault-relative target to disambiguate. Resolve path-qualified wikilinks from the vault root and ordinary relative Markdown links from the containing note's directory. Distinguish missing vault notes from deliberate relative links to sources outside the vault, and check those source paths against the filesystem. Preserve valid Markdown links and report validator scope limitations; do not convert links to HTML merely to hide them from the graph checker, because an undiscovered link is not a repaired or rendering-tested link.
 - Check non-root MoC membership in both directions and matching frontmatter/footer topics.
 - Exclude instructions, templates, raw resources, and `.obsidian` settings from content metadata requirements.
 - Verify review order and coverage against the agreed subject scope and output briefs; distinguish changed, reviewed, deferred, omitted, and blocked work honestly. Keep publication records on deliverable notes, not distilled inputs.

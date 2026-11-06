@@ -33,6 +33,8 @@ The vault's AGENTS.md defines a language per area (e.g., `agents` → EN, `gesun
 
 **Pitfall:** A zettel written in German for an English-language area will need to be rewritten — the area's language policy is authoritative regardless of how the user asked for the note.
 
+**Pitfall (typography):** In German prose the closing curly quote “ is easily emitted as a straight `"` when authoring JSON-encoded tool payloads; the straight quote lands in the note and breaks the „…“ pair silently, and no tool flags it. After any German write, grep the note for `"` outside the frontmatter and wikilink lines and repair the pairs via `edit_note` before reporting the note done.
+
 ## Consolidation Style — Fact Mirror, Not Audit Trail
 
 A note is a **fact mirror**: it states the current knowledge, each fact once. It is not an audit trail — no iteration history, no superseded statements, no rejected-findings tables, no decision-recommendation menus, no inline ✅/⚠️/❌ as evaluation — status only where the facts justify it. Verification checklists and correction history belong in pitfall captures or skill references, not in the note body.

@@ -2,7 +2,7 @@
 
 ## Primary-source hierarchy on conflict
 - On conflict, the order is: repo/`README`/`SCHEMA` → vendor docs → trade press → social announcement.
-- The primary source wins; state the deviation in the note ("`README` calls X untested; the post calls X supported — `README` governs").
+- The primary source wins; state the deviation in the note ("`README` calls X untested; the post calls X supported — `README` governs"). Put the corrected value into the claim sentence itself: the body is what gets copied, so a wrong figure left in place with its correction reachable only in the Source check is a live error.
 - Silently smoothing a conflict over is data loss.
 
 ## Claim-heavy sources
@@ -31,6 +31,8 @@ A note that states a version, a flag or a feature must be checked against the in
 - `Quoted figures — not independently verified`: everything carried from the source unreviewed.
 - `Source check`: separates right from incomplete/misleading claims, claim by claim.
 - These two sections are the difference between a note and an advertorial; never omit them for a claim-heavy source.
+- A claim the source itself admits is an unsourced circulating figure stays in the note, marked `not to be used`, instead of being silently dropped — the reader should see the number exists and why it fails.
+- Search budget goes to the headline figures a reader would quote back; a background figure with no cheaply reachable primary source rides in the not-verified section rather than blocking the note.
 
 ## Named examples: stepped verdicts
 - Check every named user or customer against a filing, the commercial register or office listings — never confirm in bulk.
