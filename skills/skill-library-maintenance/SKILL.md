@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing, dissolving or syncing a skill library."
 license: MIT
 metadata:
-  version: "0.16.0"
+  version: "0.18.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -161,8 +161,9 @@ Use `references/repository-sync-safety.md` for the isolation recipe and behavior
 A skill repository mounted on more than one installation needs a sync design, or review writes sit
 uncommitted until they collide with the other machines. The design shipped in
 `scripts/skill-repo-sync.py` is **Stage & Curate**: no machine session writes `main`; each
-installation stages its work onto a transport branch `machine/<hostname>`, and one nightly curator
-consolidates every branch into a single `main` commit.
+installation stages its work onto a transport branch `machine/<hostname>`, and one nightly
+consolidator consumes the transport branches one per pass, landing one `main` commit per
+consumed branch.
 
 - The background review can write into shared repos too. Correlate unexpected changes with
   paths, timestamps, and mutation details in `<HERMES_HOME>/skills/.curator_ledger.jsonl`;
@@ -172,9 +173,10 @@ consolidates every branch into a single `main` commit.
   holds hashes, not intermediate file contents, so per-run commits cannot be reconstructed — the
   sweep commits the current content per path, once. A push failure keeps the commit for retry
   without duplicating it.
-- `main` has exactly one writer: the nightly curator (a scheduled agent run, model-pinned). It
-  reads every transport branch's complete diff, deduplicates overlaps (one home per rule), bumps
-  SemVer, makes one `main` commit, then resets the consumed transport branches to `main`.
+- `main` has exactly one writer: the nightly consolidator (a scheduled agent run, model-pinned).
+  It consolidates one transport branch per pass from mechanical 3-way merge maps — auto-merged
+  files untouched, the semantic review covers conflict packets, needs-curation items and the
+  added-hunk digest — and lands one commit per consumed branch.
 - A transport branch is a landing strip, not a feature branch: `--reset-branch` (the only
   sanctioned force, lease-guarded) resets it after consumption; never merge one back by hand.
 - A new install requires the explicit `--bootstrap-current-ledger` choice, which skips historical
@@ -182,7 +184,7 @@ consolidates every branch into a single `main` commit.
 - Long sessions: the skill *index* is a start-of-session snapshot (prompt-cache invariant); skill
   *bodies* load from disk, so `/skill-name` always yields current content. Never pull mid-session to
   "fix" an index.
-- Mechanics, install, cron wiring, the curator run book, the cross-machine deployment audit,
+- Mechanics, install, cron wiring, the consolidator run book (v2.1), the cross-machine deployment audit,
   manual fallback and failure diagnosis:
   `references/shared-repo-sync.md`.
 
@@ -193,8 +195,12 @@ The background review (`auxiliary.background_review`, on by default) runs after 
 - **Before a larger pass — refactoring or splitting a skill, dissolving an adaptation into its canonical owner — disable it and tell the user:** `hermes config set auxiliary.background_review.enabled false`. Say why, so the missing review updates later are not a surprise.
 - **After verifying and committing, turn it back on:** `hermes config set auxiliary.background_review.enabled true`. Leaving it off silently stops the review-driven updates the library otherwise receives.
 - Small, single-file edits do not need the toggle; re-read the file immediately before patching instead.
+- Before a review write into a shared-repository skill, apply `skill-governance`'s adaptation
+  routing at write time: instance-shaped lessons go to the profile's adaptation or the project files. The staging
+  curation scan flags what slipped through, and the consolidator's review pass drops leftovers
+  defensively.
 - If a pass ran with the review on, check `<HERMES_HOME>/skills/.curator_ledger.jsonl` for `actor: curator` entries whose `evidence.session_id` matches the session before treating a change as your own.
-- A missed toggle is diagnosable afterwards: background-pass writes arrive as `actor: curator` ledger entries and ride into the next staging commit — grep the ledger for the session id and review what landed. A hash chain broken by a commit outside the ledger surfaces in the curator's `--preflight` findings, not as a blocked transport (`references/shared-repo-sync.md` → *Diagnosing a stuck sync*).
+- A missed toggle is diagnosable afterwards: background-pass writes arrive as `actor: curator` ledger entries and ride into the next staging commit — grep the ledger for the session id and review what landed. A hash chain broken by a commit outside the ledger surfaces in the consolidator's `--preflight` findings, not as a blocked transport (`references/shared-repo-sync.md` → *Diagnosing a stuck sync*).
 
 ## Protect Existing Work
 

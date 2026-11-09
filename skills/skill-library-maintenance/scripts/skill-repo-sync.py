@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # skill-repo-sync — v2 "Stage & Curate" stage layer.
 #
-# SCRIPT_VERSION: 2.0.0
+# SCRIPT_VERSION: 2.1.0
 # Part of the skill-library-maintenance skill (shared repo). Install with
 # scripts/install-skill-repo-sync.py; verify with `--selfcheck`.
 #
@@ -45,7 +45,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCRIPT_VERSION = "2.0.0"
+SCRIPT_VERSION = "2.1.0"
 STATE_NAME = "skill-repo-sync.json"
 CURSOR_KEY = "ledger_cursor"  # index of the last ledger line staged into a commit
 
@@ -64,6 +64,53 @@ INSTANCE_PATTERNS = (
 )
 LINK_RE = re.compile(r"\]\(([^)#]+?)(?:#[^)]*)?\)")
 REF_RE = re.compile(r"`?(references/[A-Za-z0-9_.-]+\.md)`?")
+
+
+def _norm_line(line: str) -> str:
+    s = re.sub(r"\s+", " ", line.strip().lower())
+    return s.rstrip(".:").replace("*", "").replace("`", "")
+
+
+def added_pairs_from_diff(diff_text: str) -> list[tuple[str, str]]:
+    """(file, added line) pairs from a unified diff — the stage scan's input (v2.1)."""
+    out: list[tuple[str, str]] = []
+    current = ""
+    for line in diff_text.splitlines():
+        if line.startswith("+++ b/"):
+            current = line[6:]
+        elif line.startswith("+") and not line.startswith("+++ b/"):
+            out.append((current, line[1:]))
+    return out
+
+
+def curation_scan(repo: Path, added: list[tuple[str, str]]) -> list[dict]:
+    """Vorbereitung fuer die Kuratierung: welche Additionen brauchen Augen?
+    Instanz-Pointer (Veto) und Duplikat-Kandidaten (Zeile >= 8 Woerter existiert
+    sinngemaess schon in origin/main:<file> oder im Branch-Verlauf/HEAD). Der Scan ist
+    das SICHERHEITSNETZ (Marker), nicht der Router — markieren statt verwerfen."""
+    findings: list[dict] = []
+    seen: dict[str, set[str]] = {}
+    for f, text in added:
+        if not text.strip():
+            continue
+        for pattern, label in INSTANCE_PATTERNS:
+            if re.search(pattern, text):
+                findings.append({"file": f, "kind": "instance-pointer", "detail": label,
+                                 "line": text.strip()[:160]})
+        if len(text.split()) < 8:
+            continue
+        if f not in seen:
+            lines: set[str] = set()
+            for rev in ("origin/main", "HEAD"):
+                out = git(repo, "show", f"{rev}:{f}")
+                if out.returncode == 0:
+                    lines |= {_norm_line(l) for l in out.stdout.splitlines() if l.strip()}
+            seen[f] = lines
+        if _norm_line(text) in seen[f]:
+            findings.append({"file": f, "kind": "duplicate-candidate",
+                             "detail": "line already in origin/main or HEAD",
+                             "line": text.strip()[:160]})
+    return findings
 
 
 def hermes_home() -> Path:
@@ -256,6 +303,14 @@ def stage(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, 
     if git(repo, "diff", "--cached", "--check").returncode != 0:
         return 12, [f"machine/{machine}: staged whitespace check failed"]
 
+    # v2.1 staging curation scan (R3): every staged addition against origin/main/HEAD —
+    # instance pointers and duplicate candidates. Safety net: mark, never route.
+    findings = curation_scan(repo, added_pairs_from_diff(git(repo, "diff", "--cached").stdout))
+    stage_report = {"at": datetime.now(tz=timezone.utc).isoformat(),
+                    "needs_curation": len(findings), "findings": findings}
+    report_path = state_path().parent / "stage-report.json"
+    report_path.write_text(json.dumps(stage_report, indent=2), encoding="utf-8")
+
     stamp = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     message_lines = [f"stage: skill updates on {machine} ({stamp})", ""]
     if ledger_ids:
@@ -266,6 +321,8 @@ def stage(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, 
         message_lines.append("Manual additions (no ledger entry): " + shown)
     message_lines.append("Consolidating this content into main is the curator's job; "
                          "this commit only secures the work.")
+    if findings:
+        message_lines.append(f"Needs-curation: {len(findings)}")
 
     commit = git(repo, "commit", "-q", "-m", "\n".join(message_lines), "--", *paths)
     if commit.returncode != 0:
@@ -297,6 +354,16 @@ def push_stage(repo: Path, machine: str, notes: list[str], state: dict,
 def sync_from_main(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, list[str]]:
     """Session-start refresh: fetch; when the branch was consumed by the curator, reset to origin/main."""
     notes: list[str] = []
+    # v2.1 session-start warning (R3): the local cleanup trigger for the last stage scan.
+    report_path = state_path().parent / "stage-report.json"
+    if report_path.is_file():
+        try:
+            rep = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            rep = {}
+        if rep.get("needs_curation"):
+            notes.append(f"skills: {rep['needs_curation']} addition(s) need curation — "
+                         "see stage-report.json (fix before staging again)")
     branch = git(repo, "branch", "--show-current").stdout.strip()
     if branch == "main":
         # Same tolerance as stage: a clean main checkout is the curator's normal state.

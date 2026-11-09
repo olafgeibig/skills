@@ -355,17 +355,19 @@ def test_consolidate_collect_and_reset_roundtrip(tmp_path: Path) -> None:
     run_git(curator, "merge", f"origin/machine/{MACHINE}")
     run_git(curator, "push", "origin", "main")
 
-    # reset the consumed branch: force-with-lease to origin/main
-    reset = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(curator))
+    # reset the consumed branch: force-with-lease to origin/main (curator assertion)
+    reset = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(curator),
+                               "--confirm-consumed")
     assert reset.returncode == 0, reset.stderr or reset.stdout
     assert remote_head(curator, f"machine/{MACHINE}") == remote_head(curator, "main")
 
     # rerun reset is a no-op
-    again = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(curator), "--dry-run")
+    again = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(curator),
+                               "--confirm-consumed", "--dry-run")
     assert again.returncode == 0 and "already at origin/main" in again.stderr
 
 
-def test_consolidate_reset_refuses_branch_with_unique_work(tmp_path: Path) -> None:
+def test_consolidate_reset_refuses_without_confirmation(tmp_path: Path) -> None:
     repo, remote, target, home = setup_repo(tmp_path)
     target.write_text("name: demo\n\nNot yet consolidated.\n", encoding="utf-8")
     run_git(repo, "add", "--", "skills/demo/SKILL.md")
@@ -380,7 +382,7 @@ def test_consolidate_reset_refuses_branch_with_unique_work(tmp_path: Path) -> No
     result = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(curator))
 
     assert result.returncode == 12
-    assert "refusing force" in result.stderr
+    assert "--confirm-consumed" in result.stderr
     assert remote_head(curator, f"machine/{MACHINE}") != remote_head(curator, "main")
 
 

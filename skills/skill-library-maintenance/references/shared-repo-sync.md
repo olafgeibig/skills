@@ -3,7 +3,7 @@
 Applies when the same skill repository is mounted on more than one Hermes installation
 (`skills.external_dirs`). The design is **Stage & Curate**: no machine session ever writes `main`;
 each installation stages its work onto a transport branch `machine/<hostname>`, and one nightly
-curator consolidates every transport branch into a single `main` commit.
+consolidator consumes the transport branches one per pass, one `main` commit per consumed branch.
 
 ## The problem this solves
 
@@ -28,21 +28,23 @@ are also recorded as `actor: curator`.
 
 | Piece | Rule |
 |---|---|
-| `main` | exactly one writer: the nightly curator. Machine sessions, hooks and sweeps never touch it |
+| `main` | exactly one writer: the nightly consolidator. Machine sessions, hooks and sweeps never touch it |
 | Transport branch | `machine/<hostname>` per installation — a landing strip for commits, not a feature branch; reset to `main` after consumption, never merged back by hand |
 | Staging trigger | hourly script-only cron → `--stage`: bundles the pending ledger paths **and** the dirty worktree into one commit on the transport branch, then pushes it |
 | Refresh trigger | `on_session_start` shell hook (`--sync-from-main`): fetch; when the transport branch was consumed upstream, reset it to `origin/main` |
-| Consolidation trigger | nightly curator cron on the curator host (agent run, model-pinned): reads every transport branch completely, writes one `main` commit, resets the consumed branches |
-| Commit granularity | one staging commit per sweep (the ledger holds hashes, not intermediate contents — per-run commits are unreconstructable, so the sweep commits the current content per path, once); one curator commit per night |
+| Consolidation trigger | nightly consolidator cron on the consolidator host (agent run, model-pinned): one `machine/<host>` branch per pass (smallest diff first), a mechanical 3-way merge map per file (`git merge-file --diff3`), one `main` commit per consumed branch, then the branch reset |
+| Conflict packets | what the agent actually sees for a conflict: ours/base/theirs ± 10 lines of context — auto-merged files are done and never opened; never a whole diff or a whole file |
+| Commit granularity | one staging commit per sweep (the ledger holds hashes, not intermediate contents — per-run commits are unreconstructable, so the sweep commits the current content per path, once); one consolidator commit per consumed branch |
 | Commit message | names the skills whose files actually changed; ledger entry IDs ride in the trailers for attribution and recovery |
-| Overlap | the curator's problem by design: one home per rule when two machines touched the same file; never `-X ours`/`-X theirs`, never a force-push of `main` |
-| Gate before `main` | `--preflight`: instance pointers, dangling references, duplicate rules, ledger hash-chain findings — provenance and quality evidence; nothing reaches `main` unreviewed |
+| Overlap | the consolidator's problem by design: one home per rule when two machines touched the same file; never `-X ours`/`-X theirs`, never a force-push of `main` |
+| Review pass | after `--apply-decisions`, over the merged net diff — run book step 4.e owns the rule (duplicates, contradictions, one home per rule, defensive drop of instance-shaped leftovers); the why: git merges duplicates and contradictions cleanly, so they never arrive as conflicts |
+| Gate before `main` | `--preflight` and the review pass: instance pointers, dangling references, duplicate rules, ledger hash-chain findings — provenance and quality evidence; nothing reaches `main` unreviewed |
 | Long sessions | the skill *index* is a start-of-session snapshot (prompt-cache invariant); skill *bodies* load from disk, so `/skill-name` always yields current content. Never pull mid-session to "fix" an index |
 
 Two design facts the failure modes establish, worth keeping when this is next redesigned:
 
 - Provenance must hold without old ledger entries matching current `HEAD` — the chain is evidence
-  for the curator, never a hold on transport. The ledger selects and attributes paths; it cannot
+  for the consolidator, never a hold on transport. The ledger selects and attributes paths; it cannot
   certify content against a moving `HEAD`.
 - Semantic review gates canonical writes even when git reports no conflict: duplication, scope leaks
   and contradictory rules arrive conflict-free. Hash integrity proves provenance, not quality —
@@ -75,7 +77,7 @@ Written for Linux and macOS alike — an installation may be either, and the two
 |---|---|
 | `scripts/skill-repo-sync.py` | the engine (staging + session-start sync); `SCRIPT_VERSION` in the header |
 | `scripts/install-skill-repo-sync.py` | installer; `INSTALLER_VERSION` must match the engine |
-| `scripts/skill-repo-consolidate.py` | the curator's helpers: `--collect`, `--preflight`, `--reset-branch` |
+| `scripts/skill-repo-consolidate.py` | the consolidator's helpers: `--collect`, `--preflight`, `--merge-map`, `--apply-decisions`, `--lock`/`--unlock`, `--reset-branch` |
 | `<hermes home>/bin/skill-repo-sync` | stable wrapper the hooks call (a shell script that execs the engine) |
 | `<hermes home>/skill-repo-sync.json` | state: repos, wrapper, engine path, ledger cursor, versions |
 | `<hermes home>/skills/.curator_ledger.jsonl` | mutation ledger (written by Hermes, read here) |
@@ -90,9 +92,12 @@ python3 scripts/skill-repo-sync.py --version          # engine version
 python3 scripts/skill-repo-sync.py --selfcheck        # install state, repos, wrapper, ledger cursor
 python3 scripts/skill-repo-sync.py --stage            # hourly sweep: ledger paths + dirty worktree → one commit on machine/<name>, push
 python3 scripts/skill-repo-sync.py --sync-from-main   # on_session_start: fetch; consumed transport branch → reset to origin/main
-python3 scripts/skill-repo-consolidate.py --collect   # curator: the pending ledger paths for tonight's commit
-python3 scripts/skill-repo-consolidate.py --preflight # curator: review gates over the planned content
-python3 scripts/skill-repo-consolidate.py --reset-branch  # curator: reset a consumed transport branch to origin/main
+python3 scripts/skill-repo-consolidate.py --lock / --unlock  # consolidator: single-flight guard for one run
+python3 scripts/skill-repo-consolidate.py --collect   # consolidator: the pending ledger paths for tonight's commit
+python3 scripts/skill-repo-consolidate.py --preflight # consolidator: review gates over the planned content
+python3 scripts/skill-repo-consolidate.py --merge-map <host>        # consolidator: 3-way map + conflict packets (needs --outdir)
+python3 scripts/skill-repo-consolidate.py --apply-decisions <file>  # consolidator: resolve conflict blocks (needs --outdir)
+python3 scripts/skill-repo-consolidate.py --reset-branch  # consolidator: reset a consumed transport branch to origin/main
 ```
 
 Both scripts accept `--dry-run` (no state, index, commit, or remote writes) and `--verbose`. Exit
@@ -156,7 +161,7 @@ interpreter with `--python`).
    The script must live where the job resolves it (a shell script at the repository root that execs
    the engine's `--stage`); a `--script` job resolves against the job's workdir, not the profile.
 
-2. **Nightly curator** — the curator host only, an agent run:
+2. **Nightly consolidator** — the consolidator host only, an agent run:
 
    ```text
    nightly · skills: [skill-library-maintenance] · workdir: <repo> ·
@@ -169,26 +174,48 @@ interpreter with `--python`).
    scheduler, not one job. Back `jobs.json` up before removing a job: its prompt often embeds
    procedure that exists nowhere else.
 
-## Curator run book (what the nightly job must do)
+## Consolidator run book (v2.1 — hunk-gated, one branch per pass)
 
-1. `git fetch origin`; checkout `main`; fast-forward pull.
-2. Per transport branch: read the **complete** diff against `main` (`git log/diff main...<branch>`),
-   every file — a summary of a diff is not a review.
-3. Decide each change: keep, rewrite, or drop-with-reason. Dedupe across branches — two machines
-   editing the same file is the one real overlap; only intersecting files can conflict. One home per
-   rule, and a SemVer increment beyond both sides when the result combines their changes.
-4. `--collect` + `--preflight` over the planned content; zero gate findings before touching `main`.
-5. Apply to the `main` working tree; bump each changed package.
-6. **One** commit on `main` naming the packages and the source branches; push.
-7. `--reset-branch` each consumed transport branch and push the resets. The reset is the only
-   sanctioned force and is lease-guarded; it refuses to drop commits not already reachable from
-   `main` (exact check: the script header).
-8. Leave the checkout clean and report: consolidated, dropped (with reasons), deferred.
+Budget: ≤35 assistant turns per run. Never read a whole `machine-*.diff` or a whole skill
+file — the merge map gives you conflict packets; more context only via `read_file` with
+`offset`/`limit`, one window per file per run. Resolving conflict packets is the primary job;
+the review pass below covers what git merged cleanly, because duplicates and contradictions
+between sources are not conflicts to git. Until this run book is visible on `origin/main`, the
+nightly cron prompt carries the compact procedure itself.
 
-Failure discipline: no `main` commit and no resets on any error — the transport branches stay
-consumable and the retry is the next night's run. Fix, then re-run; never force anything by hand.
+1. Single-flight: `skill-repo-consolidate.py --lock` (exit 12 → report one line and stop).
+   A failed run keeps the lock on purpose; `--force-lock` is a deliberate human decision.
+2. `git fetch origin --prune`; checkout `main`; `git reset --hard origin/main`.
+3. `--collect --outdir <scratch>` → read `collect.json` only (sizes, files, overlaps).
+4. For each non-empty `machine/<host>`, smallest shortstat first — one branch per pass:
+   a. `--merge-map <host>` → `merge-map.json` + `conflict-packets.json`. Auto-merged files
+      are done; do not open them.
+   b. `--preflight` → instance pointers / dangling refs are repair orders for your edit.
+   c. Review set per branch — everything gets a semantic look, nothing gets a whole file:
+      conflict packets, `needs-curation` items, and the added-hunk digest (`added-hunks.json`,
+      clean files' additions as heading + new lines). Decide per `skill-governance` (worth
+      keeping? instance-specific → reject with reason? already in the target — sharpen the
+      existing spot? synthesize across sources?). Output: `decisions.json` (`file`, `block`,
+      `action: ours|theirs|synthesize/drop`, `text` for synthesize) plus one SemVer bump per
+      touched skill.
+   d. `--apply-decisions decisions.json --outdir <scratch>` → resolved files in the worktree.
+   e. Review pass over the merged net diff (`git diff origin/main -- <changed files>`):
+      duplicate rules across files and sources (same rule restated differently), contradictions
+      between sources, one home per rule (sharpen the existing spot instead of a second bullet),
+      and defensively DROP instance-shaped leftovers (vault paths, host names, quotas) with
+      line + reason in the report. Fix everything in place before validation.
+   f. `audit-skill-library.py skills --json` (summary.errors == 0) and `--preflight` (0 findings).
+   g. ONE commit per branch: `consolidator: consolidate <skills> from machine/<host> (YYYY-MM-DD)`;
+      body: taken over / corrected / dropped with reason; trailer `Consolidator: <model used>`.
+      Commit prefix `consolidator:` (never `curator:` — that name belongs to the Hermes
+      Skill Curator subsystem).
+   h. `git push origin main`; `--reset-branch <host> --confirm-consumed` (must exit 0).
+5. `--unlock`; Telegram report ≤15 lines. Empty run: one line, silence otherwise.
 
-## Manual integration (fallback: curator blocked, or a hotfix now)
+Failure discipline: no commit on any error, the lock stays set (anti-double-fire), report
+and stop. Never force anything except `--reset-branch`. Never `-X ours`/`-X theirs`.
+
+## Manual integration (fallback: consolidator blocked, or a hotfix now)
 
 Keep automated conflict handling abort-only; this sequence is the deliberate exception.
 
@@ -230,8 +257,8 @@ and compare the results:
    wrapper's `--sync-from-main --hook`); a v1 `on_skill_lifecycle` entry should be empty, not
    deleted silently. `hermes hooks list` and `hermes hooks doctor` confirm activation —
    configured is not activated.
-5. **Cron** — `hermes cron list` shows the hourly staging sweep and, on the curator host, the
-   nightly curator job.
+5. **Cron** — `hermes cron list` shows the hourly staging sweep and, on the consolidator host, the
+   nightly consolidator job.
 6. **Ledger** — `<hermes home>/skills/.curator_ledger.jsonl` exists and is non-empty.
 7. **Git state** — `git status --short --branch` (ahead/behind, uncommitted files),
    `git log --oneline origin/machine/<name>..HEAD` (unpushed commits and which paths they touch),
@@ -243,14 +270,14 @@ Diagnosis:
 
 - **Local stage commits growing while `origin/machine/<name>` is stale** → push failures, not
   staging failures; the retry pushes the same commit without duplicating it. Content findings do
-  not block transport — they surface in the curator's `--preflight` at consolidation time
+  not block transport — they surface in the consolidator's `--preflight` at consolidation time
   (instance-pointer, dangling-reference). Treat a failed push as the default explanation for a
   growing `ahead N` before suspecting credentials or connectivity.
 - **Uncommitted changes no human made** → background-review sediment; attribute from the ledger
   before touching them (see the symptom note above).
 - **A machine holds unpushed commits touching a file another machine has edited** → land the
   backlogged machine's transport branch first, then the other one's. The semantic reconciliation of
-  the overlap belongs to the next curator consolidation, not to an ad-hoc merge on a machine.
+  the overlap belongs to the next consolidator pass, not to an ad-hoc merge on a machine.
 - **A deployment note disagrees with the live checkout** → the checkout wins. Notes describing
   versions, paths, or install state are claims to verify against the scripts on disk, never state
   to trust; report the note as stale rather than adopting its numbers.
@@ -292,7 +319,7 @@ Pitfalls:
   Curate this surfaces as `--preflight` findings and provenance gaps, not a transport stall — but
   the chain can no longer prove who changed a line across the break, so attribute such a change
   from the commit and the worktree, not from ledger entries alone.
-- **A clean `main` checkout is the curator host's normal state between runs; a dirty `main` is a
+- **A clean `main` checkout is the consolidator host's normal state between runs; a dirty `main` is a
   decision.** The sweep and the session hook no-op on a clean `main` and refuse a dirty one — do not
   "fix" the refusal by checking out a transport branch, which would silently assign main work to
   the machine branch. Feature work on `main` gets checked out explicitly, once.
@@ -302,7 +329,7 @@ Pitfalls:
   the worktree free of debris; commit or stash work-in-progress deliberately.
 - **A transport branch is not a place to keep work.** It is reset after consumption — uncommitted
   tree content survives (the reset is branch-level), but commits not yet consumed do not: land
-  unfinished work as a `WIP` commit on the transport branch so the sweep and the curator see it,
+  unfinished work as a `WIP` commit on the transport branch so the sweep and the consolidator see it,
   never as a side branch nobody watches.
 
 ## Removing it
@@ -312,7 +339,7 @@ cp <hermes home>/cron/jobs.json "<backup dir>/cron-jobs-$(date +%Y%m%d-%H%M%S).j
 hermes hooks revoke <hermes home>/bin/skill-repo-sync
 hermes config set hooks.on_session_start '[]'
 hermes config set hooks.on_skill_lifecycle '[]'    # only if a v1 install left an entry
-hermes cron remove <staging sweep job> [<curator job>]
+hermes cron remove <staging sweep job> [<consolidator job>]
 rm <hermes home>/bin/skill-repo-sync <hermes home>/skill-repo-sync.json
 ```
 
