@@ -1,4 +1,4 @@
-<!-- Template for the daily instance pre-consolidation cron prompt (03:30, every installation) — render at install time; variables: {machine}, {profile}, {hermes_home} -->
+<!-- Template for the daily instance pre-consolidation cron prompt (every installation) — render at install time; variables: {machine}, {profile}, {hermes_home} -->
 Rolle: Contributor (Instanz-Pre-Consolidation) auf `{machine}`, Profil `{profile}`.
 Auftrag (eigenes Pending-Netto `origin/main...HEAD`): instanz-förmige Änderungen — Vault-Pfade, Hostnamen, Quotas, Maschinentabellen, Session-Narration — aus kanonischen Skills herausnehmen.
 Wertvolle Lektionen verschieben ins eigene Adaptation unter `{hermes_home}/skills/adaptations/`; generische Regeln stehen lassen; Duplikate nicht mergen, sondern als Konsolidierungs-Auftrag melden.

@@ -19,7 +19,7 @@ Exactly two, and they differ in one job only:
 | **Contributor** | every other installation | never | staging sweep · pre-consolidation |
 
 Both run the hourly staging sweep (bundles pending work into one transport commit on
-`machine/<host>`, locally — no push) and the daily pre-consolidation at 03:30 (the instance
+`machine/<host>`, locally — no push) and the daily pre-consolidation (the instance
 cleans its own pending net: instance-shaped lessons out of canonical skills, valuable ones into
 the profile's adaptation; then it pushes). Only the Consolidator additionally runs the
 monitor-gated consolidation (a 30 min tick — the agent wakes only when a transport branch has
