@@ -1,6 +1,6 @@
 # skills/skill-library-maintenance/tests/test_skill_repo_consolidate.py
-"""Behavioral tests for skill-repo-consolidate.py (curator helpers) and the
-staging curation scan. Self-contained: builds disposable repos, never touches a live one."""
+"""Behavioral tests for skill-repo-consolidate.py (consolidator helpers) and the
+staging pre-consolidation scan. Self-contained: builds disposable repos, never touches a live one."""
 from __future__ import annotations
 
 import importlib.util
@@ -30,11 +30,28 @@ def git(repo: Path, *args: str) -> str:
     out = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True)
     return out.stdout
 
-@pytest.fixture()
-def three_branch_repo(tmp_path: Path) -> Path:
-    """main with two files; three machine branches; gamma+conflict-branch overlap main."""
-    repo = tmp_path / "skills"
-    repo.mkdir()
+
+def run_cli(repo: Path, home: Path, *args: str) -> subprocess.CompletedProcess:
+    """Run the helper's real CLI under an isolated HERMES_HOME (the state file lives there)."""
+    env = dict(os.environ)
+    env["HERMES_HOME"] = str(home)
+    return subprocess.run(
+        [sys.executable, str(SCRIPTS / "skill-repo-consolidate.py"), *args, "--repo", str(repo)],
+        capture_output=True, text=True, env=env)
+
+
+def write_state(home: Path, repo: Path, machine: str) -> Path:
+    home.mkdir(parents=True, exist_ok=True)
+    p = home / "skill-repo-sync.json"
+    p.write_text(json.dumps({"machine": machine, "repos": [{"path": str(repo)}]}))
+    return p
+
+
+def build_repo(root: Path) -> Path:
+    """The three_branch_repo fixture body against a fresh root (second scenario per test).
+    Branch names here are machine/gamma|alpha|beta."""
+    repo = root / "skills"
+    repo.mkdir(parents=True)
     git(repo, "init", "-b", "main", "-q")
     git(repo, "config", "user.email", "t@t"), git(repo, "config", "user.name", "t")
     (repo / "a.md").write_text("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\n")
@@ -70,7 +87,7 @@ def three_branch_repo(tmp_path: Path) -> Path:
     git(repo, "add", ".")
     git(repo, "commit", "-q", "-m", "main edits the same region")
 
-    remote = tmp_path / "origin.git"
+    remote = root / "origin.git"
     subprocess.run(["git", "init", "--bare", "-q", str(remote)], check=True)
     git(repo, "remote", "add", "origin", str(remote))
     git(repo, "push", "-q", "origin", "main",
@@ -78,6 +95,34 @@ def three_branch_repo(tmp_path: Path) -> Path:
         "refs/heads/machine/alpha:refs/heads/machine/alpha",
         "refs/heads/machine/beta:refs/heads/machine/beta")
     return repo
+
+
+@pytest.fixture()
+def three_branch_repo(tmp_path: Path) -> Path:
+    """main with two files; three machine branches (machine/gamma|alpha|beta);
+    gamma+beta overlap main's later edit region."""
+    return build_repo(tmp_path)
+
+def test_preflight_resolves_package_root_refs(tmp_path):
+    """R-preflight: `references/<name>.md` from a nested support file resolves at the
+    package root; a genuinely missing target stays flagged."""
+    repo = build_repo(tmp_path)
+    git(repo, "checkout", "-q", "-b", "machine/delta")
+    (repo / "pkg" / "references").mkdir(parents=True)
+    (repo / "pkg" / "references" / "guide.md").write_text("guide\n")
+    (repo / "pkg" / "assets").mkdir(parents=True)
+    (repo / "pkg" / "assets" / "note.md.example").write_text(
+        "see `references/guide.md`, also `references/missing.md`\n")
+    git(repo, "add", ".")
+    git(repo, "commit", "-q", "-m", "delta work")
+    git(repo, "push", "-q", "origin", "machine/delta")
+    out = tmp_path / "out"
+    code, notes = consolidate.preflight_scan(repo, out)
+    report = json.loads((out / "preflight-findings.json").read_text())
+    dangling = [f["detail"] for f in report["findings"]
+                if f["kind"] == "dangling-reference" and f["file"] == "pkg/assets/note.md.example"]
+    assert dangling == ["references/missing.md"], notes
+
 
 def test_merge_map_separates_clean_from_conflict(three_branch_repo, tmp_path):
     out = tmp_path / "out"
@@ -229,21 +274,21 @@ def test_lock_is_single_flight_and_expires(three_branch_repo, tmp_path):
     assert code3 == 0
 
 
-def test_curation_scan_flags_duplicates_and_pointers(three_branch_repo):
+def test_pre_consolidation_scan_flags_duplicates_and_pointers(three_branch_repo):
     engine = consolidate.srs  # the engine module the consolidate script already loads
     added = [
         ("a.md", "a totally fresh rule line with enough words to matter here"),
         ("a.md", "line1"),                      # short: never a dup candidate
         ("b.md", "/home" + "/user/something"),  # instance pointer (split literal: scanner flags it at runtime, the diff gate stays clean)
     ]
-    findings = engine.curation_scan(three_branch_repo, added)
+    findings = engine.pre_consolidation_scan(three_branch_repo, added)
     kinds = sorted(f["kind"] for f in findings)
     assert kinds == ["instance-pointer"]
     # duplicate: the exact normalized base line re-added, 8+ words
     (three_branch_repo / "a.md").write_text("wordy base line with more than eight words in it yes\n")
     git(three_branch_repo, "add", ".")
     git(three_branch_repo, "commit", "-m", "w", "-q")
-    findings2 = engine.curation_scan(
+    findings2 = engine.pre_consolidation_scan(
         three_branch_repo, [("a.md", "wordy base line with more than eight words in it yes.")])
     assert [f["kind"] for f in findings2] == ["duplicate-candidate"]
 
@@ -253,14 +298,14 @@ def test_sync_from_main_warns_on_stage_report(three_branch_repo, tmp_path, monke
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     (home / "stage-report.json").write_text(
-        json.dumps({"at": "2000-01-01T00:00:00+00:00", "needs_curation": 2, "findings": []}))
+        json.dumps({"at": "2000-01-01T00:00:00+00:00", "needs_pre_consolidation": 2, "findings": []}))
     code, notes = consolidate.srs.sync_from_main(three_branch_repo, "alpha", False, False)
     assert code == 0, notes
-    assert any("2 addition(s) need curation" in n for n in notes)
+    assert any("2 addition(s) need pre-consolidation" in n for n in notes)
 
 
-def test_stage_scans_and_trails_needs_curation(three_branch_repo, tmp_path, monkeypatch):
-    """R3: the staging scan is the safety net — stage-report.json + Needs-curation trailer."""
+def test_stage_scans_and_trails_needs_pre_consolidation(three_branch_repo, tmp_path, monkeypatch):
+    """R3: the staging scan is the safety net — stage-report.json + Needs-pre-consolidation trailer."""
     home = tmp_path / "home"
     (home / "skills").mkdir(parents=True)
     monkeypatch.setenv("HERMES_HOME", str(home))
@@ -273,7 +318,180 @@ def test_stage_scans_and_trails_needs_curation(three_branch_repo, tmp_path, monk
     code, notes = consolidate.srs.stage(three_branch_repo, "alpha", False, False)
     assert code == 0, notes
     report = json.loads((home / "stage-report.json").read_text())
-    assert report["needs_curation"] == 1
+    assert report["needs_pre_consolidation"] == 1
     assert report["findings"][0]["kind"] == "instance-pointer"
     body = git(three_branch_repo, "log", "-1", "--format=%B")
-    assert "Needs-curation: 1" in body
+    assert "Needs-pre-consolidation: 1" in body
+
+
+def strip_scenario(repo: Path, root: Path, c_edits_same_line: bool = False) -> dict:
+    """Refresh-Strip scenario on machine/gamma: commit A (pushed, --note-pushed records it),
+    then a CONSUMPTION simulated in a clone — the curated content lands on main as the
+    consolidator's own commit and the one sanctioned force points the strip at it —
+    then commit C on the A chain, never pushed."""
+    home = root / "home"
+    write_state(home, repo, "gamma")
+    remote_url = git(repo, "remote", "get-url", "origin").strip()
+    git(repo, "checkout", "-q", "machine/gamma")
+    git(repo, "branch", "--set-upstream-to=origin/machine/gamma", "machine/gamma")
+    (repo / "fa.md").write_text("A-MARKER\nL2\nL3\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "A work")
+    git(repo, "push", "-q", "origin", "machine/gamma")
+    a_sha = git(repo, "rev-parse", "HEAD").strip()
+    r = run_cli(repo, home, "--note-pushed")   # lpt = A — recorded BEFORE C exists
+    assert r.returncode == 0, r.stderr
+    assert f"strip: last-pushed-tip -> {a_sha[:12]}" in r.stderr
+
+    # the consolidator (in a clone): A's net curated onto main as its OWN commit ...
+    clone = root / "clone"
+    subprocess.run(["git", "clone", "-q", remote_url, str(clone)], check=True)
+    git(clone, "config", "user.email", "t@t")
+    git(clone, "config", "user.name", "t")
+    git(clone, "checkout", "-q", "-B", "main", "origin/main")
+    git(clone, "checkout", "-q", "origin/machine/gamma", "--", ".")
+    (clone / "fa.md").write_text("A-MARKER\nCURATED\nL3\n")
+    (clone / "fb.md").write_text("B-MARKER\n")
+    git(clone, "add", "-A")
+    git(clone, "commit", "-q", "-m", "consolidator: curated rewrite of A's net")
+    git(clone, "push", "-q", "origin", "main")
+    b_sha = git(clone, "rev-parse", "HEAD").strip()
+    # ... and the ONE sanctioned force points the strip at the curated content
+    git(clone, "push", "-q", "--force-with-lease", "origin", "main:refs/heads/machine/gamma")
+
+    # C on top of the A chain, never pushed
+    if c_edits_same_line:
+        (repo / "fa.md").write_text("A-MARKER\nC-EDIT\nL3\n")   # the line the curator rewrote
+    else:
+        (repo / "fc.md").write_text("C-MARKER\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "C work")
+    c_sha = git(repo, "rev-parse", "HEAD").strip()
+    return {"home": home, "a_sha": a_sha, "b_sha": b_sha, "c_sha": c_sha}
+
+
+def test_pending_is_byte_stable_and_tracks_net(three_branch_repo, tmp_path):
+    """--pending is the monitor source: byte-stable sorted <host> <tip12> <n> lines where
+    n counts the THREE-dot net (origin/main...<tip>) — main advancing alone never wakes it."""
+    home = tmp_path / "home"
+    write_state(home, three_branch_repo, "gamma")
+
+    def out() -> str:
+        r = run_cli(three_branch_repo, home, "--pending")
+        assert r.returncode == 0, r.stderr          # the monitor source never fails
+        assert r.stderr == ""
+        return r.stdout
+
+    first = out()
+    lines = first.splitlines()
+    assert first == out()                           # byte-identical on no change
+    hosts = [ln.split()[0] for ln in lines]
+    assert hosts == ["alpha", "beta", "gamma"]      # all three pending in the fixture
+    assert hosts == sorted(hosts)                   # sorted, deterministic
+    for ln in lines:
+        host, tip12, n = ln.split()
+        tip = git(three_branch_repo, "rev-parse", f"origin/machine/{host}").strip()
+        assert tip12 == tip[:12]
+        files = [f for f in git(three_branch_repo, "diff", "--name-only",
+                                f"origin/main...{tip}").splitlines() if f.strip()]
+        assert int(n) == len(files) and int(n) > 0
+
+    # main advances with a commit that touches NO branch file -> output unchanged (three-dot proof)
+    (three_branch_repo / "z.md").write_text("unrelated\n")
+    git(three_branch_repo, "add", ".")
+    git(three_branch_repo, "commit", "-q", "-m", "main unrelated advance")
+    git(three_branch_repo, "push", "-q", "origin", "main")
+    assert out() == first
+
+    # a pushed branch change moves that branch's tip and count
+    git(three_branch_repo, "checkout", "-q", "machine/alpha")
+    (three_branch_repo / "y.md").write_text("alpha news\n")
+    git(three_branch_repo, "add", ".")
+    git(three_branch_repo, "commit", "-q", "-m", "alpha news")
+    git(three_branch_repo, "push", "-q", "origin", "machine/alpha")
+    git(three_branch_repo, "checkout", "-q", "main")
+    second = out()
+    assert second != first
+    alpha_line = [ln for ln in second.splitlines() if ln.startswith("alpha ")][0]
+    assert alpha_line.split()[1] == git(three_branch_repo, "rev-parse",
+                                        "origin/machine/alpha").strip()[:12]
+    assert alpha_line.split()[2] == "3"             # a.md b.md y.md
+
+
+def test_pending_empty_output_when_consumed(three_branch_repo, tmp_path):
+    """After a consolidation withdrawal (net curated onto main, machine refs set to main)
+    nothing is pending -> the monitor output is an empty string."""
+    home = tmp_path / "home"
+    write_state(home, three_branch_repo, "gamma")
+    (three_branch_repo / "a.md").write_text(
+        "line1\nGAMMA-EDIT\nline3\nALPHA-EDIT\nline5\nline6\nline7\nline8\n")
+    (three_branch_repo / "b.md").write_text("bbb\nalso alpha\n")
+    (three_branch_repo / "c.md").write_text("new from gamma\n")
+    git(three_branch_repo, "add", ".")
+    git(three_branch_repo, "commit", "-q", "-m", "consolidator: everything consumed")
+    git(three_branch_repo, "push", "-q", "origin", "main")
+    for host in ("alpha", "beta", "gamma"):
+        git(three_branch_repo, "push", "-q", "--force", "origin",
+            f"main:refs/heads/machine/{host}")
+    r = run_cli(three_branch_repo, home, "--pending")
+    assert r.returncode == 0
+    assert r.stdout == ""
+
+
+def test_refresh_strip_replays_only_never_pushed(three_branch_repo, tmp_path):
+    """Step 0 of pre-consolidation: only C (never pushed) is replayed onto the refreshed
+    strip; the consumed content is not duplicated, and the follow-up push is a FF."""
+    s = strip_scenario(three_branch_repo, tmp_path)
+    repo, home = three_branch_repo, s["home"]
+    r = run_cli(repo, home, "--refresh-strip")
+    assert r.returncode == 0, r.stderr
+    assert f"strip: replayed 1 commit(s) onto origin/machine/gamma (" in r.stderr
+    assert git(repo, "rev-parse", "HEAD~1").strip() == git(repo, "rev-parse",
+                                                           "origin/machine/gamma").strip()
+    assert git(repo, "rev-list", "--count", "origin/machine/gamma..HEAD").strip() == "1"
+    # A's and B's content is already on main — the strip carries exactly C, no second copy
+    assert git(repo, "diff", "--name-only", "origin/main", "HEAD").splitlines() == ["fc.md"]
+    assert (repo / "fa.md").read_text().count("A-MARKER") == 1
+    assert (repo / "fb.md").read_text().count("B-MARKER") == 1
+    # the pre-consolidation push afterwards is a fast-forward against the tmp remote
+    git(repo, "push", "origin", "machine/gamma")
+    assert git(repo, "rev-parse", "origin/machine/gamma").strip() == git(repo, "rev-parse",
+                                                                        "HEAD").strip()
+
+
+def test_refresh_strip_idempotent_and_conflict_safe(three_branch_repo, tmp_path):
+    """After the full flow (strip -> push -> --note-pushed) a second strip run is a no-op.
+    A replay that hits the curated line fails closed: exit 12, rebase aborted, clean tree."""
+    s = strip_scenario(three_branch_repo, tmp_path)
+    repo, home = three_branch_repo, s["home"]
+    assert run_cli(repo, home, "--refresh-strip").returncode == 0
+    git(repo, "push", "origin", "machine/gamma")
+    assert run_cli(repo, home, "--note-pushed").returncode == 0
+    r2 = run_cli(repo, home, "--refresh-strip")
+    assert r2.returncode == 0
+    assert "strip: nothing to replay" in r2.stderr
+
+    # conflict case: C rewrites the very line the curator rewrote
+    repo2 = build_repo(tmp_path / "case2")
+    s2 = strip_scenario(repo2, tmp_path / "case2", c_edits_same_line=True)
+    r = run_cli(repo2, s2["home"], "--refresh-strip")
+    assert r.returncode == 12
+    assert "strip: replay conflict against the refreshed strip" in r.stderr
+    assert "resolve in the pre-consolidation review" in r.stderr
+    # fail-closed but clean: the rebase is aborted, nothing half-rebased remains
+    assert not (repo2 / ".git" / "rebase-merge").exists()
+    assert not (repo2 / ".git" / "rebase-apply").exists()
+    assert git(repo2, "status", "--porcelain") == ""
+    assert git(repo2, "rev-parse", "HEAD").strip() == s2["c_sha"]
+    assert git(repo2, "branch", "--show-current").strip() == "machine/gamma"
+
+
+def test_note_pushed_updates_state(three_branch_repo, tmp_path):
+    home = tmp_path / "home"
+    state_path = write_state(home, three_branch_repo, "gamma")
+    r = run_cli(three_branch_repo, home, "--note-pushed")
+    assert r.returncode == 0, r.stderr
+    head = git(three_branch_repo, "rev-parse", "HEAD").strip()
+    assert f"strip: last-pushed-tip -> {head[:12]}" in r.stderr
+    state = json.loads(state_path.read_text())
+    assert state["last_pushed_tip"] == head

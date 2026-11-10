@@ -1,0 +1,2 @@
+# Template for the monitor-gate shim (consolidator wake-on-change, `--monitor-script` cron) — render at install time; variables: {hermes_home}, {skills_repo}
+exec python3 "{skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py" --pending --repo "{skills_repo}"

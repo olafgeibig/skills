@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when the skill concept decides a change."
 metadata:
-  version: "0.17.0"
+  version: "0.20.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -52,6 +52,10 @@ The sidecar is not the only outcome for the second class. When the maintainer wa
 ### Where a standing rule lives
 
 Standing rules that must apply in every session belong in a profile-local skill, because that zone is always discovered. An in-tree `AGENTS.md` (vault or project) is legitimate where the agent works inside that tree — keep it scoped to rules, because the whole file is injected.
+
+- **Instance identity and role live in `$HERMES_HOME/SOUL.md`.** Which machine a profile runs on, and what role it plays in a multi-instance workflow (consolidator, contributor), is identity: declare it in the profile's `SOUL.md`, a prompt source every session loads and scoped to that profile by construction. Keep procedure in skills and volatile assignments (model pins, quotas) in the jobs or config that hold them — a second declarative copy of a role or a pin drifts from the first.
+
+- **Instructions for other agent instances live in a standing reference section, not in a per-session brief or a templated order.** The instance's identity supplies its machine, role and paths at read time; an order template carrying them as variables duplicates the identity layer and drifts from it. The operator's message shrinks to "follow section X of reference Y" — and survives any number of future installations without being rewritten.
 
 ## Decision Matrix: Where an Improvement Goes
 
@@ -143,7 +147,8 @@ The failure this rule exists for: a profile-local skill that grows one dated `ne
 - **Search before writing.** Before adding a rule to any skill, search the target for the same rule — its imperative verb plus domain nouns, with `search_files`. A rule stated twice is a defect, not redundancy insurance. The observed cost of skipping this step: ~22 restatements of rules that were already in the target. Repeat the search before each later write in the same series: the background review turn (see *Who Maintains What*) runs after every assistant turn and can patch or create the target mid-session, so a search made once certifies a file that no longer exists — a series that dedupes only at its start lands the same rule next to the review's copy.
 - **Write the rule, not the incident.** Dates, booking or ticket IDs, handles, and session narration are not knowledge. If a finding only makes sense together with its story, it is project content → the project skill.
 - **One home per rule.** After promotion, delete the source statement; a rule living in two places drifts. A cross-reference only counts as a home when it resolves — verify the named file carries the content before writing "see X for details"; a pointer at a missing section sends the next agent hunting.
-- **A review lesson that names an instance is routed at write time, not at consolidation time.** The writing session classifies before it writes: vault paths, host names, provider quotas, machine tables and one-off workarounds are setup knowledge → the profile-local adaptation (`~/.hermes/skills/adaptations/`, `adapted_from` declared) or the project files; only generic, durable procedure may enter a shared-repository skill. The staging scan flags what slipped through (`needs-curation`) and the consolidator drops instance-shaped leftovers defensively — but the routing decision belongs to the instance that knows the context.
+- **A review lesson that names an instance is routed at write time, not at consolidation time.** The writing session classifies before it writes: vault paths, host names, provider quotas, machine tables and one-off workarounds are setup knowledge → the profile-local adaptation (`~/.hermes/skills/adaptations/`, `adapted_from` declared) or the project files; only generic, durable procedure may enter a shared-repository skill. The staging scan flags what slipped through (`needs-pre-consolidation`) and the consolidator drops instance-shaped leftovers defensively — but the routing decision belongs to the instance that knows the context.
+- **Adaptations are profile-scoped — never pool them across profiles.** On a machine that runs several profiles (work vs private), the adaptation lives in that profile's `$HERMES_HOME`: attribute a pending write by its ledger `evidence.session_id` and route the lesson to the *writing* profile's adaptation. A profile boundary is a trust boundary — pooled adaptations leak one profile's setup knowledge into another's sessions.
 - **Keep the shape.** `SKILL.md` carries always-on rules, depth goes to `references/`. Respect the repository budget (~500 lines) and the runtime budget (~24k chars — the whole body is loaded for the rest of the session). Route content out rather than growing the file.
 
 ## Volatile Data Has a Note, Not a Skill
@@ -207,6 +212,7 @@ Never leave the version unchanged after editing.
 - Do not route a generic rule only into one domain skill — put it in the generic core so every skill inherits it.
 - Do not edit a third-party skill directly just because you loaded it; being in play does not make it editable.
 - Do not store project facts in skills — they belong in the project repository content.
+- Do not name a new mechanism after an existing Hermes subsystem (the Skill Curator, its ledger, its CLI): a word collision causes real mis-attributions in reports and commits before anyone notices the mistake — pick a distinct word family for your own machinery, and apply it in code, docs and commit messages alike.
 - Do not park a design draft in a skill's `references/` because its topic is that skill's territory — placement follows the artefact's role (a draft is project content until a rule is extracted and approved), not its subject.
 - Do not keep a dated price, cap, or model table in a skill or its `references/` — the dated note holds the numbers, the skill holds the procedure and the pointer.
 - Do not mix agent-specific/environment quirks into a shared generic skill; keep them in a profile-local skill under `$HERMES_HOME/skills/`.

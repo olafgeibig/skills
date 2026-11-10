@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # install-skill-repo-sync — install the v2 staging layer on this machine.
 #
-# INSTALLER_VERSION: 2.0.0   (must match SCRIPT_VERSION of skill-repo-sync.py)
+# INSTALLER_VERSION: 2.2.0   (kept in step with SCRIPT_VERSION; --selfcheck reports drift)
 #
 #   1. writes the stable wrapper   <hermes home>/bin/skill-repo-sync  -> execs the engine in this repo
 #   2. writes the state file       <hermes home>/skill-repo-sync.json (machine, repos, cursor, versions)
@@ -28,7 +28,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-INSTALLER_VERSION = "2.0.0"
+INSTALLER_VERSION = "2.2.0"
 ENGINE = "skill-repo-sync.py"
 WRAPPER_NAME = "skill-repo-sync"
 STATE_NAME = "skill-repo-sync.json"
@@ -189,7 +189,7 @@ def main() -> int:
     state = existing_state or {}
     state.update({"version": INSTALLER_VERSION, "hermes_home": str(home), "machine": machine,
                   "repos": repos, "wrapper": str(wrapper), "script": str(engine),
-                  "python": interpreter, "sync_model": "stage-curate-v2",
+                  "python": interpreter, "sync_model": "stage-consolidate-v2",
                   "installed_at": datetime.now(tz=timezone.utc).isoformat()})
     state.setdefault("ledger_cursor", ledger_count)
     if not isinstance(state.get("ledger_cursor"), int):

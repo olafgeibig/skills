@@ -138,14 +138,18 @@ def test_stage_bundles_worktree_and_manual_into_one_commit(tmp_path: Path) -> No
     manual.write_text("unswept manual edit\n", encoding="utf-8")
     write_state(home, [repo])
     write_ledger(home, [entry_for(target, original, target.read_text(encoding="utf-8"))])
+    remote_before = remote_head(repo, f"machine/{MACHINE}")
 
     result = invoke_engine(home, "--stage", "--verbose")
 
     assert result.returncode == 0, result.stderr or result.stdout
+    assert "holding push" in result.stdout + result.stderr
     state = json.loads((home / "skill-repo-sync.json").read_text(encoding="utf-8"))
     assert state["ledger_cursor"] == 1
     assert run_git(repo, "status", "--porcelain").stdout == ""
-    assert remote_head(repo, f"machine/{MACHINE}") == run_git(repo, "rev-parse", "HEAD").stdout.strip()
+    # push-gate: the commit exists locally, the remote branch is untouched
+    assert run_git(repo, "rev-parse", "HEAD").stdout.strip() != remote_before
+    assert remote_head(repo, f"machine/{MACHINE}") == remote_before
     message = run_git(repo, "log", "-1", "--format=%B").stdout
     assert "Ledger-Entries: entry-1" in message
     assert "Manual additions" in message and "notes.md" in message
@@ -200,33 +204,32 @@ def test_stage_refuses_dirty_index(tmp_path: Path) -> None:
     assert run_git(repo, "rev-parse", "HEAD").stdout.strip() == head_before
 
 
-def test_stage_push_failure_retains_commit_and_retries_without_duplicate(tmp_path: Path) -> None:
-    repo, remote, target, home = setup_repo(tmp_path)
+def test_stage_never_pushes(tmp_path: Path) -> None:
+    """Push-gate: stage secures work locally; the pre-consolidation run owns the push."""
+    repo, _, target, home = setup_repo(tmp_path)
     original = target.read_text(encoding="utf-8")
-    target.write_text("name: demo\n\nReviewed push-retry change.\n", encoding="utf-8")
+    target.write_text("name: demo\n\nReviewed hold-for-pre-consolidation change.\n", encoding="utf-8")
     write_state(home, [repo])
-    write_ledger(home, [entry_for(target, original, target.read_text(encoding="utf-8"))])
+    write_ledger(home, [entry_for(target, original, target.read_text(encoding="utf-8"), entry_id="entry-1")])
     remote_before = remote_head(repo, f"machine/{MACHINE}")
-    hook = remote / "hooks" / "pre-receive"
-    hook.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
-    hook.chmod(0o755)
 
     first = invoke_engine(home, "--stage")
-    assert first.returncode == 12
-    assert "push failed" in first.stdout.lower()
+    assert first.returncode == 0, first.stderr or first.stdout
+    # one local commit, remote untouched
     assert remote_head(repo, f"machine/{MACHINE}") == remote_before
-    assert json.loads((home / "skill-repo-sync.json").read_text(encoding="utf-8"))["ledger_cursor"] == 0
-    local_after_commit = run_git(repo, "rev-parse", "HEAD").stdout.strip()
-    assert local_after_commit != remote_before
-
-    hook.unlink()
-    retry = invoke_engine(home, "--stage", "--verbose")
-    assert retry.returncode == 0, retry.stderr or retry.stdout
-    # retried without building a duplicate commit; cursor advanced after the push only
-    assert remote_head(repo, f"machine/{MACHINE}") == local_after_commit
-    state = json.loads((home / "skill-repo-sync.json").read_text(encoding="utf-8"))
-    assert state["ledger_cursor"] == 1
     assert len(run_git(repo, "log", "--format=%h", f"{remote_before}..HEAD").stdout.splitlines()) == 1
+    assert json.loads((home / "skill-repo-sync.json").read_text(encoding="utf-8"))["ledger_cursor"] == 1
+
+    # a second sweep with new content lands a SECOND local commit — still no push
+    target.write_text("name: demo\n\nSecond reviewed change after the first local commit.\n", encoding="utf-8")
+    write_ledger(home, [
+        entry_for(target, original, target.read_text(encoding="utf-8"), entry_id="entry-1"),
+        entry_for(target, original, target.read_text(encoding="utf-8"), entry_id="entry-2"),
+    ])
+    second = invoke_engine(home, "--stage")
+    assert second.returncode == 0, second.stderr or second.stdout
+    assert remote_head(repo, f"machine/{MACHINE}") == remote_before
+    assert len(run_git(repo, "log", "--format=%h", f"{remote_before}..HEAD").stdout.splitlines()) == 2
 
 
 # --- sync-from-main -------------------------------------------------------------------------------
@@ -239,16 +242,18 @@ def test_sync_from_main_resets_consumed_branch(tmp_path: Path) -> None:
     write_state(home, [repo])
     assert invoke_engine(home, "--stage").returncode == 0
     stage_sha = run_git(repo, "rev-parse", "HEAD").stdout.strip()
+    # the pre-consolidation run owns the push (push-gate) — the consolidator only sees pushed work
+    run_git(repo, "push", "origin", f"HEAD:refs/heads/machine/{MACHINE}")
 
-    # the curator: main and the transport branch both move to the consolidated content
-    curator = tmp_path / "curator clone"
-    run_git(tmp_path, "clone", str(remote := repo) if False else str(tmp_path / "shared skill remote.git"), str(curator))
-    run_git(curator, "config", "user.name", "Curator")
-    run_git(curator, "config", "user.email", "curator@example.invalid")
-    run_git(curator, "checkout", "main")
-    run_git(curator, "merge", f"origin/machine/{MACHINE}")
-    run_git(curator, "push", "origin", "main")
-    run_git(curator, "push", "origin", f"HEAD:refs/heads/machine/{MACHINE}", "--force-with-lease")
+    # the consolidator: main and the transport branch both move to the consolidated content
+    consolidator = tmp_path / "consolidator clone"
+    run_git(tmp_path, "clone", str(remote := repo) if False else str(tmp_path / "shared skill remote.git"), str(consolidator))
+    run_git(consolidator, "config", "user.name", "Consolidator")
+    run_git(consolidator, "config", "user.email", "consolidator@example.invalid")
+    run_git(consolidator, "checkout", "main")
+    run_git(consolidator, "merge", f"origin/machine/{MACHINE}")
+    run_git(consolidator, "push", "origin", "main")
+    run_git(consolidator, "push", "origin", f"HEAD:refs/heads/machine/{MACHINE}", "--force-with-lease")
 
     result = invoke_engine(home, "--sync-from-main", "--verbose")
 
@@ -262,6 +267,8 @@ def test_sync_from_main_skips_unconsolidated_branch(tmp_path: Path) -> None:
     target.write_text("name: demo\n\nUnconsolidated work.\n", encoding="utf-8")
     write_state(home, [repo])
     assert invoke_engine(home, "--stage").returncode == 0
+    # the pre-consolidation run owns the push (push-gate) — pushed but not yet consolidated
+    run_git(repo, "push", "origin", f"HEAD:refs/heads/machine/{MACHINE}")
     head_before = run_git(repo, "rev-parse", "HEAD").stdout.strip()
 
     result = invoke_engine(home, "--sync-from-main", "--verbose")
@@ -295,6 +302,26 @@ def test_sync_from_main_on_dirty_worktree_is_noop(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr or result.stdout
     assert "sync skipped" in result.stdout + result.stderr
     assert run_git(repo, "rev-parse", "HEAD").stdout.strip() == head_before
+
+
+def test_sync_from_main_respects_unpushed_commits(tmp_path: Path) -> None:
+    """Reset-guard: --sync-from-main never discards unpushed local commits (push-gate normal state)."""
+    repo, _, target, home = setup_repo(tmp_path)
+    # one local commit on machine/testlab that was never pushed; the remote branch
+    # still equals origin/main (i.e. "consumed"), worktree clean
+    target.write_text("name: demo\n\nUnpushed local work that must survive.\n", encoding="utf-8")
+    run_git(repo, "add", "--", "skills/demo/SKILL.md")
+    run_git(repo, "commit", "-m", "stage: unpushed local work")
+    write_state(home, [repo])
+    head_before = run_git(repo, "rev-parse", "HEAD").stdout.strip()
+    assert remote_head(repo, f"machine/{MACHINE}") == run_git(repo, "rev-parse", "origin/main").stdout.strip()
+
+    result = invoke_engine(home, "--sync-from-main", "--verbose")
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "unpushed" in result.stdout + result.stderr
+    assert run_git(repo, "rev-parse", "HEAD").stdout.strip() == head_before
+    assert run_git(repo, "status", "--porcelain").stdout == ""
 
 
 # --- selfcheck & consolidate helpers --------------------------------------------------------------
@@ -331,14 +358,14 @@ def test_consolidate_collect_and_reset_roundtrip(tmp_path: Path) -> None:
     run_git(repo, "commit", "-m", "stage: local work")
     run_git(repo, "push")
 
-    # curator clone: collect shows the pending branch and its diff
-    curator = tmp_path / "curator clone"
-    run_git(tmp_path, "clone", str(remote), str(curator))
-    run_git(curator, "config", "user.name", "Curator")
-    run_git(curator, "config", "user.email", "curator@example.invalid")
+    # consolidator clone: collect shows the pending branch and its diff
+    consolidator = tmp_path / "consolidator clone"
+    run_git(tmp_path, "clone", str(remote), str(consolidator))
+    run_git(consolidator, "config", "user.name", "Consolidator")
+    run_git(consolidator, "config", "user.email", "consolidator@example.invalid")
 
     outdir = tmp_path / "collect out"
-    collected = invoke_consolidate(home, "--collect", "--repo", str(curator), "--outdir", str(outdir))
+    collected = invoke_consolidate(home, "--collect", "--repo", str(consolidator), "--outdir", str(outdir))
     assert collected.returncode == 0, collected.stderr or collected.stdout
     report = json.loads(collected.stdout)
     pending = [r for r in report["branches"] if not r["empty"]]
@@ -347,22 +374,22 @@ def test_consolidate_collect_and_reset_roundtrip(tmp_path: Path) -> None:
     assert pending[0]["subjects"] and "stage: local work" in pending[0]["subjects"][0]
 
     # preflight: clean diff is not held
-    pre = invoke_consolidate(home, "--preflight", "--repo", str(curator), "--outdir", str(outdir))
+    pre = invoke_consolidate(home, "--preflight", "--repo", str(consolidator), "--outdir", str(outdir))
     assert pre.returncode == 0, pre.stderr or pre.stdout
 
-    # the curator consolidates by merging the branch into main (test sim of agent edit)
-    run_git(curator, "checkout", "main")
-    run_git(curator, "merge", f"origin/machine/{MACHINE}")
-    run_git(curator, "push", "origin", "main")
+    # the consolidator lands the branch by merging it into main (test sim of agent edit)
+    run_git(consolidator, "checkout", "main")
+    run_git(consolidator, "merge", f"origin/machine/{MACHINE}")
+    run_git(consolidator, "push", "origin", "main")
 
-    # reset the consumed branch: force-with-lease to origin/main (curator assertion)
-    reset = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(curator),
+    # reset the consumed branch: force-with-lease to origin/main (consolidator assertion)
+    reset = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(consolidator),
                                "--confirm-consumed")
     assert reset.returncode == 0, reset.stderr or reset.stdout
-    assert remote_head(curator, f"machine/{MACHINE}") == remote_head(curator, "main")
+    assert remote_head(consolidator, f"machine/{MACHINE}") == remote_head(consolidator, "main")
 
     # rerun reset is a no-op
-    again = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(curator),
+    again = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(consolidator),
                                "--confirm-consumed", "--dry-run")
     assert again.returncode == 0 and "already at origin/main" in again.stderr
 
@@ -374,16 +401,16 @@ def test_consolidate_reset_refuses_without_confirmation(tmp_path: Path) -> None:
     run_git(repo, "commit", "-m", "stage: unique pending work")
     run_git(repo, "push")
 
-    curator = tmp_path / "curator clone"
-    run_git(tmp_path, "clone", str(remote), str(curator))
-    run_git(curator, "config", "user.name", "Curator")
-    run_git(curator, "config", "user.email", "curator@example.invalid")
+    consolidator = tmp_path / "consolidator clone"
+    run_git(tmp_path, "clone", str(remote), str(consolidator))
+    run_git(consolidator, "config", "user.name", "Consolidator")
+    run_git(consolidator, "config", "user.email", "consolidator@example.invalid")
 
-    result = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(curator))
+    result = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(consolidator))
 
     assert result.returncode == 12
     assert "--confirm-consumed" in result.stderr
-    assert remote_head(curator, f"machine/{MACHINE}") != remote_head(curator, "main")
+    assert remote_head(consolidator, f"machine/{MACHINE}") != remote_head(consolidator, "main")
 
 
 def test_consolidate_preflight_flags_instance_pointer(tmp_path: Path) -> None:
@@ -394,13 +421,13 @@ def test_consolidate_preflight_flags_instance_pointer(tmp_path: Path) -> None:
     run_git(repo, "commit", "-m", "stage: work with a leaked pointer")
     run_git(repo, "push")
 
-    curator = tmp_path / "curator clone"
-    run_git(tmp_path, "clone", str(remote), str(curator))
-    run_git(curator, "config", "user.name", "Curator")
-    run_git(curator, "config", "user.email", "curator@example.invalid")
+    consolidator = tmp_path / "consolidator clone"
+    run_git(tmp_path, "clone", str(remote), str(consolidator))
+    run_git(consolidator, "config", "user.name", "Consolidator")
+    run_git(consolidator, "config", "user.email", "consolidator@example.invalid")
     outdir = tmp_path / "collect out pf"
 
-    result = invoke_consolidate(home, "--preflight", "--repo", str(curator), "--outdir", str(outdir))
+    result = invoke_consolidate(home, "--preflight", "--repo", str(consolidator), "--outdir", str(outdir))
 
     assert result.returncode == 10
     assert "instance-pointer" in result.stderr
@@ -483,7 +510,7 @@ def test_installer_installs_on_machine_branch_without_global_consent(tmp_path: P
 
     assert result.returncode == 0, result.stderr or result.stdout
     state = json.loads((home / "skill-repo-sync.json").read_text(encoding="utf-8"))
-    assert state["machine"] == MACHINE and state["sync_model"] == "stage-curate-v2"
+    assert state["machine"] == MACHINE and state["sync_model"] == "stage-consolidate-v2"
     assert state["ledger_cursor"] == 0
     wrapper_text = (home / "bin" / "skill-repo-sync").read_text(encoding="utf-8")
     assert f"'{scripts / ENGINE.name}'" in wrapper_text

@@ -1,0 +1,10 @@
+<!-- Template for the consolidator cron prompt (monitor-gated, the consolidator machine only) — render at install time; variables: {skills_repo}, {scratch_dir} -->
+Rolle: Consolidator. Verbindliche Prozedur: skill-library-maintenance → references/shared-repo-sync.md, Abschnitt 'Consolidator run book'.
+Harte Grenzen:
+- Budget ≤35 Assistent-Turns; nie ganze Diffs oder ganze Dateien lesen — Konflikt-Pakete sind der Input, mehr Kontext nur read_file mit offset/limit.
+- Konflikt-Pakete sind die primäre Aufgabe; danach der Review-Pass über den mergten Netto-Diff (Duplikate, Widersprüche, eine Heimat pro Regel).
+- Genau ein Commit je konsumiertem Branch; Verwerfungen mit Zeile + Grund im Report.
+- Nie force ausser --reset-branch; nie -X ours/theirs.
+- Bei Fehler: kein Commit, das Lock bleibt gesetzt, melden und stoppen.
+Helper (Direktaufruf aus dem Repo-Tree; kein SKILL_REPO_SYNC_ENGINE nötig — er importiert die Engine neben sich selbst): python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --repo {skills_repo} --outdir {scratch_dir}
+Report ≤15 Zeilen per Telegram; Leerlauf: 1 Zeile.

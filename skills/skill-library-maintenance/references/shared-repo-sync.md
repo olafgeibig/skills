@@ -1,8 +1,8 @@
-# Shared skill repo: stage and curate (cross-installation sync)
+# Shared skill repo: stage and consolidate (cross-installation sync)
 
 Applies when the same skill repository is mounted on more than one Hermes installation
-(`skills.external_dirs`). The design is **Stage & Curate**: no machine session ever writes `main`;
-each installation stages its work onto a transport branch `machine/<hostname>`, and one nightly
+(`skills.external_dirs`). The design is **Stage & Consolidate**: no machine session ever writes `main`;
+each installation stages its work onto a transport branch `machine/<hostname>`, and one monitor-gated
 consolidator consumes the transport branches one per pass, one `main` commit per consumed branch.
 
 ## The problem this solves
@@ -28,11 +28,13 @@ are also recorded as `actor: curator`.
 
 | Piece | Rule |
 |---|---|
-| `main` | exactly one writer: the nightly consolidator. Machine sessions, hooks and sweeps never touch it |
+| `main` | exactly one writer: the consolidator. Machine sessions, hooks and sweeps never touch it |
 | Transport branch | `machine/<hostname>` per installation — a landing strip for commits, not a feature branch; reset to `main` after consumption, never merged back by hand |
-| Staging trigger | hourly script-only cron → `--stage`: bundles the pending ledger paths **and** the dirty worktree into one commit on the transport branch, then pushes it |
+| Staging trigger | hourly script-only cron → `--stage`: bundles the pending ledger paths **and** the dirty worktree into ONE LOCAL commit on the transport branch — the push belongs to the pre-consolidation run (what lands on a transport branch is always pre-consolidated) |
+| Instance pre-consolidation | daily agent run per installation before the consolidator: reviews that installation's own pending additions, moves instance-shaped lessons out of canonical edits into the *writing* profile's adaptation, leaves generic content for the consolidator — then pushes the branch: it is the only pusher |
 | Refresh trigger | `on_session_start` shell hook (`--sync-from-main`): fetch; when the transport branch was consumed upstream, reset it to `origin/main` |
-| Consolidation trigger | nightly consolidator cron on the consolidator host (agent run, model-pinned): one `machine/<host>` branch per pass (smallest diff first), a mechanical 3-way merge map per file (`git merge-file --diff3`), one `main` commit per consumed branch, then the branch reset |
+| Monitor gate | `--monitor-script` netto-pending gate: a cheap script prints the byte-stable pending report (`--pending`) each tick; the exact-bytes hash suppresses unchanged output entirely — wake-on-change, the agent never runs idle |
+| Consolidation trigger | monitor-gated (e.g. every 30 min) consolidator cron on the consolidator host (agent run, model-pinned; the monitor gate suppresses the run while no transport branch has news — no idle LLM runs): one `machine/<host>` branch per pass (smallest diff first), a mechanical 3-way merge map per file (`git merge-file --diff3`), one `main` commit per consumed branch, then the branch reset |
 | Conflict packets | what the agent actually sees for a conflict: ours/base/theirs ± 10 lines of context — auto-merged files are done and never opened; never a whole diff or a whole file |
 | Commit granularity | one staging commit per sweep (the ledger holds hashes, not intermediate contents — per-run commits are unreconstructable, so the sweep commits the current content per path, once); one consolidator commit per consumed branch |
 | Commit message | names the skills whose files actually changed; ledger entry IDs ride in the trailers for attribution and recovery |
@@ -77,27 +79,44 @@ Written for Linux and macOS alike — an installation may be either, and the two
 |---|---|
 | `scripts/skill-repo-sync.py` | the engine (staging + session-start sync); `SCRIPT_VERSION` in the header |
 | `scripts/install-skill-repo-sync.py` | installer; `INSTALLER_VERSION` must match the engine |
-| `scripts/skill-repo-consolidate.py` | the consolidator's helpers: `--collect`, `--preflight`, `--merge-map`, `--apply-decisions`, `--lock`/`--unlock`, `--reset-branch` |
+| `scripts/skill-repo-consolidate.py` | the consolidator's helpers: `--pending`, `--refresh-strip`, `--note-pushed`, `--collect`, `--preflight`, `--merge-map`, `--apply-decisions`, `--lock`/`--unlock`, `--reset-branch` |
 | `<hermes home>/bin/skill-repo-sync` | stable wrapper the hooks call (a shell script that execs the engine) |
+| `<hermes home>/scripts/skill-repo-sync-stage.sh` | generated staging shim for the hourly `no_agent` job, rendered from `../assets/stage-sweep-script.sh.example` |
+| `<hermes home>/scripts/skill-repo-consolidate-monitor.sh` | generated monitor shim for the consolidator job's `--monitor-script` gate (prints `--pending`), rendered from `../assets/consolidate-monitor-script.sh.example` |
 | `<hermes home>/skill-repo-sync.json` | state: repos, wrapper, engine path, ledger cursor, versions |
 | `<hermes home>/skills/.curator_ledger.jsonl` | mutation ledger (written by Hermes, read here) |
 
 The wrapper path must stay constant: the hook consent pair is `(event, command)`, so changing the
-command needs fresh consent. Update the engine in the repository — never the wrapper.
+command needs fresh consent. Update the engine in the repository — never the wrapper. The wrapper
+execs the engine **from the checked-out worktree**, so a branch switch silently swaps the engine
+version underneath live hooks and crons: keep the checkout on the transport branch between runs,
+and verify `--version` after any checkout.
+
+The wrapper, the staging shim and the monitor shim are the **only generated artifacts** of this
+sync, and each exists for exactly one stable path: hook consent binds to the wrapper's
+`(event, command)` pair, and `hermes cron create --script` / `--monitor-script` resolve scripts
+under `<hermes home>/scripts/`. Everything else is called directly from the repository tree
+(`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py …`);
+the helper imports the engine beside itself (`_engine_candidates`), so there is no
+`SKILL_REPO_SYNC_ENGINE` export and no copy of the scripts under `<hermes home>/scripts/`.
+Logic lives in the repository — update it there, never a copy.
 
 ## Modes
 
 ```bash
 python3 scripts/skill-repo-sync.py --version          # engine version
 python3 scripts/skill-repo-sync.py --selfcheck        # install state, repos, wrapper, ledger cursor
-python3 scripts/skill-repo-sync.py --stage            # hourly sweep: ledger paths + dirty worktree → one commit on machine/<name>, push
+python3 scripts/skill-repo-sync.py --stage            # hourly sweep: ledger paths + dirty worktree → one LOCAL commit on machine/<name> (push = pre-consolidation)
 python3 scripts/skill-repo-sync.py --sync-from-main   # on_session_start: fetch; consumed transport branch → reset to origin/main
-python3 scripts/skill-repo-consolidate.py --lock / --unlock  # consolidator: single-flight guard for one run
-python3 scripts/skill-repo-consolidate.py --collect   # consolidator: the pending ledger paths for tonight's commit
-python3 scripts/skill-repo-consolidate.py --preflight # consolidator: review gates over the planned content
-python3 scripts/skill-repo-consolidate.py --merge-map <host>        # consolidator: 3-way map + conflict packets (needs --outdir)
-python3 scripts/skill-repo-consolidate.py --apply-decisions <file>  # consolidator: resolve conflict blocks (needs --outdir)
-python3 scripts/skill-repo-consolidate.py --reset-branch  # consolidator: reset a consumed transport branch to origin/main
+python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --pending   # monitor gate: byte-stable pending report on stdout (the wake-on-change signal)
+python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --refresh-strip # pre-consolidation step 0: replay never-pushed commits onto the refreshed strip
+python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --note-pushed  # after each successful pre-consolidation push: record the pushed tip
+python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --lock / --unlock  # consolidator: single-flight guard for one run
+python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --collect   # consolidator: the pending ledger paths for tonight's commit
+python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --preflight # consolidator: review gates over the planned content
+python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --merge-map <host>        # consolidator: 3-way map + conflict packets (needs --outdir)
+python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --apply-decisions <file>  # consolidator: resolve conflict blocks (needs --outdir)
+python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --reset-branch  # consolidator: reset a consumed transport branch to origin/main
 ```
 
 Both scripts accept `--dry-run` (no state, index, commit, or remote writes) and `--verbose`. Exit
@@ -154,17 +173,21 @@ interpreter with `--python`).
 1. **Hourly staging sweep** — every machine, script-only, quiet on success:
 
    ```text
-   every hour · no_agent: true · script: <repo-root>/skill-repo-sync-stage.sh
+   every hour · no_agent: true · script: skill-repo-sync-stage.sh
    deliver: telegram (empty stdout sends nothing)
    ```
 
-   The script must live where the job resolves it (a shell script at the repository root that execs
-   the engine's `--stage`); a `--script` job resolves against the job's workdir, not the profile.
+   The shim lives at `<hermes home>/scripts/skill-repo-sync-stage.sh` (rendered from
+   `../assets/stage-sweep-script.sh.example`): `--script` resolves names under
+   `<hermes home>/scripts/`, whatever the job's workdir is. It execs the stable wrapper's
+   `--stage` and stays silent on a no-op.
 
-2. **Nightly consolidator** — the consolidator host only, an agent run:
+2. **Consolidator** — the consolidator host only, an agent run on a monitor-gated schedule
+   (e.g. every 30 min — the monitor script's byte-stable pending report wakes the agent only
+   when it changes):
 
    ```text
-   nightly · skills: [skill-library-maintenance] · workdir: <repo> ·
+   every 30 min · monitor-script: skill-repo-consolidate-monitor.sh · skills: [skill-library-maintenance] · workdir: <repo> ·
    pinned --provider/--model · deliver: telegram · failure-deliver: telegram
    ```
 
@@ -174,17 +197,35 @@ interpreter with `--python`).
    scheduler, not one job. Back `jobs.json` up before removing a job: its prompt often embeds
    procedure that exists nowhere else.
 
+3. **Daily instance pre-consolidation** — every installation with a shared checkout, an agent run:
+
+   ```text
+   daily, before the consolidator · skills: [skill-governance, skill-library-maintenance] ·
+   workdir: <repo> · pinned --provider/--model · deliver: telegram
+   ```
+
+   On a machine with several profiles this job runs **per profile** — each reviews only its own
+   sessions' writes (attribution via `evidence.session_id`) and routes into its own adaptation.
+
 ## Consolidator run book (v2.1 — hunk-gated, one branch per pass)
 
 Budget: ≤35 assistant turns per run. Never read a whole `machine-*.diff` or a whole skill
 file — the merge map gives you conflict packets; more context only via `read_file` with
 `offset`/`limit`, one window per file per run. Resolving conflict packets is the primary job;
 the review pass below covers what git merged cleanly, because duplicates and contradictions
-between sources are not conflicts to git. Until this run book is visible on `origin/main`, the
-nightly cron prompt carries the compact procedure itself.
+between sources are not conflicts to git. The cron prompt carries a compact copy of the hard
+limits; this run book stays the authoritative procedure.
 
-1. Single-flight: `skill-repo-consolidate.py --lock` (exit 12 → report one line and stop).
-   A failed run keeps the lock on purpose; `--force-lock` is a deliberate human decision.
+All helper calls below mean the script invoked **directly from the repository tree** —
+`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py <mode>`
+— never a copy under `<hermes home>/scripts/` and never a `SKILL_REPO_SYNC_ENGINE` export: the
+helper imports the engine beside itself (`_engine_candidates`).
+
+1. Single-flight: `python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --lock` (exit 12 → report one line and stop).
+   A failed run keeps the lock on purpose; `--force-lock` is a deliberate human decision. The lock
+   is created atomically (`O_CREAT|O_EXCL`), and the execution-claim check ignores claims younger
+   than 60 s: a cron claim is recorded with the *dispatcher's* pid, never the executor's lineage,
+   so identity matching cannot find "self" and a pid-based check refuses every run.
 2. `git fetch origin --prune`; checkout `main`; `git reset --hard origin/main`.
 3. `--collect --outdir <scratch>` → read `collect.json` only (sizes, files, overlaps).
 4. For each non-empty `machine/<host>`, smallest shortstat first — one branch per pass:
@@ -192,7 +233,7 @@ nightly cron prompt carries the compact procedure itself.
       are done; do not open them.
    b. `--preflight` → instance pointers / dangling refs are repair orders for your edit.
    c. Review set per branch — everything gets a semantic look, nothing gets a whole file:
-      conflict packets, `needs-curation` items, and the added-hunk digest (`added-hunks.json`,
+      conflict packets, `needs-pre-consolidation` items, and the added-hunk digest (`added-hunks.json`,
       clean files' additions as heading + new lines). Decide per `skill-governance` (worth
       keeping? instance-specific → reject with reason? already in the target — sharpen the
       existing spot? synthesize across sources?). Output: `decisions.json` (`file`, `block`,
@@ -214,6 +255,41 @@ nightly cron prompt carries the compact procedure itself.
 
 Failure discipline: no commit on any error, the lock stays set (anti-double-fire), report
 and stop. Never force anything except `--reset-branch`. Never `-X ours`/`-X theirs`.
+
+## Instance pre-consolidation (the instance's own review run)
+
+The consolidator cannot judge what is instance-specific — it lacks the context, and dropping such a
+lesson loses it. A daily agent run on each installation — scheduled before its content should reach the
+consolidator, because this run owns the push — cleans that installation's own pending transport
+content:
+
+0. Refresh-Strip: `python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --refresh-strip`
+   (exit 12 → one line and stop: the replay conflict is a review or operator decision, never a
+   force). The strip follows main on its own — rebase onto the strip, never onto main, because
+   the strip may carry not-yet-consumed commits.
+1. Fetch; review the pending additions (`origin/main...HEAD` plus the `needs-pre-consolidation` markers in
+   recent stage commits / `stage-report.json`) against `skill-governance`'s routing rule.
+2. Instance-shaped (vault paths, host names, quotas, machine tables, session narration): remove the
+   line from the canonical skill edit; when the lesson is worth keeping for this setup, write it
+   into the *writing* profile's adaptation instead (profile-scoped — never another profile's). A
+   generic core worth keeping survives as generic text.
+3. Generic and durable: leave it — value and dedupe are the consolidator's judgement.
+4. Exactly one `pre-consolidation:` commit on the transport branch (explicit paths), then
+   `git push origin machine/<name>` and
+   `python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py --note-pushed`
+   (records the pushed tip so the next refresh-strip replays only what came after it) —
+   ALWAYS, even when nothing needed cleaning: this run owns the
+   push, and nothing reaches the consolidator without it. Empty run: one line, no new commit — but
+   push whatever local commits already exist. Never touch `main`.
+
+A laptop that wakes after the consolidator's run is always stale by design — the refresh-strip
+makes that a non-event; the case to remember is a rejected push after a branch reset: refresh-strip
+first, never force.
+
+The layering is deliberate: write-time routing rule (`skill-governance`) → this review run
+(semantic, per profile) → staging scan (mechanical marker) → consolidator review pass (final
+judge). The run exists because a routing rule alone is followed unreliably — leftovers otherwise
+reach the consolidator, which can only drop them and lose the lesson.
 
 ## Manual integration (fallback: consolidator blocked, or a hotfix now)
 
@@ -258,7 +334,7 @@ and compare the results:
    deleted silently. `hermes hooks list` and `hermes hooks doctor` confirm activation —
    configured is not activated.
 5. **Cron** — `hermes cron list` shows the hourly staging sweep and, on the consolidator host, the
-   nightly consolidator job.
+   monitor-gated consolidator job.
 6. **Ledger** — `<hermes home>/skills/.curator_ledger.jsonl` exists and is non-empty.
 7. **Git state** — `git status --short --branch` (ahead/behind, uncommitted files),
    `git log --oneline origin/machine/<name>..HEAD` (unpushed commits and which paths they touch),
@@ -268,11 +344,12 @@ and compare the results:
 
 Diagnosis:
 
-- **Local stage commits growing while `origin/machine/<name>` is stale** → push failures, not
-  staging failures; the retry pushes the same commit without duplicating it. Content findings do
-  not block transport — they surface in the consolidator's `--preflight` at consolidation time
-  (instance-pointer, dangling-reference). Treat a failed push as the default explanation for a
-  growing `ahead N` before suspecting credentials or connectivity.
+- **Local stage commits growing while `origin/machine/<name>` is stale** → the pre-consolidation
+  run has not pushed yet (normal overnight and between its runs) or its push failed; it retries at
+  the next run without duplicating commits. Content findings do not block transport — they surface
+  in the consolidator's `--preflight` at consolidation time (instance-pointer, dangling-reference).
+  Suspect the missing pre-consolidation push first when `ahead N` grows, before credentials or
+  connectivity.
 - **Uncommitted changes no human made** → background-review sediment; attribute from the ledger
   before touching them (see the symptom note above).
 - **A machine holds unpushed commits touching a file another machine has edited** → land the
@@ -304,7 +381,8 @@ cursor date marks where the failure actually began.
    cursor date, not since the last visible error. A cursor behind the ledger with staging green is
    the opposite case — it self-heals on the next sweep.
 2. `git log --format='%ci %s'` on the transport branch and on `main` separately. Stage commits
-   growing locally while `origin/machine/<name>` is stale means push failures, not staging failures.
+   growing locally while `origin/machine/<name>` is stale means the pre-consolidation run has not
+   pushed yet (or its push failed), not staging failures.
    `main` unchanged while transport branches accumulate means the consolidation is failing — the
    branches stay consumable and nothing is lost.
 3. Localize a chain break from `--preflight` findings: hash every pending entry's before/after
@@ -316,7 +394,7 @@ Pitfalls:
 
 - **A before/after hash chain assumes a single writer per branch.** Any commit made outside the
   ledger — audit, manual fix, merge — inserts a blob state the chain does not know. Under Stage &
-  Curate this surfaces as `--preflight` findings and provenance gaps, not a transport stall — but
+  Consolidate this surfaces as `--preflight` findings and provenance gaps, not a transport stall — but
   the chain can no longer prove who changed a line across the break, so attribute such a change
   from the commit and the worktree, not from ledger entries alone.
 - **A clean `main` checkout is the consolidator host's normal state between runs; a dirty `main` is a
@@ -331,6 +409,15 @@ Pitfalls:
   tree content survives (the reset is branch-level), but commits not yet consumed do not: land
   unfinished work as a `WIP` commit on the transport branch so the sweep and the consolidator see it,
   never as a side branch nobody watches.
+- **`hermes cron run` is synchronous and its claimed execution outlives the CLI.** Killing the CLI
+  does not stop the run — a re-fire starts a second copy of the job in the same working copy. Fire
+  agent jobs in the background, or verify the execution has finished, before re-firing; the
+  single-flight lock refuses the overlap only once the first run reached `--lock`.
+- **A single-flight guard cannot identify its own run by pid in `executions.db`.** The recorded pid
+  is the dispatcher's (the firing session for a manual run, the scheduler otherwise), never the
+  executor's lineage — exclude your own claim by age (a fresh claim is this run) and make the lock
+  file the primary guard via atomic create (`O_CREAT|O_EXCL`); a pid-matched guard refuses every
+  run at startup.
 
 ## Removing it
 

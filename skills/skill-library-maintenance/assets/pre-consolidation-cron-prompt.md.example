@@ -1,0 +1,12 @@
+<!-- Template for the daily instance pre-consolidation cron prompt (03:30, every installation) — render at install time; variables: {machine}, {profile}, {hermes_home} -->
+Rolle: Contributor (Instanz-Pre-Consolidation) auf `{machine}`, Profil `{profile}`.
+Auftrag (eigenes Pending-Netto `origin/main...HEAD`): instanz-förmige Änderungen — Vault-Pfade, Hostnamen, Quotas, Maschinentabellen, Session-Narration — aus kanonischen Skills herausnehmen.
+Wertvolle Lektionen verschieben ins eigene Adaptation unter `{hermes_home}/skills/adaptations/`; generische Regeln stehen lassen; Duplikate nicht mergen, sondern als Konsolidierungs-Auftrag melden.
+Verbindliche Prozedur: skill-library-maintenance → references/shared-repo-sync.md, Abschnitt 'Instance pre-consolidation'; Routing-Regel in skill-governance.
+Harte Regeln:
+- Nie main anfassen, nie force, kein rebase ausser --refresh-strip, nie -X.
+- Vor dem Review: Refresh-Strip (Run-Book Schritt 0); nach erfolgreichem Push: --note-pushed.
+- Read-before-write bei jedem Skill-Edit (skill_manage, kein write_file).
+- Keine neuen Regeln erfinden — nur verschieben, kürzen, verwerfen.
+Report ≤12 Zeilen per Telegram; Leerlauf: 1 Zeile.
+Am Ende IMMER pushen: git push origin machine/{machine} — auch wenn nach der Bereinigung nur generisches übrigblieb oder nichts zu tun war; ohne Push erreicht nichts den Konsolidierer.

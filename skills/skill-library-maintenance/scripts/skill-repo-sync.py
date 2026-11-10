@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-# skill-repo-sync — v2 "Stage & Curate" stage layer.
+# skill-repo-sync — v2 "Stage & Consolidate" stage layer.
 #
-# SCRIPT_VERSION: 2.1.0
+# SCRIPT_VERSION: 2.2.0
 # Part of the skill-library-maintenance skill (shared repo). Install with
 # scripts/install-skill-repo-sync.py; verify with `--selfcheck`.
 #
 # The staging layer runs on every installation. It bundles pending skill work
-# into ONE commit on the installation's transport branch `machine/<name>` and
-# pushes that branch only. It never writes `main`; consolidation onto main is
-# the nightly curator's job (skill-repo-consolidate.py / agent cron on the
-# consolidation host).
+# into ONE commit on the installation's transport branch `machine/<name>`.
+# Stage secures the work locally; the pre-consolidation run owns the push —
+# what lands on a transport branch is always pre-consolidated. It never writes
+# `main`; consolidation onto main is the consolidator's job (skill-repo-consolidate.py
+# / agent cron on the consolidation host).
 #
 # Modes
 #   --stage           (default) bundle ledger+worktree changes into one commit on
-#                     machine/<name>, push; safe to re-run (idempotent by content)
-#   --sync-from-main  session-start refresh: fetch; when origin/machine/<name> has
-#                     been consumed by the curator (== origin/main, or origin/main
+#                     machine/<name> — local only, the push is held for the
+#                     pre-consolidation run; safe to re-run (idempotent by content)
+#   --sync-from-main  session-start refresh: fetch; never discards unpushed local
+#                     commits (reset guard); when origin/machine/<name> has
+#                     been consumed by the consolidator (== origin/main, or origin/main
 #                     is an ancestor) and the worktree is clean, reset the local
 #                     branch to origin/main
 #   --selfcheck       verify the local install (state, machine, branch policy, wrapper)
@@ -26,12 +29,14 @@
 #
 # Exit codes: 0 ok/no-op · 12 other error · 13 not installed
 #
-# Design rules (design record: "Stage & Curate"):
+# Design rules (design record: "Stage & Consolidate"):
 #   * the transport branch is `machine/<name>` — anything on main is refused
 #   * the mutation ledger picks/attributes paths; the v1 before/after hash chain
 #     is gone (it deadlocked against a moving HEAD: foreign commits retroactively
 #     invalidated old entries and froze cursor + push for the whole repo)
 #   * one bundled commit per stage run; this layer never uses force
+#   * stage never pushes (push-gate): the commit stays local until the
+#     pre-consolidation run cleans and pushes it
 #   * no provider/network calls beyond git itself
 from __future__ import annotations
 
@@ -45,7 +50,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCRIPT_VERSION = "2.1.0"
+SCRIPT_VERSION = "2.2.0"
 STATE_NAME = "skill-repo-sync.json"
 CURSOR_KEY = "ledger_cursor"  # index of the last ledger line staged into a commit
 
@@ -83,8 +88,8 @@ def added_pairs_from_diff(diff_text: str) -> list[tuple[str, str]]:
     return out
 
 
-def curation_scan(repo: Path, added: list[tuple[str, str]]) -> list[dict]:
-    """Vorbereitung fuer die Kuratierung: welche Additionen brauchen Augen?
+def pre_consolidation_scan(repo: Path, added: list[tuple[str, str]]) -> list[dict]:
+    """Vorbereitung fuer die Konsolidierung: welche Additionen brauchen Augen?
     Instanz-Pointer (Veto) und Duplikat-Kandidaten (Zeile >= 8 Woerter existiert
     sinngemaess schon in origin/main:<file> oder im Branch-Verlauf/HEAD). Der Scan ist
     das SICHERHEITSNETZ (Marker), nicht der Router — markieren statt verwerfen."""
@@ -237,19 +242,20 @@ def repository_preflight(repo: Path, machine: str) -> tuple[bool, str]:
 # --- stage ----------------------------------------------------------------------------------------
 
 def stage(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, list[str]]:
-    """Bundle ledger + worktree changes into one commit on machine/<name>, then push."""
+    """Bundle ledger + worktree changes into one commit on machine/<name>.
+    Stage secures the work locally; the pre-consolidation run owns the push."""
     notes: list[str] = []
     state = load_state()
     branch = git(repo, "branch", "--show-current").stdout.strip()
     if branch == "main":
-        # The curator host may legitimately work on main between runs. Nothing to do here —
+        # The consolidator host may legitimately work on main between runs. Nothing to do here —
         # but TRACKED local changes on main are kept refused: mixed work must be checked out
         # explicitly, never swept silently. Untracked debris (helper scripts, scratch) is benign.
         if git(repo, "diff", "--quiet").returncode != 0 or git(repo, "diff", "--cached", "--quiet").returncode != 0:
             return 12, [f"machine/{machine}: repo sits on main with local changes — decide where "
                         f"they belong, then checkout machine/{machine} (stage never touches main)"]
         if verbose:
-            notes.append(f"machine/{machine}: repo checkout sits on main (curator state) — stage skipped")
+            notes.append(f"machine/{machine}: repo checkout sits on main (consolidator state) — stage skipped")
         return 0, notes
     allowed, reason = repository_preflight(repo, machine)
     if not allowed:
@@ -295,19 +301,22 @@ def stage(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, 
     if staged.returncode != 0:
         return 12, [f"machine/{machine}: git add failed: {staged.stderr.strip()[:200]}"]
     if not git(repo, "diff", "--cached", "--name-only").stdout.strip():
-        # Content is already committed (a previous run's push failed and was retried):
-        # nothing new to build, retry the push only. The cursor advances on push success.
-        notes.append(f"machine/{machine}: nothing new to commit; retrying push of existing commits")
-        return push_stage(repo, machine, notes, state=state, verbose=verbose)
+        # Content is already committed (e.g. a manual commit got there first):
+        # nothing new to build. Stage never pushes, so there is no push to retry.
+        notes.append(f"machine/{machine}: nothing new to commit — content already secured locally")
+        state[CURSOR_KEY] = len(read_ledger())
+        state["last_stage_run"] = datetime.now(tz=timezone.utc).isoformat()
+        save_state(state)
+        return 0, notes
 
     if git(repo, "diff", "--cached", "--check").returncode != 0:
         return 12, [f"machine/{machine}: staged whitespace check failed"]
 
-    # v2.1 staging curation scan (R3): every staged addition against origin/main/HEAD —
+    # v2.1 staging pre-consolidation scan (R3): every staged addition against origin/main/HEAD —
     # instance pointers and duplicate candidates. Safety net: mark, never route.
-    findings = curation_scan(repo, added_pairs_from_diff(git(repo, "diff", "--cached").stdout))
+    findings = pre_consolidation_scan(repo, added_pairs_from_diff(git(repo, "diff", "--cached").stdout))
     stage_report = {"at": datetime.now(tz=timezone.utc).isoformat(),
-                    "needs_curation": len(findings), "findings": findings}
+                    "needs_pre_consolidation": len(findings), "findings": findings}
     report_path = state_path().parent / "stage-report.json"
     report_path.write_text(json.dumps(stage_report, indent=2), encoding="utf-8")
 
@@ -319,30 +328,19 @@ def stage(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, 
         shown = ", ".join(manual_paths[:20]) + (f"\n… +{len(manual_paths) - 20} more manual paths"
                                                 if len(manual_paths) > 20 else "")
         message_lines.append("Manual additions (no ledger entry): " + shown)
-    message_lines.append("Consolidating this content into main is the curator's job; "
+    message_lines.append("Consolidating this content into main is the consolidator's job; "
                          "this commit only secures the work.")
     if findings:
-        message_lines.append(f"Needs-curation: {len(findings)}")
+        message_lines.append(f"Needs-pre-consolidation: {len(findings)}")
 
     commit = git(repo, "commit", "-q", "-m", "\n".join(message_lines), "--", *paths)
     if commit.returncode != 0:
         return 12, [f"machine/{machine}: git commit failed: {(commit.stderr or commit.stdout).strip()[:200]}"]
     notes.append(f"machine/{machine}: staged {len(paths)} path(s) "
-                 f"({len(ledger_ids)} ledger entries, {len(manual_paths)} manual)")
-
-    return push_stage(repo, machine, notes, state=state, verbose=verbose)
-
-
-def push_stage(repo: Path, machine: str, notes: list[str], state: dict,
-               verbose: bool) -> tuple[int, list[str]]:
-    push = git(repo, "push", "origin", f"HEAD:refs/heads/machine/{machine}")
-    if push.returncode != 0:
-        notes.append(f"machine/{machine}: push failed — commit retained for retry: "
-                     f"{(push.stderr or push.stdout).strip()[:300]}")
-        # The cursor deliberately stays: the next stage run re-detects the same content,
-        # finds nothing new to add, and retries the push.
-        return 12, notes
-    notes.append(f"machine/{machine}: pushed")
+                 f"({len(ledger_ids)} ledger entries, {len(manual_paths)} manual) — "
+                 f"holding push for the pre-consolidation run")
+    # Push-gate: stage never pushes. The cursor advances after the successful commit —
+    # the pre-consolidation run owns the push and the reset guard keeps the commits safe.
     state[CURSOR_KEY] = len(read_ledger())
     state["last_stage_run"] = datetime.now(tz=timezone.utc).isoformat()
     save_state(state)
@@ -352,7 +350,8 @@ def push_stage(repo: Path, machine: str, notes: list[str], state: dict,
 # --- refresh --------------------------------------------------------------------------------------
 
 def sync_from_main(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, list[str]]:
-    """Session-start refresh: fetch; when the branch was consumed by the curator, reset to origin/main."""
+    """Session-start refresh: fetch; when the branch was consumed by the consolidator, reset to
+    origin/main — never over unpushed local commits (reset guard)."""
     notes: list[str] = []
     # v2.1 session-start warning (R3): the local cleanup trigger for the last stage scan.
     report_path = state_path().parent / "stage-report.json"
@@ -361,12 +360,12 @@ def sync_from_main(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tu
             rep = json.loads(report_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             rep = {}
-        if rep.get("needs_curation"):
-            notes.append(f"skills: {rep['needs_curation']} addition(s) need curation — "
+        if rep.get("needs_pre_consolidation"):
+            notes.append(f"skills: {rep['needs_pre_consolidation']} addition(s) need pre-consolidation — "
                          "see stage-report.json (fix before staging again)")
     branch = git(repo, "branch", "--show-current").stdout.strip()
     if branch == "main":
-        # Same tolerance as stage: a clean main checkout is the curator's normal state.
+        # Same tolerance as stage: a clean main checkout is the consolidator's normal state.
         if git(repo, "diff", "--quiet").returncode != 0 or git(repo, "diff", "--cached", "--quiet").returncode != 0:
             return 12, [f"machine/{machine}: repo sits on main with local changes — resolve them "
                         f"explicitly, then checkout machine/{machine}"]
@@ -392,6 +391,14 @@ def sync_from_main(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tu
                          "(content rides the next stage run)")
         return 0, notes
 
+    # v2.2 reset guard (push-gate): unpushed local commits are the normal state between the
+    # staging sweep and the pre-consolidation run — never discard them with the reset.
+    unpushed = git(repo, "rev-list", "--count", f"origin/machine/{machine}..HEAD").stdout.strip()
+    if int(unpushed or 0) > 0:
+        notes.append(f"machine/{machine}: {unpushed} unpushed commit(s) — run the pre-consolidation "
+                     "(it pushes) before syncing")
+        return 0, notes
+
     origin_main = git(repo, "rev-parse", "--verify", "refs/remotes/origin/main").stdout.strip()
     local_branch = git(repo, "rev-parse", "HEAD").stdout.strip()
 
@@ -415,7 +422,7 @@ def sync_from_main(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tu
     reset = git(repo, "reset", "--hard", origin_main)
     if reset.returncode != 0:
         return 12, [f"machine/{machine}: reset failed: {reset.stderr.strip()[:300]}"]
-    notes.append(f"machine/{machine}: consumed by the curator — reset to origin/main ({origin_main[:12]})")
+    notes.append(f"machine/{machine}: consumed by the consolidator — reset to origin/main ({origin_main[:12]})")
     return 0, notes
 
 
@@ -451,9 +458,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="stage-layer sync for the shared skill repo (v2)")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--stage", action="store_true",
-                      help="bundle pending work into one commit on machine/<name> and push (default)")
+                      help="bundle pending work into one local commit on machine/<name> "
+                           "(push-gate: the pre-consolidation run pushes) (default)")
     mode.add_argument("--sync-from-main", action="store_true",
-                      help="fetch; reset to origin/main when the curator consumed the branch")
+                      help="fetch; reset to origin/main when the consolidator consumed the branch "
+                           "(never over unpushed local commits)")
     mode.add_argument("--selfcheck", action="store_true", help="verify the install")
     mode.add_argument("--version", action="store_true", help="print the script version")
     ap.add_argument("--machine", default=None, help="machine name override (default: from state file)")

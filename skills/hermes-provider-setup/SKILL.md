@@ -1,7 +1,7 @@
 ---
 name: hermes-provider-setup
 description: Set up Hermes providers, keys, rate limits and model slots.
-version: 0.13.0
+version: 0.13.1
 author: Hermes Agent
 license: MIT
 metadata:
@@ -454,6 +454,15 @@ Free / zero-cost slugs are the entries a plan renames or retires first, and both
 Diagnose it by separating the two surfaces: if the keyed `/models` and `/usage` answer 200 but `POST /chat/completions` (with `x-opencode-session`) returns 403, the key is scoped, not expired or misconfigured. Do not re-add credentials, do not change `base_url` or `api_mode`, and do not read the `/models` success as "the provider is fine". The fix is on the provider's side: issue a key whose permissions include model requests (member keys are personal and call as you; owner/admin keys need Restricted-with-Models-Request or All, never Read only).
 
 After the replacement, `hermes auth reset <provider>` clears the cached failure row — `hermes auth list` otherwise keeps showing `exhausted` / `permission_error` for a key that now works, and `hermes auth status` prints `logged in` for both states, so neither line alone tells you which key is live. Confirm with `secret_fingerprint` against the value in `.env`, then probe inference once.
+
+### Pitfall 19 — a long-running agent job drains shared plan windows
+
+A cron agent or consolidation run multiplies turns × context (every turn resends the whole
+history), so a 30–100 minute run can drain a whole window — usually one shared with the session's
+own lane traffic — and die on a 429 mid-run, losing the work. Size duration-heavy jobs by
+runtime × context, not by call count, and pin them to a lane with dedicated credits
+rather than a per-model bucket or a window shared with the session. Judgment
+models with tight request buckets stay reserved for short, bounded calls.
 
 ## References
 

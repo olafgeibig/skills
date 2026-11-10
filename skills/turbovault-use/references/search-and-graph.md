@@ -13,6 +13,8 @@ For broad discovery, pass `response_format: concise` to `search` (compact rows: 
 
 Do not send `field:value` expressions such as `type: analysis` to full-text search. Use frontmatter search or SQL.
 
+**Retrieval is not enumeration.** When the answer must be complete — every note of a type, a naming survey, a rollout view — use `query_frontmatter_sql` (`SELECT path FROM files WHERE …`) and reconcile the row count against a known total (e.g. `get_vault_context` type counts) before claiming coverage. With `search` + `frontmatter_filters`, omit `query` entirely for filter-only listing: a `"*"` query beside the filters returns a small arbitrary subset instead of every match.
+
 Full-text and semantic searches can cover the entire active vault. Constrain results with path filters where supported or verify every result path before using it.
 
 List results page at 50 by default (`limit`/`offset` and `meta.pagination.next_offset`); a vault-wide count needs the loop, not the first page.

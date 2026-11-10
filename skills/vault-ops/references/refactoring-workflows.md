@@ -86,6 +86,17 @@ Use when the user asks whether a note is obsolete and authorizes deletion if it 
 5. **Apply the decision.** If the note is completely superseded and the user already authorized deletion on that condition, delete the exact resolved path using TurboVault's confirmation and hash guards. Otherwise report the surviving value and propose the narrower update. When the client cannot answer that confirmation, the delete is refused with `Couldn't confirm with the user …` and nothing changes: do not retry the identical call, and do not delete through `terminal`/`rm`. Retire it by moving it into `archive/` instead — `status: archived` in the frontmatter, tags reduced to `archived`, `description:` and the H1 marked as retired with a link to the replacement — and tell the user the deletion is still pending plus what would enable it (see `turbovault-use` → `references/audit-and-rollback.md`).
 6. **Verify the result.** Read back the deleted path and expect absence; search for remaining references, and read back every edited referring note. A title search returning zero is not enough to establish that links were cleaned up. Report the deleted path, the reason for retirement, and any intentionally retained material.
 
+## Dissolve a Note into Its Owner
+
+Use when a note's content is merged into a living owner note and the source note should disappear — the retirement variant where a replacement *note* exists as the owner, not as a successor file.
+
+1. **Rewrite incoming wikilinks first.** `get_links(direction=incoming)` plus a filename/title text search, then one `edit_note` per referrer pointing the link at the owner note. Order matters: `delete_note` refuses while backlinks remain.
+2. **Delete without `force`** and require `link_sources_updated: []` — an empty list is the proof that step 1 caught everything; a non-empty list means a referrer was rewritten by the delete's fallback logic instead of by your review.
+3. **Alternative when striking links through is acceptable:** `on_backlinks: rewrite-stale-callout` performs step 1 and 2 in one commit, crossing the links out in place. Use it only when a struck-through link is acceptable in the referring notes — a living owner usually deserves a real pointer, not a grave marker.
+
+- A plain-text mention does not block the delete; a wikilink does. Grep both — a mention in prose survives the delete silently and becomes the last reader's dead end.
+- Move the source note's unique content into the owner **before** the delete, and verify by reading the owner back — a delete is the one step in this file that cannot be undone by a later patch.
+
 ## Load the Tool Skill Before Planning
 
 Before authoring a refactor plan, list every tool the plan will use (MCP tools, `edit_note`, batch writes) and load the matching tool skill — read its refactor recipe and quirks sections. Record in the plan header which tool quirks the plan accounts for. A plan built on assumed tool behavior breaks at the first tool call: `move_note` rewrites inbound links only when `update_backlinks: true` is passed (default false on Direct) and never touches `topics:`, aliases or canvas cards (see `turbovault-use`), so a half-migrated state costs a plan rebuild plus recovery from backup.

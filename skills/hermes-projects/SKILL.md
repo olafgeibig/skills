@@ -2,7 +2,7 @@
 name: hermes-projects
 description: "Use when structuring a project that Hermes works in."
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   scope: personal
@@ -91,6 +91,7 @@ Declare the publication target per project; the shape alone does not determine i
 - **No vault guarantees outside a registered vault.** Hashes, audit, rollback and the drift check cover a *registered* vault only. In a work tree: read before writing, write only when the task asks, and name its own version control as the safety net — or state plainly that nothing is versioned.
 - **One fact, one place.** Project facts in the project's files, method in a skill, instance data in the table above. A skill never restates a project fact; it links.
 - **Facts versus method.** A `project-<x>` skill carries the method and loads by trigger; the files carry locations, rules and the state of the work.
+- **A concept note carries the complete concept; another audience gets its own file.** Rewrite a spec or design note so it stands alone as the full current concept — never leave a chain of amendments appended over time. Operational instructions aimed at a different reader (a runbook brief for other agents, per-machine steps) are a separate note beside it, linked from the spec: one file serving two audiences buries the procedure under the rationale.
 
 ## Writing these files safely
 

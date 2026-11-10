@@ -39,11 +39,11 @@ A minimal probe needs only one committed file, one appended change, one ledger e
 | Multiple pending runs touch one file | The sweep commits the path's current content once — no per-run reconstruction (the ledger has no intermediate snapshots) and no hold on other paths. |
 | Manual and ledgered edits share a file | Both ride along in the staging commit; attribution names the path and the ledger ids, not each change inside it. |
 | Review gate finding (instance pointer, dangling reference, duplicate rule) | `--preflight` reports it visibly and the consolidation stays blocked; nothing reaches `main` unreviewed. |
-| Unexpected branch | `--stage` refuses a dirty `main` checkout and no-ops on a clean one (the curator host's normal state); a transport branch runs only as `machine/<hostname>`. |
+| Unexpected branch | `--stage` refuses a dirty `main` checkout and no-ops on a clean one (the consolidator host's normal state); a transport branch runs only as `machine/<hostname>`. |
 | Cursor behind the ledger | The next sweep advances it over the entries it bundles — a stale cursor self-heals instead of replaying old content. |
 | Staging commit made, push fails | The commit is preserved and the retry pushes it without creating a duplicate. |
 | Transport branch consumed upstream | `--sync-from-main` resets the local branch to `origin/main`; dirty worktree content is never discarded (observer-only). |
-| Curator finds overlapping edits in two transport branches | Resolves to one home per rule and a SemVer increment beyond both; never `-X ours`/`-X theirs`, never a force-push of `main`. A resolution it cannot make stops the run before any `main` commit. |
+| Consolidator finds overlapping edits in two transport branches | Resolves to one home per rule and a SemVer increment beyond both; never `-X ours`/`-X theirs`, never a force-push of `main`. A resolution it cannot make stops the run before any `main` commit. |
 | No prior sync cursor exists | Historical path membership never authorizes today's dirty content; bootstrap is an explicit skip-history choice. |
 
 Repeat a blocked case after correcting the fixture to verify actual retry, not just preservation of an integer cursor. For push failure, assert that the retry creates no duplicate commit and the remote reaches the staged local HEAD; for consumption, assert the reset touches nothing but the transport branch.

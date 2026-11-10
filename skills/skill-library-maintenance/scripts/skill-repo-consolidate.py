@@ -1,12 +1,29 @@
 #!/usr/bin/env python3
-# skill-repo-consolidate — v2 "Stage & Curate" consolidation helpers (runs on the curator host only).
+# skill-repo-consolidate — v2 "Stage & Consolidate" consolidation helpers (runs on the consolidator host only).
 #
-# SCRIPT_VERSION: 2.1.0
-# Companion of skill-repo-sync.py. The nightly consolidation is AGENT work: the cron job loads
+# SCRIPT_VERSION: 2.3.0
+# Companion of skill-repo-sync.py. The consolidation is AGENT work: the cron job loads
 # skill-library-maintenance, reads the collected diffs, edits files on main deliberately
 # (dedupe, scope discipline, SemVer — rules in skill-governance), commits, pushes main and
 # resets the consumed transport branches. This script is the mechanical scaffold around that:
 #
+#   --pending [--repo …]       monitor source for the consolidator's --monitor-script gate:
+#                              one byte-stable line per transport branch with net work
+#                              (`<host> <tip12> <n>`, n = files of the THREE-dot diff
+#                              origin/main...<tip>), sorted, empty when nothing is pending.
+#                              BYTE STABILITY IS THE CONTRACT: the monitor hashes the exact
+#                              bytes and suppresses the agent while they do not change — so
+#                              no timestamps, no self-wobbling counters, errors as one
+#                              `error: …` line on stderr with empty stdout, ALWAYS exit 0
+#   --refresh-strip [--repo …] pre-consolidation step 0: replay the never-pushed commits
+#                              (after `last_pushed_tip`) onto the FRESH transport strip
+#                              (origin/machine/<host>) — the strip follows main on its own,
+#                              so rebase onto the strip, never onto main. Conflict →
+#                              `rebase --abort` + exit 12 (fail-closed); --init-last-pushed
+#                              deliberately re-seeds a lost last_pushed_tip
+#   --note-pushed [--repo …]   after every successful pre-consolidation push: record HEAD as
+#                              `last_pushed_tip`, so --refresh-strip only replays what came
+#                              after the last push
 #   --collect [--outdir DIR]   fetch spray; for every machine branch with a non-empty net diff
 #                              against origin/main, write the diff and a metadata row; print JSON
 #                              (read-only apart from the fetch — feeds the agent prompt)
@@ -28,6 +45,7 @@
 #                              unconsolidated content
 #
 # Exit codes: 0 ok/no-op · 10 preflight findings · 12 other error · 13 not installed
+# (`--pending` is the exception: the monitor source always exits 0 — see its mode doc)
 from __future__ import annotations
 
 import argparse
@@ -41,7 +59,7 @@ from datetime import datetime, timezone
 from importlib.util import spec_from_file_location, module_from_spec
 from pathlib import Path
 
-SCRIPT_VERSION = "2.1.0"
+SCRIPT_VERSION = "2.3.0"
 STATE_NAME = "skill-repo-sync.json"
 
 # Reuse the canonical instance-pointer patterns from the engine (single source of truth).
@@ -84,6 +102,17 @@ def repo_from_args(args: argparse.Namespace) -> Path:
     return Path(root.stdout.strip())
 
 
+def repo_from_state() -> Path:
+    state = srs.load_state()
+    repos = list(state.get("repos") or [])
+    if not repos:
+        raise SystemExit("error: no repo configured — pass --repo")
+    repo = Path(repos[0]["path"]).expanduser()
+    if not repo.is_dir():
+        raise SystemExit(f"error: configured repo missing: {repo}")
+    return repo
+
+
 def main_sha(repo: Path) -> tuple[str, str | None]:
     fetch = git(repo, "fetch", "origin", "--quiet")
     if fetch.returncode != 0:
@@ -103,6 +132,97 @@ def machine_shas(repo: Path) -> dict[str, str]:
         sha, ref = line.split()
         shas[ref.split("refs/heads/machine/")[-1]] = sha
     return dict(sorted(shas.items()))
+
+
+def pending(repo: Path) -> tuple[list[str], str | None]:
+    """Monitor source (`--pending`): one byte-stable line per transport branch that still
+    carries net work — `<host> <tip12> <n>`, n = files in the THREE-dot diff
+    `origin/main...<tip>` (the branch's own changes; main advancing alone never shows).
+
+    BYTE STABILITY IS THE CONTRACT with Hermes' `--monitor-script` hash suppression: the
+    consolidator job fires an agent only when this output changes (exact-bytes hash). So:
+    sorted lines, newline-joined, empty output when nothing is pending — and never a
+    timestamp or a counter that wobbles on its own. An unchanged world must produce
+    unchanged bytes. Errors return a short reason; the caller prints it as one `error: …`
+    line on stderr with empty stdout and exits 0 — a monitor source must never look broken.
+    """
+    fetch = git(repo, "fetch", "origin", "--quiet")
+    if fetch.returncode != 0:
+        return [], f"fetch failed: {(fetch.stderr or fetch.stdout).strip()[:200]}"
+    main = git(repo, "rev-parse", "refs/remotes/origin/main")
+    if main.returncode != 0:
+        return [], "origin/main missing — fetch or clone state incomplete"
+    base = main.stdout.strip()
+    lines: list[str] = []
+    for host, sha in machine_shas(repo).items():
+        names = git(repo, "diff", "--name-only", f"{base}...{sha}").stdout.splitlines()
+        n = len([f for f in names if f.strip()])
+        if n > 0:
+            lines.append(f"{host} {sha[:12]} {n}")
+    return sorted(lines), None
+
+
+def refresh_strip(repo: Path, init_last_pushed: bool = False) -> tuple[int, list[str]]:
+    """Pre-consolidation step 0: replay the never-pushed commits onto the FRESH transport
+    strip — `git rebase --onto origin/machine/<host> <last_pushed_tip>`.
+
+    The strip follows main on its own — rebase onto the STRIP, never onto main, because the
+    strip may carry not-yet-consumed commits. Fail-closed on conflict: `rebase --abort` and
+    exit 12, never a force. Idempotent once `--note-pushed` recorded the pushed tip
+    (`last-pushed-tip not found` after a hard reset needs the deliberate `--init-last-pushed`).
+    """
+    notes: list[str] = []
+    state = srs.load_state()
+    host = str(state.get("machine") or "").strip()
+    if not host:
+        return 12, ["strip: no machine name in state — reinstall with install-skill-repo-sync.py --machine <name>"]
+    fetch = git(repo, "fetch", "origin", "--quiet")
+    if fetch.returncode != 0:
+        return 12, [f"strip: fetch failed: {(fetch.stderr or fetch.stdout).strip()[:200]}"]
+    # branch policy (engine): the strip work happens on the transport branch, never on main
+    allowed, reason = srs.branch_policy(repo, host)
+    if not allowed:
+        return 12, [f"strip: {reason}"]
+    strip = f"machine/{host}"
+    onto = git(repo, "rev-parse", "--verify", f"refs/remotes/origin/{strip}")
+    onto_sha = onto.stdout.strip() if onto.returncode == 0 else ""
+    lpt = str(state.get("last_pushed_tip") or "").strip()
+    if not lpt or init_last_pushed:
+        target = onto_sha or git(repo, "rev-parse", "HEAD").stdout.strip()
+        state["last_pushed_tip"] = target
+        srs.save_state(state)
+        notes.append(f"strip: last-pushed-tip initialized to {target[:12]}")
+        lpt = target
+    elif git(repo, "rev-parse", "--verify", f"{lpt}^{{commit}}").returncode != 0:
+        return 12, notes + ["strip: last-pushed-tip not found — re-init by passing --init-last-pushed"]
+    count = int(git(repo, "rev-list", "--count", f"{lpt}..HEAD").stdout.strip() or 0)
+    if count == 0:
+        notes.append("strip: nothing to replay")
+        return 0, notes
+    if not onto_sha:
+        # first push creates the strip — without an origin strip there is nothing to replay onto
+        notes.append(f"strip: no origin/{strip} yet — nothing to replay (the first push creates the strip)")
+        return 0, notes
+    rebase = git(repo, "rebase", "--onto", onto_sha, lpt)
+    if rebase.returncode != 0:
+        git(repo, "rebase", "--abort")
+        return 12, notes + ["strip: replay conflict against the refreshed strip — "
+                           "resolve in the pre-consolidation review or report"]
+    notes.append(f"strip: replayed {count} commit(s) onto origin/{strip} ({onto_sha[:12]})")
+    return 0, notes
+
+
+def note_pushed(repo: Path) -> tuple[int, list[str]]:
+    """Pflichtaufruf nach jedem erfolgreichen Push der Pre-Consolidation: HEAD als
+    `last_pushed_tip` in die State-Datei, damit --refresh-strip nur die seither
+    entstandenen Commits auf den Strip spielt."""
+    head = git(repo, "rev-parse", "HEAD").stdout.strip()
+    if not head:
+        return 12, ["strip: cannot read HEAD"]
+    state = srs.load_state()
+    state["last_pushed_tip"] = head
+    srs.save_state(state)
+    return 0, [f"strip: last-pushed-tip -> {head[:12]}"]
 
 
 def collect(repo: Path, outdir: Path, verbose: bool) -> tuple[int, list[str]]:
@@ -351,8 +471,17 @@ def preflight_scan(repo: Path, outdir: Path) -> tuple[int, list[str]]:
                 target = target.strip()
                 if target.startswith(("http://", "https://", "#", "mailto:")):
                     continue
-                base = repo / file if file else repo
-                if not (base.parent / target).exists() and not (repo / target).exists():
+                # Resolve against the referencing file's directory and every ancestor
+                # up to the repo root: a support file under assets/ may legitimately point
+                # at `references/<name>.md` relative to the package root.
+                base = (repo / file).parent if file else repo
+                probe, resolved = base, False
+                while not resolved:
+                    resolved = (probe / target).exists()
+                    if probe == repo or probe.parent == probe:
+                        break
+                    probe = probe.parent
+                if not resolved:
                     findings.append({"machine": host, "file": file, "kind": "dangling-reference",
                                      "detail": target, "line": text.strip()[:160]})
     seen: set = set()
@@ -375,16 +504,16 @@ def preflight_scan(repo: Path, outdir: Path) -> tuple[int, list[str]]:
 def reset_branches(repo: Path, hosts: list[str], dry_run: bool, confirmed: bool) -> tuple[int, list[str]]:
     """Push origin/main onto the consumed transport branches. The ONLY allowed force in v2.
 
-    `--confirm-consumed` is the curator's assertion that it has consolidated the branch.
-    Git ancestry cannot replace that judgement: a curated commit on main rewrites the branch's
+    `--confirm-consumed` is the consolidator's assertion that it has consolidated the branch.
+    Git ancestry cannot replace that judgement: a consolidated commit on main rewrites the branch's
     content instead of merging it, so the branch tip is never an ancestor and the content is
     present all the same. Without the flag this refuses to touch anything.
     """
     notes: list[str] = []
     if not confirmed:
-        return 12, ["machine reset: refusing without --confirm-consumed — the curator asserts "
+        return 12, ["machine reset: refusing without --confirm-consumed — the consolidator asserts "
                     "which branches it has consolidated; ancestry cannot decide this for a "
-                    "curated commit"]
+                    "consolidated commit"]
     main, err = main_sha(repo)
     if err:
         return 12, [f"machine reset: {err}"]
@@ -477,7 +606,7 @@ def release_lock(repo: Path) -> None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="v2 consolidation helpers (curator host only)")
+    ap = argparse.ArgumentParser(description="v2 consolidation helpers (consolidator host only)")
     mode = ap.add_mutually_exclusive_group(required=True)
     mode.add_argument("--collect", action="store_true",
                       help="fetch and write pending branch diffs + metadata JSON")
@@ -494,27 +623,53 @@ def main() -> int:
     mode.add_argument("--lock", action="store_true",
                       help="single-flight guard: acquire the consolidation lock (exit 12 if a run is active)")
     mode.add_argument("--unlock", action="store_true", help="release the consolidation lock")
+    mode.add_argument("--pending", action="store_true",
+                      help="monitor source: byte-stable sorted '<host> <tip12> <n>' lines for transport "
+                           "branches with net work against origin/main (three-dot); empty output when "
+                           "nothing is pending; always exits 0 (errors: one 'error: …' line on stderr)")
+    mode.add_argument("--refresh-strip", action="store_true",
+                      help="pre-consolidation step 0: replay the never-pushed commits (after "
+                           "last_pushed_tip) onto the refreshed origin/machine/<host> strip; conflict "
+                           "-> rebase --abort + exit 12")
+    mode.add_argument("--note-pushed", action="store_true",
+                      help="record HEAD as last_pushed_tip in the state file — call after every "
+                           "successful pre-consolidation push")
     ap.add_argument("--force-lock", action="store_true",
                     help="deliberate override of the single-flight lock (human decision only)")
+    ap.add_argument("--init-last-pushed", action="store_true",
+                    help="with --refresh-strip: deliberately re-seed last_pushed_tip to the current "
+                         "origin/machine/<host> tip (or HEAD) — ONLY when the recorded tip no longer "
+                         "exists (e.g. after a hard reset)")
     ap.add_argument("--confirm-consumed", action="store_true",
-                    help="curator assertion: the named branches are consolidated; required by --reset-branch")
+                    help="consolidator assertion: the named branches are consolidated; required by --reset-branch")
     ap.add_argument("--repo", default=None, help="path to the shared skill repo (default: from state)")
     ap.add_argument("--outdir", default=None, help="where collect writes diffs (default: <repo>/.consolidate-scratch)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
+    if args.pending:
+        # Monitor source contract: stdout is the wake-up signal, so this mode must never
+        # look broken — every failure is one `error: …` line on stderr and exit 0.
+        try:
+            repo = repo_from_args(args) if args.repo else repo_from_state()
+            lines, err = pending(repo)
+        except (OSError, ValueError, subprocess.TimeoutExpired, SystemExit) as exc:
+            lines, err = [], (str(exc).strip() or type(exc).__name__)
+        if err:
+            msg = err if err.startswith("error: ") else f"error: {err}"
+            print(msg, file=sys.stderr)
+        elif lines:
+            print("\n".join(lines))
+        return 0
+
     if args.repo:
         repo = repo_from_args(args)
     else:
-        state = srs.load_state()
-        repos = list(state.get("repos") or [])
-        if not repos:
-            print("error: no repo configured — pass --repo")
-            return 13
-        repo = Path(repos[0]["path"]).expanduser()
-        if not repo.is_dir():
-            print(f"error: configured repo missing: {repo}")
+        try:
+            repo = repo_from_state()
+        except SystemExit as exc:
+            print(str(exc))
             return 13
 
     outdir = Path(args.outdir) if args.outdir else repo / ".consolidate-scratch"
@@ -540,6 +695,10 @@ def main() -> int:
                                    "(the merged/ directory written by --merge-map)"]
             else:
                 code, notes = apply_decisions(repo, Path(args.apply_decisions), outdir)
+        elif args.refresh_strip:
+            code, notes = refresh_strip(repo, init_last_pushed=args.init_last_pushed)
+        elif args.note_pushed:
+            code, notes = note_pushed(repo)
         elif args.collect:
             code, notes = collect(repo, outdir, args.verbose)
         elif args.preflight:

@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing, dissolving or syncing a skill library."
 license: MIT
 metadata:
-  version: "0.18.0"
+  version: "0.22.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -31,6 +31,7 @@ Audit, consolidate, and restructure Git-backed skill libraries without losing us
 - Split a generic skill into a core and domain or project overlays.
 - Reconcile duplicate skill names across configured roots.
 - Diagnose a stuck cross-installation repository sync.
+- Install the sync on a machine, or determine which role this instance has.
 - Dissolve a migration-source skill into its canonical owners and retire the shell.
 
 Use `skill-builder` for the quality rules of one skill package. Use `skill-governance` for ownership, scope, sidecars, and canonical destinations. This skill applies those rules across a library.
@@ -160,8 +161,8 @@ Use `references/repository-sync-safety.md` for the isolation recipe and behavior
 
 A skill repository mounted on more than one installation needs a sync design, or review writes sit
 uncommitted until they collide with the other machines. The design shipped in
-`scripts/skill-repo-sync.py` is **Stage & Curate**: no machine session writes `main`; each
-installation stages its work onto a transport branch `machine/<hostname>`, and one nightly
+`scripts/skill-repo-sync.py` is **Stage & Consolidate**: no machine session writes `main`; each
+installation stages its work onto a transport branch `machine/<hostname>`, and one monitor-gated
 consolidator consumes the transport branches one per pass, landing one `main` commit per
 consumed branch.
 
@@ -169,14 +170,20 @@ consumed branch.
   paths, timestamps, and mutation details in `<HERMES_HOME>/skills/.curator_ledger.jsonl`;
   neither the changed skill's name nor `actor: curator` alone establishes review provenance.
 - Staging (`--stage`) bundles the pending ledger paths **and** the dirty worktree into one commit
-  on `machine/<hostname>` and pushes it; ledger entry IDs ride in the commit trailers. The ledger
+  on `machine/<hostname>`; ledger entry IDs ride in the commit trailers. The ledger
   holds hashes, not intermediate file contents, so per-run commits cannot be reconstructed — the
-  sweep commits the current content per path, once. A push failure keeps the commit for retry
-  without duplicating it.
-- `main` has exactly one writer: the nightly consolidator (a scheduled agent run, model-pinned).
+  sweep commits the current content per path, once. Push-gate: the staging sweep bundles locally;
+  the pre-consolidation run owns the push — what lands on a transport branch is always
+  pre-consolidated.
+- `main` has exactly one writer: the monitor-gated consolidator (a scheduled agent run, model-pinned).
   It consolidates one transport branch per pass from mechanical 3-way merge maps — auto-merged
-  files untouched, the semantic review covers conflict packets, needs-curation items and the
-  added-hunk digest — and lands one commit per consumed branch.
+  files untouched, the semantic review covers conflict packets, needs-pre-consolidation items and the
+  added-hunk digest — and lands one commit per consumed branch. The consolidator wakes on the
+  monitor gate — pending branches only, no idle LLM runs.
+- A daily pre-consolidation run per installation cleans that installation's own pending additions
+  *before* consolidation: instance-shaped lessons leave the canonical edit and land in the
+  *writing* profile's adaptation (profile-scoped — `skill-governance`), generic content stays for
+  the consolidator (`references/shared-repo-sync.md` → *Instance pre-consolidation*).
 - A transport branch is a landing strip, not a feature branch: `--reset-branch` (the only
   sanctioned force, lease-guarded) resets it after consumption; never merge one back by hand.
 - A new install requires the explicit `--bootstrap-current-ledger` choice, which skips historical
@@ -184,6 +191,15 @@ consumed branch.
 - Long sessions: the skill *index* is a start-of-session snapshot (prompt-cache invariant); skill
   *bodies* load from disk, so `/skill-name` always yields current content. Never pull mid-session to
   "fix" an index.
+- Fresh install or version update of the sync on this installation: `references/install-and-update.md` (*Installation* / *Update* sections)
+- Instructing an agent on another installation to install or upgrade: tell it to follow `references/install-and-update.md` (it renders nothing — the values come from its own identity)
+  (Consolidator/Contributor component tables, template rendering, `hermes cron create` wiring,
+  verification checklist, update policy).
+- The cron prompts, the staging and monitor shims and the SOUL identity block ship as templates in `assets/`
+  (`stage-sweep-script.sh.example`, `consolidate-monitor-script.sh.example`,
+  `consolidator-cron-prompt.md.example`, `pre-consolidation-cron-prompt.md.example`,
+  `soul-instance-block.md.example`): `{var}` placeholders,
+  rendered at install time; the rendered prompt is the job payload, the template stays the source.
 - Mechanics, install, cron wiring, the consolidator run book (v2.1), the cross-machine deployment audit,
   manual fallback and failure diagnosis:
   `references/shared-repo-sync.md`.
@@ -197,7 +213,7 @@ The background review (`auxiliary.background_review`, on by default) runs after 
 - Small, single-file edits do not need the toggle; re-read the file immediately before patching instead.
 - Before a review write into a shared-repository skill, apply `skill-governance`'s adaptation
   routing at write time: instance-shaped lessons go to the profile's adaptation or the project files. The staging
-  curation scan flags what slipped through, and the consolidator's review pass drops leftovers
+  pre-consolidation scan flags what slipped through, and the consolidator's review pass drops leftovers
   defensively.
 - If a pass ran with the review on, check `<HERMES_HOME>/skills/.curator_ledger.jsonl` for `actor: curator` entries whose `evidence.session_id` matches the session before treating a change as your own.
 - A missed toggle is diagnosable afterwards: background-pass writes arrive as `actor: curator` ledger entries and ride into the next staging commit — grep the ledger for the session id and review what landed. A hash chain broken by a commit outside the ledger surfaces in the consolidator's `--preflight` findings, not as a blocked transport (`references/shared-repo-sync.md` → *Diagnosing a stuck sync*).
@@ -210,6 +226,7 @@ The background review (`auxiliary.background_review`, on by default) runs after 
 - Keep destructive cleanup separate from read-only validation.
 - Do not drop stashes or backups without explicit consent.
 - Quote commit messages so the shell cannot rewrite them: backticked identifiers inside double quotes are executed as command substitution and vanish from the message — single quotes or a heredoc whenever the message names code.
+- Name the remote in scripted pushes: `git push <sha>:<ref>` without one parses the sha as an scp-style host and dies on DNS resolution — write `git push origin <sha>:<ref>`.
 - Treat `.DS_Store` and similar OS metadata as a separate cleanup decision.
 
 ## Refactoring Large Skills

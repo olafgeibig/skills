@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.7.1"
+  version: "0.7.2"
   author: Olaf Geibig
   hermes:
     category: personal
@@ -112,7 +112,7 @@ Use progressive disclosure:
 
 - `SKILL.md` contains the trigger, decisions, core procedure, pitfalls, and verification.
 - `references/` contains detailed methodology or client-specific behavior.
-- `scripts/` contains executable helpers with documented dependencies and useful errors.
+- `scripts/` contains executable helpers with documented dependencies and useful errors. Scripts run **in place** from the skill tree — do not design a copy-into-profile-directory mechanism: a copy drifts from the checked-out version and needs its own version sync. A generated artifact outside the skill is justified only where a stable path is required by something external (a byte-stable hook wrapper whose consent records its mtime; a thin shim a scheduler insists on loading from a fixed directory), and it must be rendered from a `templates/` file that carries no logic.
 - `assets/` or `templates/` contains material copied into outputs rather than loaded as instructions.
 
 See `references/skill-structure-and-format.md` and `templates/skill-template.md`.
