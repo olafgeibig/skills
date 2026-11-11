@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.7.2"
+  version: "0.7.3"
   author: Olaf Geibig
   hermes:
     category: personal
@@ -189,7 +189,7 @@ Also verify:
 - changed examples and commands were exercised;
 - repository status contains only intended changes.
 
-The reference validator proves frontmatter and structural conformance. It does not prove that every instruction in supporting Markdown is current or correct.
+The reference validator proves frontmatter and structural conformance. It does not prove that every instruction in supporting Markdown is current or correct. It also accepts a cross-package support-file pointer that the library audit rejects (resolution rule: `skill-library-maintenance` → Repository Audit), so run the library audit over the repository after editing a skill in a multi-skill repo.
 
 ## Client-Specific Rules
 

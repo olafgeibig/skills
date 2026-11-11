@@ -59,6 +59,8 @@ The audit reports:
 - name/directory mismatches;
 - dangling references to package support files.
 
+Reference tokens resolve against the SKILL.md's own package directory: a bare support-file path that belongs to another package is reported as `missing references` even though the file exists there. Prefix a cross-package pointer with the owning skill's package name, or write it as prose without a bare path — both forms audit clean, the bare form does not.
+
 The audit does not edit files. Review findings using `skill-builder/references/skill-quality-gates.md` before refactoring.
 
 ## Declaration Audit (across roots)
