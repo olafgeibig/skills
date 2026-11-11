@@ -1154,7 +1154,8 @@ def test_capture_dry_run_reports_cannot_determine_without_fetch(v3lab):
 # --- deployment artifacts: render + drift detection -----------------------------------------------
 
 ARTIFACT_NAMES = {"maintainer-cron-prompt", "pre-integration-cron-prompt",
-                  "maintain-monitor-script", "stage-sweep-script"}
+                  "maintain-monitor-script", "stage-sweep-script",
+                  "stage-sweep-pointer", "maintain-monitor-pointer"}
 
 
 def artifact_lab(tmp_path: Path) -> tuple[Path, Path, Path, dict]:
@@ -1232,6 +1233,15 @@ def test_artifact_drift_is_reported_and_render_clears_it(tmp_path: Path, monkeyp
     integrate.render_artifacts(store, config, home)
     assert integrate.artifact_problems(store, config, home) == []
 
+    pointer = home / "scripts" / "skill-repo-sync-stage.sh"
+    assert pointer.read_text(encoding="utf-8").startswith("#!/bin/sh")
+    assert str(store / "scripts" / "skill-repo-sync-stage.sh") in pointer.read_text(encoding="utf-8")
+    pointer.unlink()
+    missing = integrate.artifact_problems(store, config, home)
+    assert any("pointer is missing" in item for item in missing)
+    integrate.render_artifacts(store, config, home)
+    assert integrate.artifact_problems(store, config, home) == []
+
 
 def test_render_artifacts_dry_run_writes_nothing(tmp_path: Path, monkeypatch) -> None:
     home, store, assets, config = artifact_lab(tmp_path)
@@ -1244,3 +1254,4 @@ def test_render_artifacts_dry_run_writes_nothing(tmp_path: Path, monkeypatch) ->
     assert (home / "cron" / "jobs.json").read_bytes() == before_jobs
     assert not (store / "rendered.json").exists()
     assert not (store / "scripts").exists()
+    assert not (home / "scripts").exists()          # pointers are not written either

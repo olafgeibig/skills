@@ -66,8 +66,8 @@ list is the template contract):
 | Wrapper | `{hermes_home}/bin/skill-repo-sync` — generated; execs the installed engine pair; the stable path hook consent binds to | both |
 | Installed engine pair | `{hermes_home}/bin/skill-repo-sync.py` + `{hermes_home}/bin/skill_repo_workflow.py` (+ the report template) — copied together by the installer; identical versions or the install is refused | both |
 | State | `{hermes_home}/skill-repo-sync.json` | both |
-| Shim | `{store}/scripts/skill-repo-sync-stage.sh` — generated (see table above), referenced by the job by absolute path | both |
-| Monitor shim | `{store}/scripts/skill-repo-maintain-monitor.sh` — generated (see table above), referenced by absolute path; prints the stable pending report (`--pending --store {store} --repo {maintainer_repo}`) for the maintainer job's monitor gate | Maintainer only |
+| Shim | `{store}/scripts/skill-repo-sync-stage.sh` — generated (see table above). The job names the **pointer** `{hermes_home}/scripts/skill-repo-sync-stage.sh` (the cron API accepts only names under that directory); the pointer is fixed boilerplate that execs the store script | both |
+| Monitor shim | `{store}/scripts/skill-repo-maintain-monitor.sh` — generated (see table above); prints the stable pending report (`--pending --store {store} --repo {maintainer_repo}`) for the maintainer job's monitor gate. The job names the **pointer** `{hermes_home}/scripts/skill-repo-maintain-monitor.sh` | Maintainer only |
 | Staging sweep | hourly `:07` — bundles locally (no push); `no_agent`, shim, deliver telegram | both |
 | Pre-integration | `30 3 * * *` — cleans and pushes; agent, skills `skill-governance` + `skill-library-maintenance` | both (per profile on a multi-profile machine) |
 | Integration | monitor-gated (30 min tick; the agent wakes only when the pending report changes — no idle LLM runs); a fixed nightly slot is not required. Agent, skill `skill-library-maintenance` | Maintainer only |
@@ -112,8 +112,8 @@ regular file and reads them back:
      --skill skill-governance --skill skill-library-maintenance \
      --provider <P> --model <M> --pin --deliver telegram --workdir {skills_repo}
    # Maintainer only — monitor-gated: the shim's byte-stable --pending report wakes the agent
-   # only on change. --monitor-script takes the rendered shim's ABSOLUTE path under {store}/scripts/
-   # (a relative name would be resolved under {hermes_home}/scripts/ instead).
+   # only on change. --monitor-script takes a NAME under {hermes_home}/scripts/ (absolute paths are
+   # refused there); that file is a fixed pointer to {store}/scripts/skill-repo-maintain-monitor.sh.
    hermes cron create '30m' "$(cat rendered-maintainer-prompt.txt)" \
      --name "skill-repo maintainer (monitor-gated)" \
      --skill skill-library-maintenance \

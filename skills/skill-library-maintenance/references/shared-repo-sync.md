@@ -688,8 +688,11 @@ command needs fresh consent. The wrapper execs the **installed** engine pair und
 verify `--version` — never point the wrapper back at a checkout whose branch can change.
 
 Deployment artifacts are rendered, not hand-written: `--render-artifacts` rebuilds the two cron
-prompts and the two shims from `assets/*.example`, writes them, and records `asset`/`rendered`
-SHA-256 pairs in `<store>/rendered.json`. `--selfcheck` compares both and reports
+prompts and the two shims from `assets/*.example`, writes them into `<store>/scripts/`, and records
+`asset`/`rendered` SHA-256 pairs in `<store>/rendered.json`. Two fixed pointers stay in
+`<HERMES_HOME>/scripts/` because the cron API accepts `script`/`monitor_script` only as names under
+that directory; each pointer is constant boilerplate that execs the store script, so nothing that
+changes lives outside the store. `--selfcheck` compares both and reports
 `artifacts_out_of_date` when an asset changed or a target drifted, so an asset edit cannot leave a
 stale prompt running. Code changes need no such step: the wrapper and the maintainer prompt execute
 the checkout/clone directly.
