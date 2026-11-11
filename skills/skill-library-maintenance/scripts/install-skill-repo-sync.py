@@ -309,6 +309,37 @@ def main() -> int:
         return 1
     machine = resolve_machine(args.machine)
 
+    if args.record_only:
+        # Metadata refresh only: no repo discovery, no branch policy, no pair install, no hooks.
+        if not state_path.is_file():
+            print(f"error: --record-only needs an existing state file: {state_path} is missing",
+                  file=sys.stderr)
+            return 13
+        try:
+            existing = json.loads(state_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            print(f"error: invalid state file {state_path}", file=sys.stderr)
+            return 1
+        if not isinstance(existing, dict):
+            print(f"error: state file must contain a JSON object: {state_path}", file=sys.stderr)
+            return 1
+        refreshed = dict(existing)
+        refreshed.update({
+            "hermes_home": str(home),
+            "machine": machine or existing.get("machine"),
+            "python": str(interpreter),
+            "script": str(engine),
+            "sync_model": "stage-integrate-v3",
+            "version": INSTALLER_VERSION,
+            "wrapper": str(wrapper),
+        })
+        temporary = state_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(refreshed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(temporary, state_path)
+        print(f"state: {state_path} (recorded version {INSTALLER_VERSION}; "
+              "nothing installed, repos unchanged)")
+        return 0
+
     candidates = [repo] + [Path(p).expanduser() for p in args.repo]
     repos = []
     for cand in candidates:
@@ -343,28 +374,6 @@ def main() -> int:
         if not isinstance(existing_state, dict):
             print(f"error: state file must contain a JSON object: {state_path}")
             return 1
-    if args.record_only:
-        if existing_state is None:
-            print(f"error: --record-only needs an existing state file: {state_path} is missing",
-                  file=sys.stderr)
-            return 13
-        fresh = dict(existing_state)
-        fresh.update({
-            "hermes_home": str(home),
-            "machine": machine,
-            "python": str(interpreter),
-            "repos": repos,
-            "script": str(engine),
-            "sync_model": "stage-integrate-v3",
-            "version": INSTALLER_VERSION,
-            "wrapper": str(wrapper),
-        })
-        temporary = state_path.with_suffix(".tmp")
-        temporary.write_text(json.dumps(fresh, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        os.replace(temporary, state_path)
-        print(f"state: {state_path} (recorded version {INSTALLER_VERSION}; nothing installed)")
-        return 0
-
     if existing_state is None and not args.bootstrap_current_ledger:
         print(f"error: refusing a fresh install without --bootstrap-current-ledger: {state_path} "
               "does not exist, so the staging cursor would start at 0 and the next sweep would "
