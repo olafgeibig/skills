@@ -2,7 +2,7 @@
 name: skill-governance
 description: "Use when the skill concept decides a change."
 metadata:
-  version: "0.20.0"
+  version: "0.21.0"
   source: https://github.com/olafgeibig/skills
   hermes:
     tags:
@@ -137,6 +137,27 @@ Write the proposal as a delta, not a summary:
 
 Wait for approval, then write, validate (`./skills/skill-builder/scripts/skills-ref.sh validate ./skills/<name>` from the repository root), bump the version, and commit.
 
+### The explicitly configured autonomous sync pipeline
+
+One narrow exception is not a foreground proposal: the shared-repository **skill sync** documented in
+`skill-library-maintenance` may merge an exactly reviewed candidate as described in its own sync reference
+into the canonical repository without a chat approval message, and it writes its review/result reports
+to the configured vault destination. That autonomy is granted to the configured publisher pipeline,
+not to agents in general:
+
+- It applies only to the publisher identity and source registry in `<store>/publisher.json`, and only
+  through the documented gates: capture the exact M/T, prepare the native merge, validate every
+  manifest path and source anchor, run the fixed checks, render the report, read it back exactly,
+  publish the reviewed tree as ordered parents `M,T`, and verify the receipt. A prior report, a
+  merged commit or a successful earlier run is never permission for a different change.
+- The reviewed tree is the authorization. Any content change after review requires a new review and
+  a newly rendered report; the pipeline cannot extend its own approval to a later tip.
+- Reports are audit evidence, not a permission token. A foreground agent, the background review, or
+  a session that merely reads a sync report still follows the proposal gate above for every other
+  canonical write.
+- Instance- or profile-shaped lessons still route to the writing profile's adaptation; a broad
+  redesign still uses the explicit `refactor/<slug>` branch and exact-tip submission.
+
 **Direct, no proposal needed:** fixing a broken command or path, a typo, frontmatter or metadata repair, a version bump, or deleting content that was already agreed. When in doubt, propose — an unwanted proposal costs one message; an unwanted repository write costs a review cycle and a revert.
 
 ## Capture Discipline — No Staging Areas
@@ -217,7 +238,7 @@ Never leave the version unchanged after editing.
 - Do not keep a dated price, cap, or model table in a skill or its `references/` — the dated note holds the numbers, the skill holds the procedure and the pointer.
 - Do not mix agent-specific/environment quirks into a shared generic skill; keep them in a profile-local skill under `$HERMES_HOME/skills/`.
 - Do not create a staging area, batch diary, or dated pitfall file — not in a skill, not in `references/`. Classify in the session, or lose the finding.
-- Do not write a rule into a canonical repository skill without the review gate, and do not assume the curator will consolidate the result — consolidation ships off and the curator never touches `skills.external_dirs`.
+- Do not write a rule into a canonical repository skill without the review gate (or, for the explicitly configured sync pipeline, its recorded exact-tree review), and do not assume the curator will consolidate the result — consolidation ships off and the curator never touches `skills.external_dirs`.
 - Do not promote from a sidecar without explicit maintainer approval and full abstraction.
 - Do not skip the version bump after an edit.
 - Do not treat `skill_manage(action="create")` as a routing decision — it writes to the profile-local directory by default, which is where unnamed adaptations accumulate.
@@ -234,7 +255,7 @@ Never leave the version unchanged after editing.
 - Read-before-write honored (fresh `skill_view` before any edit).
 - Version bumped to match change magnitude.
 - New skill: the overlap search ran, and the outcome is one of the three declared forms — a delta in the owning skill, a `<source>-adaptation`, or an explicit `metadata.scope: standalone`.
-- Canonical write: the delta proposal (target, rule text, generality, dedupe evidence, retirement) was approved before the write.
+- Canonical write: the delta proposal (target, rule text, generality, dedupe evidence, retirement) was approved before the write, or the explicitly configured autonomous sync pipeline performed and recorded its own capture → review → report → publish gates for the exact reviewed tree.
 - Capture: the rule was searched against the target first, and no staging, batch, or diary file was created.
 - Data placement: volatile reference data went to a dated note with a refresh command; the skill carries procedure and a generic pointer only.
 - Route: a project-only finding landed in the project skill, not in a generic one.

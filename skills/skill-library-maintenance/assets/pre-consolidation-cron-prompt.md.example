@@ -1,12 +1,14 @@
-<!-- Template for the daily instance pre-consolidation cron prompt (every installation) — render at install time; variables: {machine}, {profile}, {hermes_home} -->
+<!-- Template for the daily instance pre-consolidation cron prompt (every installation) — render at install time; variables: {machine}, {profile}, {hermes_home}, {skills_repo} -->
 Rolle: Contributor (Instanz-Pre-Consolidation) auf `{machine}`, Profil `{profile}`.
 Auftrag (eigenes Pending-Netto `origin/main...HEAD`): instanz-förmige Änderungen — Vault-Pfade, Hostnamen, Quotas, Maschinentabellen, Session-Narration — aus kanonischen Skills herausnehmen.
 Wertvolle Lektionen verschieben ins eigene Adaptation unter `{hermes_home}/skills/adaptations/`; generische Regeln stehen lassen; Duplikate nicht mergen, sondern als Konsolidierungs-Auftrag melden.
-Verbindliche Prozedur: skill-library-maintenance → references/shared-repo-sync.md, Abschnitt 'Instance pre-consolidation'; Routing-Regel in skill-governance.
+Verbindliche Prozedur: skill-library-maintenance → references/shared-repo-sync.md, Abschnitte 'Instance pre-consolidation' und 'Producer refresh'; Routing-Regel in skill-governance.
 Harte Regeln:
-- Nie main anfassen, nie force, kein rebase ausser --refresh-strip, nie -X.
-- Vor dem Review: Refresh-Strip (Run-Book Schritt 0); nach erfolgreichem Push: --note-pushed.
+- Refresh ist Ancestry und Merge, kein Reset: `python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-sync.py --sync-from-main --verbose`. Fast-forward ist normal; bei „pre-consolidation merge required" den Producer-Lock nur für den kurzen Merge nehmen (`--lock`, `git merge --no-ff --no-commit origin/main`, Konflikte bewusst auflösen, `git commit`, sofort `--unlock`). Lock nie über die ganze Session halten. Nie reset/rebase/autostash, nie force, nie `-X`.
+- Kein implizites Resume-Catch-up: nur dieser Lauf oder ein expliziter Nutzer-Trigger startet eine Pre-Consolidation; ein verpasster Lauf holt nichts von selbst nach.
+- Vor dem Push die GESAMTE unveröffentlichte Historie screenen, nicht nur den letzten Baum: `skill-repo-sync.py --screen-history <tip>`. Exit 10 heißt: verbotener Pfad oder vermutetes Credential in einem Zwischen-Commit — dann nicht pushen, Historie bewusst bereinigen (kein Force-Push; eine bereits veröffentlichte Exposition ist ein eigener Incident).
+- Profil-Scope semantisch klassifizieren: für JEDEN unveröffentlichten Commit eine Zeile in die Review-JSON (sha, classification, reason), dann `skill-repo-sync.py --record-history-review <tip> --history-review <datei>`. Das bindet die Review an genau diesen Tip; ohne passende Review verweigert der Push.
+- Push ausschließlich über `skill-repo-sync.py --push-reviewed <tip>` — den exakten reviewten Commit, nie den Branchennamen und nie „aktuellen HEAD". Ein Commit, der nach der Review entsteht (T2), bleibt lokal und unveröffentlicht, bis er selbst reviewt ist. Ohne neuen Commit und ohne bereits reviewten unveröffentlichten Tip: kein Push.
 - Read-before-write bei jedem Skill-Edit (skill_manage, kein write_file).
 - Keine neuen Regeln erfinden — nur verschieben, kürzen, verwerfen.
-Report ≤12 Zeilen per Telegram; Leerlauf: 1 Zeile.
-Am Ende IMMER pushen: git push origin machine/{machine} — auch wenn nach der Bereinigung nur generisches übrigblieb oder nichts zu tun war; ohne Push erreicht nichts den Konsolidierer.
+Report ≤12 Zeilen pro Telegram; Leerlauf: 1 Zeile.

@@ -35,20 +35,27 @@ A minimal probe needs only one committed file, one appended change, one ledger e
 |---|---|
 | Dry-run with pending work | Reports intended actions without changing cursor, config, index, HEAD, fetch state, or remote refs. |
 | Missing sync state | Installer refuses unless the operator explicitly chooses `--bootstrap-current-ledger`; that baseline skips all historical entries. |
-| Ledgered file change | `--stage` commits the path's current content with the ledger entry IDs in the commit trailers; the hash chain stays verifiable evidence for `--preflight`, never a hold on transport. |
+| Ledgered file change | `--stage` commits the path's current content with the ledger entry IDs in the commit trailers; the hash chain stays verifiable provenance evidence, never a hold on transport. |
 | Multiple pending runs touch one file | The sweep commits the path's current content once — no per-run reconstruction (the ledger has no intermediate snapshots) and no hold on other paths. |
 | Manual and ledgered edits share a file | Both ride along in the staging commit; attribution names the path and the ledger ids, not each change inside it. |
-| Review gate finding (instance pointer, dangling reference, duplicate rule) | `--preflight` reports it visibly and the consolidation stays blocked; nothing reaches `main` unreviewed. |
-| Unexpected branch | `--stage` refuses a dirty `main` checkout and no-ops on a clean one (the consolidator host's normal state); a transport branch runs only as `machine/<hostname>`. |
+| Review gate finding (instance pointer, dangling reference, duplicate rule) | The review records the finding with its path and reason, and `--record-review`/`--verify-report` keep it blocked from `main`; nothing reaches publication unreviewed. |
+| Unexpected branch | `--stage` and `--sync-from-main` refuse every `main` checkout, clean or dirty (exit 12, branch policy); a transport branch runs only as `machine/<hostname>`. |
 | Cursor behind the ledger | The next sweep advances it over the entries it bundles — a stale cursor self-heals instead of replaying old content. |
 | Staging commit made, push fails | The commit is preserved and the retry pushes it without creating a duplicate. |
-| Transport branch consumed upstream | `--sync-from-main` resets the local branch to `origin/main`; dirty worktree content is never discarded (observer-only). |
+| Transport branch consumed upstream | `--sync-from-main` fast-forwards the local branch only when `HEAD` is an ancestor of `origin/main` (published main is newer); divergent or dirty work is preserved for a deliberate merge. It never resets or discards worktree content. |
 | Consolidator finds overlapping edits in two transport branches | Resolves to one home per rule and a SemVer increment beyond both; never `-X ours`/`-X theirs`, never a force-push of `main`. A resolution it cannot make stops the run before any `main` commit. |
 | No prior sync cursor exists | Historical path membership never authorizes today's dirty content; bootstrap is an explicit skip-history choice. |
+| Producer lock held during refresh | Refuse with exit 12 and the lock path before fetching or changing HEAD, index, worktree or state; after owner release, retry can fast-forward. |
+| Engine/core upgrade replacement fails | Stage both new files first, snapshot all old targets, and fault-inject the second replacement; old engine/core bytes and modes must be restored and runnable. Fresh installs must leave neither target behind. |
+| Installed engine/core versions differ | Every operational mode, including a no-op and `--selfcheck`, refuses with exit 12 and a mixed-installation diagnostic; installer `--version` remains read-only. |
 
-Repeat a blocked case after correcting the fixture to verify actual retry, not just preservation of an integer cursor. For push failure, assert that the retry creates no duplicate commit and the remote reaches the staged local HEAD; for consumption, assert the reset touches nothing but the transport branch.
+Repeat a blocked case after correcting the fixture to verify actual retry, not just preservation of an integer cursor. For push failure, assert that the retry creates no duplicate commit and the remote reaches the staged local HEAD; for consumption, assert the transport tip is unchanged and the merge-only ancestry check marks it consumed. A review gate must be closable: after a finding is repaired, rerunning the gate must go green. A scan that reads incoming-branch diffs instead of the final worktree stays red forever — separate pre-merge warnings from a post-merge validation of the final artifact.
 
 Preserve successful disposable-repository probes as bundled regression tests rather than leaving them as scratch commands; retry and cursor defects require a repeatable sequence of runs. Run `python3 -m pytest skills/skill-library-maintenance/tests -q` from the repository root after the final engine or installer edit. Treat the passing suite as behavioral evidence only; run the package validator and library audit separately before declaring the skill change complete.
+
+A green suite proves its own contract, not the intended one: read what the existing tests assert as *required behavior* before trusting them. A suite can encode unsafe policy — automatic stale-lock deletion, blanket hook clearing, silent cursor bootstrap, reset heuristics that discard unpushed work — as correct behavior. When a fix changes that policy, rewrite the affected assertions explicitly with a rationale comment; deleting or weakening them to keep the suite green leaves the old policy as the tested contract.
+
+Prove the worktree, not the scratch: an apply step that writes per-file scratch artifacts can silently omit clean files, deletions, or empty files and still exit 0. After every apply step assert `git status --porcelain`, the exact contents of every manifest path, and the remote refs against the expected result. Distinguish a deleted blob from an intentionally empty file by asking Git (`git cat-file -e <rev>:<path>`), never by scratch-file size.
 
 ## 4. Consent and unattended operation
 

@@ -1,2 +1,3 @@
 # Template for the no_agent staging-sweep shim (hourly `--stage` cron job) — render at install time; variables: {hermes_home}
+# The runtime wrapper is the stable installed pair; the shim never pushes or merges.
 exec "{hermes_home}/bin/skill-repo-sync" --stage

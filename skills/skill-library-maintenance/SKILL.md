@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing, dissolving or syncing a skill library."
 license: MIT
 metadata:
-  version: "0.22.1"
+  version: "0.23.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -137,7 +137,7 @@ When migrating a skill:
 Before installing or enabling skill-repository sync automation:
 
 1. Inspect the active checkout and fetched remote separately; fetching does not update the runtime-loaded skill. Preserve dirty work before integrating upstream changes.
-2. Test the publisher in disposable repositories with an isolated `HERMES_HOME`; syntax checks alone do not establish safe Git or cursor behavior.
+2. Test the publisher in disposable repositories with an isolated `HERMES_HOME`; syntax checks alone do not establish safe Git or cursor behavior. Audit what the existing tests assert as required behavior before trusting a green run — a suite can encode unsafe policy as the tested contract.
 3. Require dry-run to leave cursors, configuration, index, commits, and remotes unchanged. Retain blocked or failed ledger entries for retry rather than acknowledging them as published.
 4. Check file-level staging against mixed manual and automated edits; ledger membership identifies a path, not ownership of every change inside it.
 5. Verify branch and upstream guards in code, and approve only the exact hook commands needed; documentation does not enforce a branch policy, and global hook auto-accept widens consent beyond the installer. Distinguish configured hooks from approved and healthy hooks: installer success alone does not establish activation.
@@ -176,16 +176,26 @@ consumed branch.
   the pre-consolidation run owns the push — what lands on a transport branch is always
   pre-consolidated.
 - `main` has exactly one writer: the monitor-gated consolidator (a scheduled agent run, model-pinned).
-  It consolidates one transport branch per pass from mechanical 3-way merge maps — auto-merged
-  files untouched, the semantic review covers conflict packets, needs-pre-consolidation items and the
-  added-hunk digest — and lands one commit per consumed branch. The consolidator wakes on the
-  monitor gate — pending branches only, no idle LLM runs.
+  It processes one candidate per pass through `--pending` → `--capture-source` → `--prepare` →
+  review → `--record-review` → `--render-report`/TurboVault write/`--verify-report` → `--publish`
+  → `--render-result`/write/`--verify-result`; an uncertain push is resolved by `--reconcile`,
+  never by a second merge. The candidate worktree is the complete native merge index, so clean
+  additions, deletions and empty files are reviewed with the conflicts, not left as an untouched
+  auto-merged remainder. The consolidator wakes on the monitor gate — pending branches only, no
+  idle LLM runs.
+- Review context is bounded: the prepared manifest (`input_paths`, `conflict_paths`), complete
+  changed hunks including deletions, and one focused `read_file` window per file. A normal
+  candidate targets at most 35 assistant turns; that is not a token cap. Usage counters are
+  reported as `measured`, `estimated` or `unavailable` — never invented — and an incomplete review
+  is recorded as such instead of publishing truncated work (`references/shared-repo-sync.md` →
+  *Consolidator run book*).
 - A daily pre-consolidation run per installation cleans that installation's own pending additions
   *before* consolidation: instance-shaped lessons leave the canonical edit and land in the
   *writing* profile's adaptation (profile-scoped — `skill-governance`), generic content stays for
   the consolidator (`references/shared-repo-sync.md` → *Instance pre-consolidation*).
-- A transport branch is a landing strip, not a feature branch: `--reset-branch` (the only
-  sanctioned force, lease-guarded) resets it after consumption; never merge one back by hand.
+- A transport branch is a landing strip, not a feature branch: consumption is an ancestry fact
+  (`T` ancestor of `main`) recorded by the integration merge. The transport tip is never reset,
+  rebased or force-pushed, and never merged back into `main` by hand.
 - A new install requires the explicit `--bootstrap-current-ledger` choice, which skips historical
   entries; global `hooks_auto_accept` is not changed.
 - Long sessions: the skill *index* is a start-of-session snapshot (prompt-cache invariant); skill
@@ -198,10 +208,11 @@ consumed branch.
 - The cron prompts, the staging and monitor shims and the SOUL identity block ship as templates in `assets/`
   (`stage-sweep-script.sh.example`, `consolidate-monitor-script.sh.example`,
   `consolidator-cron-prompt.md.example`, `pre-consolidation-cron-prompt.md.example`,
-  `soul-instance-block.md.example`): `{var}` placeholders,
+  `skill-review-cron-prompt.md.example`, `soul-instance-block.md.example`): `{var}` placeholders,
   rendered at install time; the rendered prompt is the job payload, the template stays the source.
-- Mechanics, install, cron wiring, the consolidator run book (v2.1), the cross-machine deployment audit,
-  manual fallback and failure diagnosis:
+- Mechanics, install, cron wiring, the consolidator run book (v3), the report/feedback and periodic
+  whole-skill review procedures, the cross-machine deployment audit, manual fallback and failure
+  diagnosis:
   `references/shared-repo-sync.md`.
 
 ## Background Review During Library Work
@@ -216,7 +227,7 @@ The background review (`auxiliary.background_review`, on by default) runs after 
   pre-consolidation scan flags what slipped through, and the consolidator's review pass drops leftovers
   defensively.
 - If a pass ran with the review on, check `<HERMES_HOME>/skills/.curator_ledger.jsonl` for `actor: curator` entries whose `evidence.session_id` matches the session before treating a change as your own.
-- A missed toggle is diagnosable afterwards: background-pass writes arrive as `actor: curator` ledger entries and ride into the next staging commit — grep the ledger for the session id and review what landed. A hash chain broken by a commit outside the ledger surfaces in the consolidator's `--preflight` findings, not as a blocked transport (`references/shared-repo-sync.md` → *Diagnosing a stuck sync*).
+- A missed toggle is diagnosable afterwards: background-pass writes arrive as `actor: curator` ledger entries and ride into the next staging commit — grep the ledger for the session id and review what landed. A hash chain broken by a commit outside the ledger surfaces as provenance evidence in the next candidate review (`validate_review`), not as a blocked transport (`references/shared-repo-sync.md` → *Diagnosing a stuck sync*).
 
 ## Protect Existing Work
 

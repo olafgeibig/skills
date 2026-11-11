@@ -6,6 +6,11 @@ books and diagnosis live in `shared-repo-sync.md`; the renderable prompts and bl
 `../assets/`. Roles do not come from this file: the installation's own identity (`SOUL.md` or its
 `hermes-profile-*` skill) says which role it plays.
 
+**Deployment is separate from the repository.** Editing a template, asset or script here installs
+nothing: rendering the templates, creating cron jobs, running the installer and writing the first
+vault report are distinct operator-approved deployment actions. A repository change must never be
+reported as an active job, hook or report.
+
 ## Roles
 
 **What lands on a transport branch is always pre-consolidated: the staging sweep commits locally,
@@ -31,12 +36,13 @@ consumes the transport branches and lands them on `main`, one commit per consume
 
 ### Values
 
-Four, and the agent already knows where to find them:
+Five, and the agent already knows where to find them:
 
 - `{machine}` — the logical name from the machine table in `hermes-projects` (verify with `hostname`)
 - `{skills_repo}` — the shared checkout's entry in `hermes config get skills.external_dirs`
 - `{hermes_home}` — `$HERMES_HOME`
-- `{scratch_dir}` — `{hermes_home}/cache/scratch/consolidate-lauf` (create once)
+- `{store}` — `{hermes_home}/skill-repo-sync-v3` (the v3 publisher store; explicit `--store` target)
+- `{publisher_repo}` — the publisher clone recorded as `publisher_repo` in `{store}/publisher.json` (explicit `--repo` target; the helper refuses any other checkout)
 
 ### Templates to render
 
@@ -49,6 +55,7 @@ list is the template contract):
 | `../assets/consolidate-monitor-script.sh.example` | `{hermes_home}/scripts/skill-repo-consolidate-monitor.sh` (`chmod 755`) |
 | `../assets/pre-consolidation-cron-prompt.md.example` | the pre-consolidation job prompt |
 | `../assets/consolidator-cron-prompt.md.example` | the consolidation job prompt (Consolidator only) |
+| `../assets/skill-review-cron-prompt.md.example` | the proposed periodic whole-skill review prompt (one skill per run; not created by this checklist) |
 | `../assets/soul-instance-block.md.example` | the identity block in `{hermes_home}/SOUL.md` (or the profile skill) |
 
 ### Components and jobs
@@ -56,13 +63,38 @@ list is the template contract):
 | Piece | What | Roles |
 |---|---|---|
 | `on_session_start` hook | `--sync-from-main` via the wrapper | both |
-| Wrapper | `{hermes_home}/bin/skill-repo-sync` — generated; the stable path hook consent binds to | both |
+| Wrapper | `{hermes_home}/bin/skill-repo-sync` — generated; execs the installed engine pair; the stable path hook consent binds to | both |
+| Installed engine pair | `{hermes_home}/bin/skill-repo-sync.py` + `{hermes_home}/bin/skill_repo_workflow.py` (+ the report template) — copied together by the installer; identical versions or the install is refused | both |
 | State | `{hermes_home}/skill-repo-sync.json` | both |
 | Shim | `{hermes_home}/scripts/skill-repo-sync-stage.sh` — generated (see table above) | both |
-| Monitor shim | `{hermes_home}/scripts/skill-repo-consolidate-monitor.sh` — generated (see table above); prints the byte-stable pending report (`--pending`) for the consolidator job's monitor gate | Consolidator only |
+| Monitor shim | `{hermes_home}/scripts/skill-repo-consolidate-monitor.sh` — generated (see table above); prints the stable pending report (`--pending --store {store} --repo {publisher_repo}`) for the consolidator job's monitor gate | Consolidator only |
 | Staging sweep | hourly `:07` — bundles locally (no push); `no_agent`, shim, deliver telegram | both |
 | Pre-consolidation | `30 3 * * *` — cleans and pushes; agent, skills `skill-governance` + `skill-library-maintenance` | both (per profile on a multi-profile machine) |
 | Consolidation | monitor-gated (30 min tick; the agent wakes only when the pending report changes — no idle LLM runs); a fixed nightly slot is not required. Agent, skill `skill-library-maintenance` | Consolidator only |
+
+Proposed but **not created by this checklist**: a weekly periodic whole-skill review (`0 4 * * 0`,
+configurable) that reads one skill per run and advances the cursor in
+`{store}/skill-review-cursor.json`. Render `../assets/skill-review-cron-prompt.md.example` only when
+the operator approves that separate job.
+
+### Reports destination and feedback
+
+Reports go to the configured `report.directory` under the registered `report.vault_root`; neither is
+hardcoded in the repository. Before the first report:
+
+1. Create the local hub `<report.directory>/+reports.md` (`reports/+reports.md` inside the
+   configured destination) **through TurboVault**, listing the first report.
+2. Link that hub once from the project MoC (use its existing filename; do not rename the MoC).
+3. Each later review/result note is appended there. The rendered note already carries `type:
+   zettel`, a short description, `skill-sync` plus `project/<project>` tags, frontmatter `topics`
+   and the mirrored `Topics:` footer; do not add a second metadata copy by hand.
+4. The review note is immutable; the result note carries the outcome. To give feedback on an older
+   report, name it in chat: the agent reads the report **and** the current skill, asks only if the
+   correction is ambiguous, records its interpretation in a new feedback note or a result-linked
+   correction report, and creates a normal corrective candidate. Never a blind `git revert` of the
+   older merge; later work would be discarded.
+5. No approve CLI and no human review queue exist. Technical failures block publication; ordinary
+   semantic decisions are recorded in the report.
 
 ### Steps
 
@@ -74,7 +106,7 @@ list is the template contract):
    hermes cron create '7 * * * *' --no-agent --script skill-repo-sync-stage.sh \
      --name "skill-repo staging sweep (hourly)" --deliver telegram --workdir {skills_repo}
    # pre-consolidation: schedule at the end of the machine's typical usage window
-   # (catch-up on resume covers missed runs)
+   # (a missed run waits for the next schedule; there is no implicit resume catch-up)
    hermes cron create '30 3 * * *' "$(cat rendered-pre-consolidation-prompt.txt)" \
      --name "skill-repo pre-consolidation (instance review)" \
      --skill skill-governance --skill skill-library-maintenance \
@@ -92,20 +124,42 @@ list is the template contract):
    The model pin is mandatory for agent jobs: an unpinned job resolves the config route at fire
    time and fails closed when `model.*` changes underneath it (*Crons* in `shared-repo-sync.md`).
 3. **Installer.**
-   `python3 {skills_repo}/skills/skill-library-maintenance/scripts/install-skill-repo-sync.py --apply-config --machine <name>`
-   — add `--bootstrap-current-ledger` on a fresh install only (skips historical ledger entries);
-   an existing install keeps its cursor. The installer registers the `on_session_start` hook;
-   approve its `(event, command)` pair through the normal consent flow.
+   `python3 {skills_repo}/skills/skill-library-maintenance/scripts/install-skill-repo-sync.py --bootstrap-current-ledger --apply-config --machine <name>`
+   — `--bootstrap-current-ledger` is mandatory on a fresh install: it places the cursor at the
+   current ledger end so historical entries are not transported. Without it the installer exits
+   `12` and writes nothing (no wrapper, state, config or file mode). On an existing install omit
+   the flag — the saved cursor is preserved, and passing the flag is itself refused (`12`).
+   `--apply-config` reads `hooks.on_session_start` with `hermes config get … --json` and appends
+   the wrapper's entry, leaving every other hook entry as it was; a hook that already runs the
+   wrapper is left alone (no duplicate). It never writes `hooks.on_skill_lifecycle` — an old v1
+   publisher hook is retired deliberately (see *From 1.x* step 2), never blanket-cleared — and it
+   never enables global auto-accept. An unreadable or non-list hook answer is a refusal, not a
+   rewrite. Approve the resulting `(event, command)` pair through the normal consent flow.
+   The installer copies the engine **and** its shared core (plus the report template) into
+   `{hermes_home}/bin` before writing the wrapper; the pair must exist and report the same
+   version, otherwise the install is refused before any wrapper, state or config write. The
+   installer stages all new files and snapshots all previous targets before the first
+   replacement. If any replacement raises (including interruption), it restores the previous
+   engine, core and template byte-for-byte with their modes; a fresh-install rollback removes
+   the new targets. If restoration itself fails, stop and use the retained recovery files named
+   in the diagnostic. Multi-file replacement is not crash-atomic: the engine refuses a mixed
+   pair, including in `--selfcheck` (exit 12). The wrapper path itself stays constant — hook
+   consent binds to it. Installer `--version` prints its release without installation context
+   or writes.
 4. **Record the identity** — the rendered `SOUL.md` block (or a line in the profile's
    `hermes-profile-*` skill), so a fresh session knows its role and machine without asking.
 
 ### Verification
 
-- `python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-sync.py --selfcheck --verbose`
-  — installed state, and the `SCRIPT_VERSION` header matches the other machines (drift is a
-  finding, see the deployment audit in `shared-repo-sync.md`).
+- `{hermes_home}/bin/skill-repo-sync --selfcheck --verbose` (the wrapper) or
+  `python3 {hermes_home}/bin/skill-repo-sync.py --selfcheck --verbose` (the installed engine) —
+  installed state, engine/core/installer versions (drift is a finding, see the deployment audit
+  in `shared-repo-sync.md`), branch policy, publisher config/report-root presence and lock state.
+  Hook health is reported separately: `--selfcheck` deliberately makes no hook-health claim.
 - `hermes hooks list && hermes hooks doctor` — the `(event, command)` pair allowlisted and healthy;
-  configured is not activated.
+  configured is not activated. The list still carries every hook entry it had before installation:
+  the installer appends its own entry, never replaces the list and never clears
+  `on_skill_lifecycle`.
 - `hermes cron list` — the expected jobs (two, plus consolidation on the Consolidator) with the
   intended schedules, skills and pins.
 - Wrapper `--stage --dry-run --verbose` — what the next sweep would bundle into the transport
@@ -129,8 +183,8 @@ an installation to 2.1 with this checklist:
 
 1. **Checkout current.** `git -C {skills_repo} fetch origin --prune`, then `git checkout
    machine/<name>` (the consolidated tip). If the local branch still carries consumed commits,
-   reset it to `origin/machine/<name>` — backup the old tip with a `backup/` ref first; never
-   discard work silently.
+   fast-forward it to `origin/machine/<name>` (`git merge --ff-only`); if it cannot fast-forward,
+   keep the old tip with a `backup/` ref and inspect — never reset or discard work silently.
 2. **Retire the v1 jobs and the v1 hook.** `hermes cron list`, then `hermes cron remove <id>` for
    the paused "skill-repo-sync safety" and "skill-library monthly audit" jobs — they invoke
    retired v1 modes (`--safety`, `--audit`) and only produce noise. If `hermes hooks list` still
@@ -151,18 +205,17 @@ installation:
 
 1. Engine and helper update themselves — all logic lives in the repository tree; run
    `--selfcheck --verbose` and expect `SCRIPT_VERSION 2.2.0`.
-2. Re-render `../assets/pre-consolidation-cron-prompt.md.example` (it now ends with the
-   always-push line) and `hermes cron edit <pre-consolidation job> --prompt "$(cat …)"`.
+2. Re-render `../assets/pre-consolidation-cron-prompt.md.example` (later releases replaced the old
+   always-push line with the exact reviewed tip via `--push-reviewed`) and
+   `hermes cron edit <pre-consolidation job> --prompt "$(cat …)"`.
 3. Switch the consolidator job to the interval schedule:
    `hermes cron edit <consolidator job> --schedule '0 */4 * * *'`.
 4. Nothing else — no hook, consent, shim or state change.
 
 ### From 2.2 to 2.3
 
-Monitor-gated consolidator + Refresh-Strip: the consolidator job wakes on a
-byte-stable pending report instead of burning idle runs, and pre-consolidation step 0 replays
-never-pushed commits onto the refreshed strip (`last_pushed_tip`). On an existing 2.2
-installation:
+Monitor-gated consolidator: the consolidator job wakes on the stable pending report instead of
+burning idle runs. On an existing 2.2 installation:
 
 1. Helper and engine update themselves — all logic lives in the repository tree; run
    `--selfcheck --verbose` and expect helper `SCRIPT_VERSION 2.3.0`.
@@ -173,25 +226,65 @@ installation:
    (the name is the rendered shim's name under `{hermes_home}/scripts/`). `hermes cron edit`
    knows `--monitor-script`; should a build ever refuse the flag on edit, remove the job and
    re-create it with `hermes cron create … --monitor-script …` instead.
-3. Re-render `../assets/pre-consolidation-cron-prompt.md.example` (it now carries the
-   refresh-strip rule) and `hermes cron edit <pre-consolidation job> --prompt "$(cat …)"`.
-4. `last_pushed_tip` initializes itself on the first `--refresh-strip` — no manual state edit.
-   Stale base is the normal case: a laptop waking after the daily pre-consolidation/consolidation cycle is always behind
-   the strip by design, and step 0 (refresh-strip) makes it fresh again.
+3. The v3 shim passes explicit `--store {store}` and `--repo {publisher_repo}`; re-render it in
+   the 2.3→3.0 step below, not from the 2.3 template copy.
+   There is no reset/replay cursor to bootstrap: refresh is ancestry-only and consumption is
+   `T ancestor main`.
+
+### From 2.3 to 3.0.0
+
+Explicit bootstrap consent and hook preservation: the installer no longer assumes a fresh install
+may start at cursor 0, and it appends the session hook instead of replacing the list. On an
+existing 2.3 installation:
+
+1. Engine, core and installer update themselves — all logic lives in the repository tree; run
+   `--selfcheck --verbose` and expect `3.0.0` from `SCRIPT_VERSION`, `CORE_VERSION` and
+   `INSTALLER_VERSION`. A mismatch is a finding to report, not something to reinstall around.
+2. Re-run the installer **without** `--bootstrap-current-ledger`
+   (`python3 {skills_repo}/skills/skill-library-maintenance/scripts/install-skill-repo-sync.py --apply-config --machine <name>`):
+   the saved cursor is kept and the installer refreshes the `{hermes_home}/bin` engine+core pair
+   together. The flag is refused (`12`) whenever state exists — only a fresh install has that
+   choice to make.
+3. Check `hermes hooks list` before and after: every unrelated `on_session_start` entry and any
+   `on_skill_lifecycle` entry is still there; the installer adds only
+   `<wrapper> --sync-from-main --hook` and leaves an entry that already runs the wrapper alone.
+   A leftover v1 lifecycle publisher is retired deliberately (empty it and revoke its stale
+   consent pair — *From 1.x* step 2); the installer will not clear it for you.
+4. Fresh machines only: `--bootstrap-current-ledger` is now mandatory in the installation command.
+   Without it the installer exits `12` before writing the wrapper, state, config or file mode.
+5. Remove retired modes from local runbooks and cron prompts: `--reset-branch`, `--refresh-strip`,
+   `--init-last-pushed`, `--collect`, `--preflight`, `--merge-map` and `--apply-decisions` exit
+   `12` with a `retired:` line before any Git call; v3 uses capture → prepare → record-review →
+   render/verify-report → publish instead.
 
 ### Update policy
 
-- **No copies of the Python scripts.** Every call goes directly into the repository tree
-  (`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py …`);
-  the helper imports the engine beside itself (`_engine_candidates`), so no `SKILL_REPO_SYNC_ENGINE`
-  export and nothing to refresh under `{hermes_home}/scripts/`.
+- **The engine pair is installed, not read from the checkout.** The installer copies
+  `skill-repo-sync.py` and its shared core `skill_repo_workflow.py` (plus the report template)
+  into `{hermes_home}/bin` with identical versions and mode `755`; a missing file or version
+  mismatch refuses the install before any wrapper/state write. Update the repository, re-run the
+  installer, then verify the installed pair with `--selfcheck`. Replacement errors roll back
+  the old pair and report template; the engine refuses mixed core versions rather than running
+  a partial upgrade.
+- The publisher helper runs from the repository tree
+  (`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py
+  --store {store} --repo {publisher_repo} …`); the helper imports the engine beside itself
+  (`_engine_candidates`) and the shared core beside both, so no `SKILL_REPO_SYNC_ENGINE` export
+  and nothing to refresh under `{hermes_home}/scripts/`.
 - The wrapper, the staging shim and the monitor shim are the **only generated artifacts** — each
   exists for a stable path (hook consent; `hermes cron create --script`/`--monitor-script` resolve
-  under `{hermes_home}/scripts/`). All logic
-  lives in the repository; update it there and the wrapper picks the change up on its next exec.
-- `--selfcheck` reports a version mismatch; the scripts carry `SCRIPT_VERSION` (engine and helper)
-  and `INSTALLER_VERSION` (installer, must match the engine).
+  under `{hermes_home}/scripts/`). The wrapper path stays constant across upgrades; its command
+  consent pair does not change.
+- `--selfcheck` reports observed engine/core/installer versions and any drift; the scripts carry
+  `SCRIPT_VERSION` (engine), `CORE_VERSION` (core) and `INSTALLER_VERSION` (installer, must match
+  the engine). An engine/core mismatch is a hard refusal (exit 12), not a healthy check with a
+  warning. Installer `--version` is available without state, machine identity or bootstrap consent.
+  A fresh install additionally needs the explicit `--bootstrap-current-ledger` choice; an upgrade omits it and keeps its cursor. Hook health is not claimed by `--selfcheck` —
+  use `hermes hooks doctor`.
+- The installer appends its hook entry and never rewrites another profile's hook list: unrelated
+  `on_session_start` mappings survive byte-identically and `on_skill_lifecycle` is left alone.
 - Later version transitions get their own `From X to Y` checklist here, one section per step —
   append, never rewrite history.
 - The pre-consolidation run is the only pusher; without its run the work stays local (safe, but
-  invisible to the consolidator) — hence catch-up-on-resume and the window-end schedule.
+  invisible to the consolidator) — hence the window-end schedule. There is no implicit
+  catch-up-on-resume: a missed run simply waits for the next schedule or an explicit user trigger.
