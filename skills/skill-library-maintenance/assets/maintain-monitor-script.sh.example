@@ -1,0 +1,5 @@
+# Template for the monitor-gate shim (maintainer wake-on-change, `--monitor-script` cron) — render at install time; variables: {skills_repo}, {store}, {maintainer_repo}
+# The helper is the maintainer adapter; the monitor protocol is `--pending` only and
+# prints sorted `pending <cid>` / `blocked <cid>` lines (or `error: monitor-unhealthy`).
+# The maintainer job processes one pending candidate per wake; this shim only reports.
+exec python3 "{skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-maintain.py" --pending --store "{store}" --repo "{maintainer_repo}"

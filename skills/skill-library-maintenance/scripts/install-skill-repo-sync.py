@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# install-skill-repo-sync — install the stage-and-consolidate sync layer on this machine.
+# install-skill-repo-sync — install the stage-and-integrate sync layer on this machine.
 #
 # INSTALLER_VERSION: 3.0.0   (kept in step with SCRIPT_VERSION; --selfcheck reports drift)
 #
@@ -270,7 +270,7 @@ def resolve_interpreter(name: str) -> tuple[str, str]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="install the stage-and-consolidate sync layer for the "
+    ap = argparse.ArgumentParser(description="install the stage-and-integrate sync layer for the "
                                              "shared skill repo")
     ap.add_argument("--apply-config", action="store_true",
                     help="append the on_session_start hook (other hooks, including any "
@@ -403,7 +403,7 @@ def main() -> int:
         print(f"wrapper: written {wrapper} -> {installed_engine}")
     print(f"python:  {interpreter_note}")
 
-    # 2) state file — the staging layer is publish-safe by construction (machine branch only).
+    # 2) state file — the staging layer is integrate-safe by construction (machine branch only).
     #    A fresh install starts at the ledger end only because the operator chose
     #    --bootstrap-current-ledger above; an existing cursor is kept (an upgrade must not rewind
     #    already-staged history).
@@ -412,7 +412,7 @@ def main() -> int:
                   "hermes_home": str(home), "machine": machine,
                   "repos": repos, "wrapper": str(wrapper), "script": str(installed_engine),
                   "core": str(installed_core), "python": interpreter,
-                  "sync_model": "stage-consolidate-v2",
+                  "sync_model": "stage-integrate-v2",
                   "installed_at": datetime.now(tz=timezone.utc).isoformat()})
     state.setdefault("ledger_cursor", ledger_count)
     if not isinstance(state.get("ledger_cursor"), int):
@@ -424,7 +424,7 @@ def main() -> int:
     print(f"state: {state_path} (machine={machine}, {len(repos)} repo(s), cursor={state['ledger_cursor']})")
 
     # 3) config: append the session-start refresh hook to whatever the profile already has.
-    #    on_skill_lifecycle is never written here — a v1 publisher hook is retired by a
+    #    on_skill_lifecycle is never written here — a v1 maintainer hook is retired by a
     #    deliberate operator step, not silently by an installer rerun.
     config_failed = False
     if not hermes:

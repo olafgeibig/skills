@@ -6,7 +6,7 @@ You run on the machine `{machine}`, profile `{profile}`.
 Your role: {role}.
 
 <!-- Role variants for {role} (render one, then delete this comment):
-     Consolidator = "only writer to main, runs the consolidation"
+     Maintainer = "only writer to main, runs the integration"
      Contributor  = "stages to my transport branch only" -->
 
 Pins: `hermes cron list`. Namen: `hermes-projects`. Verfahren: `skill-library-maintenance`.

@@ -1,6 +1,6 @@
 # Repository Sync Safety Review
 
-Use when reviewing or enabling automation that pulls, commits, or publishes skill repositories.
+Use when reviewing or enabling automation that pulls, commits, or integrates skill repositories.
 
 ## 1. Establish the integration boundary
 
@@ -21,7 +21,7 @@ Inspect the installer as well as the engine. Identify state files, ledger cursor
 ## 2. Build an isolated behavioral probe
 
 1. Create a temporary directory under the session scratch root with `tempfile.TemporaryDirectory(dir=...)`.
-2. Inside it, create a disposable Git repository, a separate Hermes home, and a local bare remote if publication needs testing. Set Git identity repository-locally.
+2. Inside it, create a disposable Git repository, a separate Hermes home, and a local bare remote if integration needs testing. Set Git identity repository-locally.
 3. Commit a minimal skill fixture, modify a tracked skill file, and seed the isolated ledger and sync configuration using the inspected implementation's schema. Never guess that schema or use the live profile's state.
 4. Run the engine with `subprocess.run`, passing an explicit environment containing the isolated `HERMES_HOME`. Capture stdout, stderr, and return code.
 5. Compare state-file bytes, ledger cursor, `git status --porcelain`, `git diff --cached`, HEAD, and bare-remote refs before and after. An exit code alone cannot demonstrate non-mutation.
@@ -38,14 +38,14 @@ A minimal probe needs only one committed file, one appended change, one ledger e
 | Ledgered file change | `--stage` commits the path's current content with the ledger entry IDs in the commit trailers; the hash chain stays verifiable provenance evidence, never a hold on transport. |
 | Multiple pending runs touch one file | The sweep commits the path's current content once — no per-run reconstruction (the ledger has no intermediate snapshots) and no hold on other paths. |
 | Manual and ledgered edits share a file | Both ride along in the staging commit; attribution names the path and the ledger ids, not each change inside it. |
-| Review gate finding (instance pointer, dangling reference, duplicate rule) | The review records the finding with its path and reason, and `--record-review`/`--verify-report` keep it blocked from `main`; nothing reaches publication unreviewed. |
+| Review gate finding (instance pointer, dangling reference, duplicate rule) | The review records the finding with its path and reason, and `--record-review`/`--verify-report` keep it blocked from `main`; nothing reaches integration unreviewed. |
 | Unexpected branch | `--stage` and `--sync-from-main` refuse every `main` checkout, clean or dirty (exit 12, branch policy); a transport branch runs only as `machine/<hostname>`. |
 | Cursor behind the ledger | The next sweep advances it over the entries it bundles — a stale cursor self-heals instead of replaying old content. |
 | Staging commit made, push fails | The commit is preserved and the retry pushes it without creating a duplicate. |
-| Transport branch consumed upstream | `--sync-from-main` fast-forwards the local branch only when `HEAD` is an ancestor of `origin/main` (published main is newer); divergent or dirty work is preserved for a deliberate merge. It never resets or discards worktree content. |
-| Consolidator finds overlapping edits in two transport branches | Resolves to one home per rule and a SemVer increment beyond both; never `-X ours`/`-X theirs`, never a force-push of `main`. A resolution it cannot make stops the run before any `main` commit. |
+| Transport branch consumed upstream | `--sync-from-main` fast-forwards the local branch only when `HEAD` is an ancestor of `origin/main` (integrated main is newer); divergent or dirty work is preserved for a deliberate merge. It never resets or discards worktree content. |
+| Maintainer finds overlapping edits in two transport branches | Resolves to one home per rule and a SemVer increment beyond both; never `-X ours`/`-X theirs`, never a force-push of `main`. A resolution it cannot make stops the run before any `main` commit. |
 | No prior sync cursor exists | Historical path membership never authorizes today's dirty content; bootstrap is an explicit skip-history choice. |
-| Producer lock held during refresh | Refuse with exit 12 and the lock path before fetching or changing HEAD, index, worktree or state; after owner release, retry can fast-forward. |
+| Contributor lock held during refresh | Refuse with exit 12 and the lock path before fetching or changing HEAD, index, worktree or state; after owner release, retry can fast-forward. |
 | Engine/core upgrade replacement fails | Stage both new files first, snapshot all old targets, and fault-inject the second replacement; old engine/core bytes and modes must be restored and runnable. Fresh installs must leave neither target behind. |
 | Installed engine/core versions differ | Every operational mode, including a no-op and `--selfcheck`, refuses with exit 12 and a mixed-installation diagnostic; installer `--version` remains read-only. |
 

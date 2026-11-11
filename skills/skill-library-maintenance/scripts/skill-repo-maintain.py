@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# skill-repo-consolidate — v3 publisher helper (runs on the consolidator host only).
+# skill-repo-maintain — v3 maintainer helper (runs on the maintainer host only).
 #
 # SCRIPT_VERSION: 3.0.0
-# Companion of skill-repo-sync.py. Every candidate/review/report/publication
+# Companion of skill-repo-sync.py. Every candidate/review/report/integration
 # operation is a thin CLI adapter over the shared v3 core
 # (skill_repo_workflow.py); this file owns argument parsing and JSON output, not
 # a second implementation of the policy.
@@ -15,8 +15,8 @@
 #                                     checks and persist reviewed tree/digest
 #   --render-report CID               deterministic report payload -> store only
 #   --verify-report CID               exact-byte read-back at the registered vault
-#   --publish CID                     one ordered-parent merge commit + push
-#   --reconcile CID                   reconcile an uncertain publication from saved P
+#   --integrate CID                     one ordered-parent merge commit + push
+#   --reconcile CID                   reconcile an uncertain integration from saved P
 #   --render-result CID               result receipt payload -> store only
 #   --verify-result CID               exact receipt read-back; records complete
 #   --pending                         monitor protocol: sorted `pending <cid>` /
@@ -26,18 +26,18 @@
 #                                     source must stay runnable; the bytes change)
 #   --retry CID                       one explicit retry generation (blocked only)
 #   --selfcheck                       observed versions/config/report/lock facts
-#   --lock / --unlock                 owner-token publisher lock (core-backed)
+#   --lock / --unlock                 owner-token maintainer lock (core-backed)
 #   --note-pushed                     legacy metadata: records HEAD only after the
 #                                     remote transport tip equals HEAD
 #   --collect / --preflight / --merge-map / --apply-decisions
 #                                     RETIRED (exit 12): v3 uses capture -> prepare ->
-#                                     review -> report -> publish instead
+#                                     review -> report -> integrate instead
 #   --refresh-strip / --reset-branch / --init-last-pushed
 #                                     RETIRED (exit 12, `retired:` diagnostic)
 #
 # Exit codes: 0 ok/no-op · 10 required checks failed · 12 policy refusal/error
 #             (incl. retired modes, repo/store disagreement, held lock) · 13 not
-#             installed or publisher config missing · 2 argparse usage.
+#             installed or maintainer config missing · 2 argparse usage.
 # Action modes print machine-readable JSON on stdout and diagnostics on stderr;
 # only --pending uses the stable line protocol.
 from __future__ import annotations
@@ -79,8 +79,8 @@ INSTANCE_PATTERNS = srs.INSTANCE_PATTERNS
 LINK_RE = srs.LINK_RE
 REF_RE = srs.REF_RE
 
-# The publisher lock is owned by the shared v3 core, keyed to the configured
-# publisher clone's Git common dir. This adapter never reimplements it.
+# The maintainer lock is owned by the shared v3 core, keyed to the configured
+# maintainer clone's Git common dir. This adapter never reimplements it.
 _core_candidates = [_here / "skill_repo_workflow.py"]
 _env_core = os.environ.get("SKILL_REPO_WORKFLOW_CORE", "").strip()
 if _env_core:
@@ -93,7 +93,7 @@ core = module_from_spec(_core_spec)
 _core_spec.loader.exec_module(core)
 
 WORKFLOW_STORE_NAME = "skill-repo-sync-v3"
-LOCK_TOKEN_NAME = "publisher-lock.token"
+LOCK_TOKEN_NAME = "maintainer-lock.token"
 
 
 def hermes_home() -> Path:
@@ -134,14 +134,14 @@ def refresh_strip(repo: Path, init_last_pushed: bool = False) -> tuple[int, list
     """RETIRED: --refresh-strip no longer replays commits with a rebase.
 
     Kept as a named refusal (not deleted) so an old cron prompt or runbook step gets one
-    explicit, testable error instead of silently falling through to another mode. Producer
-    refresh fast-forwards a clean transport when published main is an ancestor, does nothing
+    explicit, testable error instead of silently falling through to another mode. Contributor
+    refresh fast-forwards a clean transport when integrated main is an ancestor, does nothing
     when main is already its ancestor, and preserves divergent work for a deliberate merge.
-    It never resets, rebases or autostashes producer work.
+    It never resets, rebases or autostashes contributor work.
     """
-    return 12, ["retired: --refresh-strip is retired — refresh fast-forwards when published "
+    return 12, ["retired: --refresh-strip is retired — refresh fast-forwards when integrated "
                 "main is an ancestor and otherwise preserves divergent work for a deliberate "
-                "merge; no reset, rebase or autostash of producer work. Nothing was written "
+                "merge; no reset, rebase or autostash of contributor work. Nothing was written "
                 "(no ref, index or state change)."]
 
 
@@ -458,7 +458,7 @@ def retired_reset_branches(hosts: list[str]) -> tuple[int, list[str]]:
 
     Consumption is an ancestry fact (`T ancestor main`), and the transport branch is never
     reset or force-pushed — a merge commit on main is the acknowledgment, so a newer source tip
-    stays pending naturally and concurrent work survives publication. The refusal runs before
+    stays pending naturally and concurrent work survives integration. The refusal runs before
     any Git call: no local ref, remote ref, index or state is touched, even with --dry-run.
     """
     named = " ".join(hosts[:5]) + (" …" if len(hosts) > 5 else "")
@@ -472,17 +472,17 @@ def _lock_token_path(store: Path) -> Path:
     return store / LOCK_TOKEN_NAME
 
 
-def _publisher_config_problem(store: Path) -> list[str] | None:
-    """Honest exit-13 precondition: no publisher config, no publisher lock."""
-    config_path = store / "publisher.json"
+def _maintainer_config_problem(store: Path) -> list[str] | None:
+    """Honest exit-13 precondition: no maintainer config, no maintainer lock."""
+    config_path = store / "maintainer.json"
     if not config_path.is_file():
-        return [f"publisher config missing: {config_path} — the publisher lock is keyed to the "
-                f"configured publisher clone's Git common dir; there is no repo-path fallback "
+        return [f"maintainer config missing: {config_path} — the maintainer lock is keyed to the "
+                f"configured maintainer clone's Git common dir; there is no repo-path fallback "
                 f"(nothing was written)"]
     try:
-        core.load_publisher_config(store)
+        core.load_maintainer_config(store)
     except core.WorkflowError as exc:
-        return [f"publisher config invalid: {exc} (nothing was written)"]
+        return [f"maintainer config invalid: {exc} (nothing was written)"]
     return None
 
 
@@ -493,15 +493,15 @@ def _owner_description(record: dict) -> str:
             f"host {record.get('host')}, acquired {record.get('acquired_at')}")
 
 
-def lock_publisher(store: Path, force: bool = False,
+def lock_maintainer(store: Path, force: bool = False,
                    dry_run: bool = False) -> tuple[int, list[str]]:
-    """Thin adapter over core.acquire_publisher_lock: one lock per publisher clone."""
-    problem = _publisher_config_problem(store)
+    """Thin adapter over core.acquire_maintainer_lock: one lock per maintainer clone."""
+    problem = _maintainer_config_problem(store)
     if problem:
         return 13, problem
     try:
-        lock_path = core.publisher_lock_path(store)
-        held = core.read_publisher_lock(store)
+        lock_path = core.maintainer_lock_path(store)
+        held = core.read_maintainer_lock(store)
     except core.WorkflowError as exc:
         return 12, [f"lock: {exc}"]
     if dry_run:
@@ -513,7 +513,7 @@ def lock_publisher(store: Path, force: bool = False,
                     f"after you have observed on that host that the owning executor is gone. "
                     f"Nothing was changed."]
     try:
-        token = core.acquire_publisher_lock(store)
+        token = core.acquire_maintainer_lock(store)
     except core.WorkflowError as exc:
         return 12, [f"lock: {exc}"]
     token_path = _lock_token_path(store)
@@ -523,7 +523,7 @@ def lock_publisher(store: Path, force: bool = False,
         os.replace(tmp, token_path)
     except OSError as exc:
         try:
-            core.release_publisher_lock(store, token)
+            core.release_maintainer_lock(store, token)
         except core.WorkflowError as release_exc:
             return 12, [f"lock: acquired {lock_path} but could not record the owner token in "
                         f"{token_path}: {exc}; releasing it also failed: {release_exc}"]
@@ -532,15 +532,15 @@ def lock_publisher(store: Path, force: bool = False,
     return 0, [f"lock: acquired {lock_path} (owner token {token})"]
 
 
-def unlock_publisher(store: Path, dry_run: bool = False) -> tuple[int, list[str]]:
+def unlock_maintainer(store: Path, dry_run: bool = False) -> tuple[int, list[str]]:
     """Release through the recorded owner token; never guess or break another owner's lock."""
-    problem = _publisher_config_problem(store)
+    problem = _maintainer_config_problem(store)
     if problem:
         return 13, problem
     token_path = _lock_token_path(store)
     try:
-        lock_path = core.publisher_lock_path(store)
-        held = core.read_publisher_lock(store)
+        lock_path = core.maintainer_lock_path(store)
+        held = core.read_maintainer_lock(store)
     except core.WorkflowError as exc:
         return 12, [f"unlock: {exc}"]
     token = ""
@@ -559,7 +559,7 @@ def unlock_publisher(store: Path, dry_run: bool = False) -> tuple[int, list[str]
                     f"{lock_path} without it (--force-lock cannot substitute); a manual break "
                     f"is allowed only after observed executor absence. Nothing was changed."]
     try:
-        core.release_publisher_lock(store, token)
+        core.release_maintainer_lock(store, token)
     except core.WorkflowError as exc:
         return 12, [f"unlock: {exc}"]
     try:
@@ -583,16 +583,16 @@ def _store_from_args(args: argparse.Namespace) -> Path:
 
 
 def _load_config_or_none(store: Path) -> dict | None:
-    if not (store / "publisher.json").is_file():
+    if not (store / "maintainer.json").is_file():
         return None
     try:
-        return core.load_publisher_config(store)
+        return core.load_maintainer_config(store)
     except core.WorkflowError:
         return None
 
 
 def _repo_from_config(config: dict, explicit: str | None) -> Path:
-    configured = Path(config["publisher_repo"]).expanduser()
+    configured = Path(config["maintainer_repo"]).expanduser()
     if explicit:
         root = git(Path(explicit).expanduser(), "rev-parse", "--show-toplevel")
         if root.returncode != 0:
@@ -600,12 +600,12 @@ def _repo_from_config(config: dict, explicit: str | None) -> Path:
         actual = Path(root.stdout.strip()).resolve()
         if actual != configured.resolve():
             raise core.WorkflowError(
-                f"--repo {actual} does not match the store's publisher_repo {configured} — "
-                "refusing to mix a store with a different publisher clone"
+                f"--repo {actual} does not match the store's maintainer_repo {configured} — "
+                "refusing to mix a store with a different maintainer clone"
             )
         return actual
     if not configured.is_dir():
-        raise core.WorkflowError(f"configured publisher_repo is missing: {configured}")
+        raise core.WorkflowError(f"configured maintainer_repo is missing: {configured}")
     return configured
 
 
@@ -636,7 +636,7 @@ def _candidate_payload(state: dict, **extra) -> dict:
         "report_relative_path",
         "report_sha256",
         "result_sha",
-        "published_main",
+        "integrated_main",
         "last_error",
         "attempts",
         "retry_generation",
@@ -678,7 +678,7 @@ def _submit_refactor(repo: Path, store: Path, config: dict, ref: str, tip: str |
             "ref": record["ref"],
             "tip": record["tip"],
             "main_sha": record["main_sha"],
-            "publisher_identity": record["publisher_identity"],
+            "maintainer_identity": record["maintainer_identity"],
             "brief_sha256": record["brief_sha256"],
             "submission": str(store / "refactor-submissions" / f"{record['id']}.json"),
         }
@@ -748,9 +748,9 @@ def _capture_source(repo: Path, store: Path, config: dict, ref: str,
         return 0, _candidate_payload(candidate, mode="capture-source"), []
     entry = next((item for item in config["sources"] if item["ref"] == ref), None)
     if entry is None:
-        raise core.WorkflowError(f"source is not registered for this publisher: {ref}")
+        raise core.WorkflowError(f"source is not registered for this maintainer: {ref}")
     if not entry["enabled"]:
-        raise core.WorkflowError(f"source is disabled in the publisher registry: {ref}")
+        raise core.WorkflowError(f"source is disabled in the maintainer registry: {ref}")
     if dry_run:
         remote = config["remote"]
         branch = ref[len("refs/heads/"):] if ref.startswith("refs/heads/") else ref
@@ -870,36 +870,36 @@ def _verify_report(store: Path, config: dict, cid: str,
     return 0, _candidate_payload(verified, mode="verify-report"), []
 
 
-def _publish(repo: Path, store: Path, config: dict, cid: str,
+def _integrate(repo: Path, store: Path, config: dict, cid: str,
              dry_run: bool) -> tuple[int, dict | None, list[str]]:
     state = core.load_candidate(store, cid)
     if dry_run:
         status = state["status"]
         if status == "report-verified":
-            action = "publish"
-        elif status in ("publish-intent", "published", "receipt-pending", "complete"):
+            action = "integrate"
+        elif status in ("integrate-intent", "integrated", "receipt-pending", "complete"):
             action = "reconcile"
         else:
-            return 12, {"mode": "publish", "dry_run": True, "candidate": cid,
+            return 12, {"mode": "integrate", "dry_run": True, "candidate": cid,
                         "status": status,
                         "would_refuse": "candidate is not report-verified"}, \
-                   [f"candidate {cid} is {status}; publish requires report-verified"]
+                   [f"candidate {cid} is {status}; integrate requires report-verified"]
         cached = git(repo, "rev-parse", "--verify", "--quiet",
                      f"refs/remotes/{config['remote']}/main").stdout.strip()
-        return 0, {"mode": "publish", "dry_run": True, "candidate": cid,
+        return 0, {"mode": "integrate", "dry_run": True, "candidate": cid,
                    "status": status, "would": action,
                    "cached_remote_main": cached or "(cached ref absent)",
                    "result_sha": state["result_sha"]}, \
                ["[dry-run] no lock, no fetch, no commit and no push"]
-    result = core.publish(repo, store, cid, _report_root(config))
-    return 0, _candidate_payload(result, mode="publish"), []
+    result = core.integrate(repo, store, cid, _report_root(config))
+    return 0, _candidate_payload(result, mode="integrate"), []
 
 
 def _reconcile(repo: Path, store: Path, cid: str,
                dry_run: bool) -> tuple[int, dict | None, list[str]]:
     state = core.load_candidate(store, cid)
     if dry_run:
-        if state["status"] not in ("publish-intent", "published", "receipt-pending", "complete"):
+        if state["status"] not in ("integrate-intent", "integrated", "receipt-pending", "complete"):
             return 12, {"mode": "reconcile", "dry_run": True, "candidate": cid,
                         "status": state["status"],
                         "would_refuse": "no saved result to reconcile"}, \
@@ -914,11 +914,11 @@ def _reconcile(repo: Path, store: Path, cid: str,
 def _render_result(store: Path, cid: str,
                    dry_run: bool) -> tuple[int, dict | None, list[str]]:
     state = core.load_candidate(store, cid)
-    if state["status"] not in ("published", "receipt-pending", "complete"):
+    if state["status"] not in ("integrated", "receipt-pending", "complete"):
         return 12, {"mode": "render-result", "dry_run": dry_run, "candidate": cid,
                     "status": state["status"],
-                    "would_refuse": "no observed publication"}, \
-               [f"candidate {cid} is {state['status']}; a result needs an observed publication"]
+                    "would_refuse": "no observed integration"}, \
+               [f"candidate {cid} is {state['status']}; a result needs an observed integration"]
     payload_path = _candidate_file(store, cid, RESULT_FILE)
     if dry_run:
         return 0, {"mode": "render-result", "dry_run": True, "candidate": cid,
@@ -935,11 +935,11 @@ def _render_result(store: Path, cid: str,
 def _verify_result(store: Path, config: dict, cid: str,
                    dry_run: bool) -> tuple[int, dict | None, list[str]]:
     state = core.load_candidate(store, cid)
-    if state["status"] not in ("published", "receipt-pending", "complete"):
+    if state["status"] not in ("integrated", "receipt-pending", "complete"):
         return 12, {"mode": "verify-result", "dry_run": dry_run, "candidate": cid,
                     "status": state["status"],
-                    "would_refuse": "no observed publication"}, \
-               [f"candidate {cid} is {state['status']}; a receipt needs an observed publication"]
+                    "would_refuse": "no observed integration"}, \
+               [f"candidate {cid} is {state['status']}; a receipt needs an observed integration"]
     payload_path = _candidate_file(store, cid, RESULT_FILE)
     if dry_run:
         if not payload_path.is_file():
@@ -997,19 +997,19 @@ def selfcheck(repo: Path, store: Path, config: dict, verbose: bool) -> tuple[int
     state = srs.load_state()
     machine = str(state.get("machine") or "").strip()
     branch = srs.branch_name(repo)
-    producer_repos = []
+    contributor_repos = []
     for entry in state.get("repos") or []:
         try:
-            producer_repos.append(Path(entry["path"]).expanduser().resolve())
+            contributor_repos.append(Path(entry["path"]).expanduser().resolve())
         except (KeyError, TypeError):
             continue
-    if machine and repo.resolve() in producer_repos:
+    if machine and repo.resolve() in contributor_repos:
         allowed, reason = srs.branch_policy(repo, machine)
         policy = "pass" if allowed else f"refuse: {reason}"
     else:
-        policy = ("not evaluated (this checkout is not a registered producer repo; "
+        policy = ("not evaluated (this checkout is not a registered contributor repo; "
                   f"branch {branch or '<detached>'})")
-    lock = core.read_publisher_lock(store)
+    lock = core.read_maintainer_lock(store)
     vault_root = _report_root(config)
     report_directory = vault_root / str(config["report"]["directory"])
     payload = {
@@ -1019,12 +1019,12 @@ def selfcheck(repo: Path, store: Path, config: dict, verbose: bool) -> tuple[int
         "repo": str(repo),
         "branch": branch,
         "branch_policy": policy,
-        "publisher_config": str(store / "publisher.json"),
+        "maintainer_config": str(store / "maintainer.json"),
         "report_root": str(vault_root),
         "report_root_present": vault_root.is_dir(),
         "report_directory": str(report_directory),
         "report_directory_present": report_directory.is_dir(),
-        "publisher_lock": "held by " + _owner_description(lock) if lock else "not held",
+        "maintainer_lock": "held by " + _owner_description(lock) if lock else "not held",
         "hooks": "not inspected by --selfcheck — use `hermes hooks doctor`",
     }
     notes = [f"created_at: {state.get('created_at') or '(not recorded)'}"] if verbose else []
@@ -1032,26 +1032,26 @@ def selfcheck(repo: Path, store: Path, config: dict, verbose: bool) -> tuple[int
 
 
 def _retired_v2_message(mode: str) -> tuple[int, list[str]]:
-    return 12, [f"retired: {mode} is retired — v3 publication uses capture -> prepare -> "
-                f"record-review -> render-report/verify-report -> publish, with ancestry as "
+    return 12, [f"retired: {mode} is retired — v3 integration uses capture -> prepare -> "
+                f"record-review -> render-report/verify-report -> integrate, with ancestry as "
                 f"the consumption fact. Nothing was written (no fetch, ref, index or state change)."]
 
 
 def _pending_mode(args: argparse.Namespace, store: Path) -> int:
     """Monitor protocol: stable stdout, technical failures observable and stable.
 
-    A missing/invalid publisher config is an installation fault (exit 13); a
+    A missing/invalid maintainer config is an installation fault (exit 13); a
     runtime read/fetch failure is the stable `error: monitor-unhealthy` signal
     with exit 0, so a monitor gate never mistakes a broken remote for health.
     """
-    config_path = store / "publisher.json"
+    config_path = store / "maintainer.json"
     if not config_path.is_file():
-        print(f"publisher config missing: {config_path}", file=sys.stderr)
+        print(f"maintainer config missing: {config_path}", file=sys.stderr)
         return 13
     try:
-        config = core.load_publisher_config(store)
+        config = core.load_maintainer_config(store)
     except core.WorkflowError as exc:
-        print(f"publisher config invalid: {exc}", file=sys.stderr)
+        print(f"maintainer config invalid: {exc}", file=sys.stderr)
         return 13
     if args.dry_run:
         try:
@@ -1083,8 +1083,8 @@ def _pending_mode(args: argparse.Namespace, store: Path) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="v3 publisher helper (consolidator host only) — candidate, review, "
-                    "report and publication modes are thin adapters over skill_repo_workflow.py")
+        description="v3 maintainer helper (maintainer host only) — candidate, review, "
+                    "report and integration modes are thin adapters over skill_repo_workflow.py")
     mode = ap.add_mutually_exclusive_group(required=False)
     mode.add_argument("--capture-source", metavar="REF",
                       help="fetch once, pin the full M/T commits and persist the candidate; "
@@ -1096,8 +1096,8 @@ def main() -> int:
                       help="render the deterministic review payload under the store")
     mode.add_argument("--verify-report", metavar="CID",
                       help="verify the exact report bytes at the configured report root")
-    mode.add_argument("--publish", metavar="CID", help="publish one ordered-parent merge commit")
-    mode.add_argument("--reconcile", metavar="CID", help="reconcile an uncertain publication from saved P")
+    mode.add_argument("--integrate", metavar="CID", help="integrate one ordered-parent merge commit")
+    mode.add_argument("--reconcile", metavar="CID", help="reconcile an uncertain integration from saved P")
     mode.add_argument("--render-result", metavar="CID", help="render the result receipt under the store")
     mode.add_argument("--verify-result", metavar="CID",
                       help="verify the exact receipt bytes and record completion")
@@ -1111,8 +1111,8 @@ def main() -> int:
                            "(refs/heads/refactor/<slug>) with --tip and --brief")
     mode.add_argument("--selfcheck", action="store_true",
                       help="report observed versions, branch policy, config/report presence and lock state")
-    mode.add_argument("--lock", action="store_true", help="acquire the owner-token publisher lock")
-    mode.add_argument("--unlock", action="store_true", help="release the publisher lock with its owner token")
+    mode.add_argument("--lock", action="store_true", help="acquire the owner-token maintainer lock")
+    mode.add_argument("--unlock", action="store_true", help="release the maintainer lock with its owner token")
     mode.add_argument("--note-pushed", action="store_true",
                       help="legacy metadata: record HEAD only after the remote transport tip equals HEAD")
     mode.add_argument("--collect", action="store_true", help="RETIRED (exit 12): v3 capture replaces it")
@@ -1134,7 +1134,7 @@ def main() -> int:
     ap.add_argument("--brief", default=None, metavar="PATH",
                     help="replacement brief JSON for --submit-refactor")
     ap.add_argument("--repo", default=None,
-                    help="explicit publisher clone path (default: the store's publisher_repo)")
+                    help="explicit maintainer clone path (default: the store's maintainer_repo)")
     ap.add_argument("--store", default=None,
                     help=f"explicit state store (default: <HERMES_HOME>/{WORKFLOW_STORE_NAME})")
     ap.add_argument("--outdir", default=None, help="legacy option, only for retired modes")
@@ -1149,7 +1149,7 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.version:
-        print(f"skill-repo-consolidate {SCRIPT_VERSION} (core {core.CORE_VERSION})")
+        print(f"skill-repo-maintain {SCRIPT_VERSION} (core {core.CORE_VERSION})")
         return 0
 
     if args.submit_refactor and (not args.tip or not args.brief):
@@ -1158,7 +1158,7 @@ def main() -> int:
         ap.error("--tip and --brief are only valid with --submit-refactor")
 
     known = any((args.capture_source, args.prepare, args.record_review, args.render_report,
-                 args.verify_report, args.publish, args.reconcile, args.render_result,
+                 args.verify_report, args.integrate, args.reconcile, args.render_result,
                  args.verify_result, args.pending, args.retry, args.submit_refactor,
                  args.selfcheck, args.lock, args.unlock, args.note_pushed, args.collect,
                  args.preflight, args.merge_map, args.apply_decisions, args.reset_branch,
@@ -1205,9 +1205,9 @@ def main() -> int:
             return code
         config = _load_config_or_none(store)
         if config is None:
-            missing = not (store / "publisher.json").is_file()
-            detail = ("publisher config missing" if missing else "publisher config invalid")
-            print(f"error: {detail}: {store / 'publisher.json'}", file=sys.stderr)
+            missing = not (store / "maintainer.json").is_file()
+            detail = ("maintainer config missing" if missing else "maintainer config invalid")
+            print(f"error: {detail}: {store / 'maintainer.json'}", file=sys.stderr)
             return 13
         try:
             repo = _repo_from_config(config, args.repo)
@@ -1216,10 +1216,10 @@ def main() -> int:
             return 12
         try:
             if args.lock:
-                code, notes = lock_publisher(store, force=args.force_lock, dry_run=args.dry_run)
+                code, notes = lock_maintainer(store, force=args.force_lock, dry_run=args.dry_run)
                 payload = None
             elif args.unlock:
-                code, notes = unlock_publisher(store, dry_run=args.dry_run)
+                code, notes = unlock_maintainer(store, dry_run=args.dry_run)
                 payload = None
             elif args.selfcheck:
                 code, payload, notes = selfcheck(repo, store, config, args.verbose)
@@ -1240,8 +1240,8 @@ def main() -> int:
             elif args.verify_report:
                 code, payload, notes = _verify_report(
                     store, config, args.verify_report, args.dry_run)
-            elif args.publish:
-                code, payload, notes = _publish(repo, store, config, args.publish, args.dry_run)
+            elif args.integrate:
+                code, payload, notes = _integrate(repo, store, config, args.integrate, args.dry_run)
             elif args.reconcile:
                 code, payload, notes = _reconcile(repo, store, args.reconcile, args.dry_run)
             elif args.render_result:

@@ -1,8 +1,8 @@
-<!-- Template for the consolidator cron prompt (monitor-gated, the consolidator machine only) — render at install time; variables: {skills_repo}, {store}, {publisher_repo}, {machine} -->
-Rolle: Consolidator — der einzige Schreiber auf `main`. Verbindliche Prozedur: skill-library-maintenance → references/shared-repo-sync.md, Abschnitt 'Consolidator run book (v3)'.
+<!-- Template for the maintainer cron prompt (monitor-gated, the maintainer machine only) — render at install time; variables: {skills_repo}, {store}, {maintainer_repo}, {machine} -->
+Rolle: Maintainer — der einzige Schreiber auf `main`. Verbindliche Prozedur: skill-library-maintenance → references/shared-repo-sync.md, Abschnitt 'Maintainer run book (v3)'.
 
 Helper (immer direkt aus dem Repo-Tree, mit expliziten Pfaden):
-`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py <mode> --store {store} --repo {publisher_repo}`
+`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-maintain.py <mode> --store {store} --repo {maintainer_repo}`
 
 Ablauf je Lauf — genau diese Reihenfolge, keine erfundenen git-Schritte:
 1. `--selfcheck --verbose`: Versionen, Config, Report-Root und Lock prüfen. Ein technischer Fehler beendet den Lauf mit Meldung; nichts schreiben.
@@ -10,17 +10,17 @@ Ablauf je Lauf — genau diese Reihenfolge, keine erfundenen git-Schritte:
 3. `--capture-source refs/heads/machine/{machine}`. Die ausgegebene Candidate-ID muss der gewählten `pending <cid>` entsprechen. Ein Refactor-Kandidat ist nur nach `--submit-refactor <ref> --tip <fullsha> --brief <json>` und danach `--capture-source refs/heads/refactor/<slug>` gültig.
 4. `--prepare <cid>`: liefert `worktree`, `input_paths` (vollständiges Manifest, inklusive Löschungen) und `conflict_paths`. Das ist der vollständige Änderungs-Packet: jeden Pfad aus `input_paths` und jeden Konflikt aus `conflict_paths` lesen, dazu den kompletten gestagten Diff dieses Manifests (`git -C <worktree> diff --cached --name-status M` und je Pfad `git -C <worktree> diff --cached M -- <pfad>`; nur lesend). Fokussierter Kontext: pro Datei höchstens ein `read_file`-Fenster mit `offset`/`limit` um die betroffene Section. Nie ganze Skill-Dateien, nie M/T als Volltexte, nie den Implementierungsplan laden.
 5. Jeden Manifest-Pfad und jeden zusätzlich bearbeiteten Pfad semantisch klassifizieren: `addition`, `correction`, `replacement` oder `reject` (Duplikat, ungeeignet, instanzspezifisch). Bei `replacement` alte und neue Regel plus Grund nennen; generische illustrative Pfade/Beispiele sind erlaubt, instanzspezifische Anweisungen werden abgelehnt bzw. in die Adaptation geroutet. Diese Entscheidung ist autonom — keine tägliche menschliche Freigabe, keine Freigabe-CLI.
-6. Im Candidate-Worktree auflösen und stagen: Konflikte explizit bearbeiten, saubere Adds/Deletes/Empty-Files ebenfalls stagen (`git add -- <pfad>`). Nie committen, amendieren, rebasen, resetten, pushen oder Branches wechseln; nie `-X ours`/`-X theirs`; keine Skripte aus dem Candidate ausführen. Das Werkzeug läuft aus dem vertrauenswürdigen Publisher-Baseline.
+6. Im Candidate-Worktree auflösen und stagen: Konflikte explizit bearbeiten, saubere Adds/Deletes/Empty-Files ebenfalls stagen (`git add -- <pfad>`). Nie committen, amendieren, rebasen, resetten, pushen oder Branches wechseln; nie `-X ours`/`-X theirs`; keine Skripte aus dem Candidate ausführen. Das Werkzeug läuft aus dem vertrauenswürdigen Maintainer-Baseline.
 7. Review-JSON nach contracts §2.3 schreiben (Pfadabdeckung, echte Source-Anker, Gründe, geplante Ersetzungen) und `--record-review <cid> --review-file <pfad>` ausführen. Das sind die echten Checks (Whitespace, Syntax, Pakettests, Validator, Audit). Exit 10 heißt: reparieren und erneut prüfen — nie umgehen oder Checks löschen.
 8. `--render-report <cid>`: erzeugt die exakten Bytes unter dem Store. Diese Bytes über TurboVault an den konfigurierten Report-Pfad schreiben. Erster Write: `write_note` ohne `expected_hash`. Existiert die Note bereits: `read_note` mit Hash; sind die Bytes identisch, ist das ein idempotenter Verify-Fall (kein Überschreiben nötig); weichen sie ab, stoppen und melden — niemals blind überschreiben. Danach die Note exakt zurücklesen.
 9. `--verify-report <cid>`: vergleicht die exakten Bytes am konfigurierten Root. Abweichung = Publikation blockiert, Candidate behalten.
-10. `--publish <cid>`: genau ein Merge-Commit mit geordneten Parents M,T und dem reviewten Tree, Non-Force-Push, Remote-Beobachtung. Ein bewegtes `main` ist `stale` — nie forcen.
+10. `--integrate <cid>`: genau ein Merge-Commit mit geordneten Parents M,T und dem reviewten Tree, Non-Force-Push, Remote-Beobachtung. Ein bewegtes `main` ist `stale` — nie forcen.
 11. Bei unklarem/fehlgeschlagenem Push: `--reconcile <cid>` mit dem gespeicherten P. Niemals einen zweiten Integrations-Commit erzeugen.
 12. `--render-result <cid>`: Receipt-Bytes über TurboVault schreiben und exakt zurücklesen, dann `--verify-result <cid>` (macht `complete`). Das Review-Report bleibt unverändert; das Ergebnis steht nur im Receipt.
 
 Budget und Fehlerdisziplin:
 - Ziel sind höchstens 35 Assistent-Turns für einen normalen Kandidaten. Das ist ein Turn-Ziel, KEIN Token-Limit; kein numerisches Token-Budget wird behauptet oder erzwungen.
 - Usage im Chat-Report ausweisen: `input_tokens`/`output_tokens` jeweils als `measured`, `estimated` oder `unavailable`. Nicht vom Provider gelieferte Zähler sind `unavailable`; Schätzungen sind als `estimated` zu labeln. Keine Zahl erfinden.
-- Reicht der Kontext oder das Turn-Budget nicht für eine vollständige Prüfung: als `incomplete-review` melden, Candidate und Entscheidungen erhalten, NICHT `--record-review`/`--publish` mit gekürztem Diff. Kein automatischer Endlos-Restart.
+- Reicht der Kontext oder das Turn-Budget nicht für eine vollständige Prüfung: als `incomplete-review` melden, Candidate und Entscheidungen erhalten, NICHT `--record-review`/`--integrate` mit gekürztem Diff. Kein automatischer Endlos-Restart.
 - Nie force, reset oder rebase; retired Reset-/Replay-Modi werden nicht verwendet. Ein blockierter Kandidat behält seine Evidence, die Monitor-Zeile flattert nicht.
 - Chat-Report ≤15 Zeilen; Leerlauf: eine Zeile. Keine Rohdiffs, keine Secrets, keine Profil-Inhalte.

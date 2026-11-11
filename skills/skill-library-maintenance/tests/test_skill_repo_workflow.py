@@ -38,37 +38,37 @@ def commit(repo, text, message="change", path="skills/demo/SKILL.md"):
 
 @pytest.fixture
 def lab(tmp_path):
-    remote, producer, publisher = (tmp_path / n for n in ("origin.git", "producer", "publisher"))
+    remote, contributor, maintainer = (tmp_path / n for n in ("origin.git", "contributor", "maintainer"))
     subprocess.run(["git", "init", "--bare", "-q", str(remote)], check=True)
-    producer.mkdir()
-    g(producer, "init", "-q", "-b", "main")
+    contributor.mkdir()
+    g(contributor, "init", "-q", "-b", "main")
     for k,v in (("user.name","Test"),("user.email","test@example.invalid")):
-        g(producer,"config",k,v)
-    base = commit(producer, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nBase instruction.\n")
-    g(producer,"remote","add","origin",str(remote))
-    g(producer,"push","-q","-u","origin","main")
-    g(producer,"checkout","-q","-b","machine/testlab")
-    g(producer,"push","-q","-u","origin","machine/testlab")
-    subprocess.run(["git","clone","-q","-b","main",str(remote),str(publisher)],check=True)
-    for k,v in (("user.name","Publisher"),("user.email","pub@example.invalid")):
-        g(publisher,"config",k,v)
+        g(contributor,"config",k,v)
+    base = commit(contributor, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nBase instruction.\n")
+    g(contributor,"remote","add","origin",str(remote))
+    g(contributor,"push","-q","-u","origin","main")
+    g(contributor,"checkout","-q","-b","machine/testlab")
+    g(contributor,"push","-q","-u","origin","machine/testlab")
+    subprocess.run(["git","clone","-q","-b","main",str(remote),str(maintainer)],check=True)
+    for k,v in (("user.name","Maintainer"),("user.email","pub@example.invalid")):
+        g(maintainer,"config",k,v)
     store, vault = tmp_path / "state", tmp_path / "vault"
     store.mkdir(); vault.mkdir()
     config = {"schema":3,"repo_id":"owned-skills","remote":"origin",
-              "publisher_repo":str(publisher),"runtime_roots":[str(producer)],
+              "maintainer_repo":str(maintainer),"runtime_roots":[str(contributor)],
               "policy":"skill-review-v1",
-              "publisher_identity":{"machine":"publisher-test","profile":"default","scope":"shared-generic"},
+              "maintainer_identity":{"machine":"maintainer-test","profile":"default","scope":"shared-generic"},
               "sources":[{"ref":"refs/heads/machine/testlab","machine":"testlab",
                           "profile":"default","scope":"shared-generic","enabled":True}],
               "report":{"vault":"fixture","vault_root":str(vault),
                         "directory":"projects/hermes-agent/reports"}}
-    (store / "publisher.json").write_text(json.dumps(config))
-    return {"remote":remote,"producer":producer,"publisher":publisher,
+    (store / "maintainer.json").write_text(json.dumps(config))
+    return {"remote":remote,"contributor":contributor,"maintainer":maintainer,
             "store":store,"vault":vault,"base":base,"source":config["sources"][0]}
 
 def offer(lab, text="---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nBase instruction.\nA useful generic rule.\n"):
-    tip = commit(lab["producer"],text)
-    g(lab["producer"],"push","-q","origin","machine/testlab")
+    tip = commit(lab["contributor"],text)
+    g(lab["contributor"],"push","-q","origin","machine/testlab")
     return tip
 
 
@@ -77,7 +77,7 @@ def offer(lab, text="---\nname: demo\ndescription: Demonstration skill.\n---\n\n
 # ---------------------------------------------------------------------------
 
 def register_source(lab, entry):
-    config_path = lab["store"] / "publisher.json"
+    config_path = lab["store"] / "maintainer.json"
     config = json.loads(config_path.read_text(encoding="utf-8"))
     config["sources"].append(entry)
     config_path.write_text(json.dumps(config), encoding="utf-8")
@@ -89,7 +89,7 @@ build_lab = getattr(lab, "__wrapped__")
 
 
 def capture(lab, core):
-    return core.capture(lab["publisher"], lab["store"], lab["source"])
+    return core.capture(lab["maintainer"], lab["store"], lab["source"])
 
 
 # ---------------------------------------------------------------------------
@@ -134,33 +134,33 @@ def test_candidate_identity_and_path_safety(core, tmp_path):
 
 def test_capture_is_idempotent_and_pins_inputs(core, lab):
     t=offer(lab)
-    a=core.capture(lab["publisher"],lab["store"],lab["source"])
-    b=core.capture(lab["publisher"],lab["store"],lab["source"])
+    a=core.capture(lab["maintainer"],lab["store"],lab["source"])
+    b=core.capture(lab["maintainer"],lab["store"],lab["source"])
     assert a["id"]==b["id"] and a["source_sha"]==t
     assert a["main_sha"]==lab["base"]
-    assert g(lab["publisher"],"rev-parse",f'refs/hermes-sync/candidates/{a["id"]}/source')==t
+    assert g(lab["maintainer"],"rev-parse",f'refs/hermes-sync/candidates/{a["id"]}/source')==t
 
-    # Extensions: full journal, both pins, in-memory store, no publisher mutation.
+    # Extensions: full journal, both pins, in-memory store, no maintainer mutation.
     assert a["schema"] == 3 and a["kind"] == "transport" and a["status"] == "captured"
     assert a["repo_id"] == "owned-skills" and a["policy"] == "skill-review-v1"
     assert a["source_ref"] == "refs/heads/machine/testlab"
     assert a["source_machine"] == "testlab" and a["source_profile"] == "default"
-    assert g(lab["publisher"],"rev-parse",f'refs/hermes-sync/candidates/{a["id"]}/main') == lab["base"]
+    assert g(lab["maintainer"],"rev-parse",f'refs/hermes-sync/candidates/{a["id"]}/main') == lab["base"]
     assert a["_store"] == lab["store"].resolve()
     persisted = json.loads((lab["store"] / "candidates" / a["id"] / "state.json").read_text(encoding="utf-8"))
     assert "_store" not in persisted and persisted["id"] == a["id"]
-    # HEAD and index of the publisher clone are exactly where capture found them.
-    assert g(lab["publisher"],"rev-parse","HEAD") == lab["base"]
-    assert g(lab["publisher"],"rev-parse","refs/heads/main") == lab["base"]
-    assert g(lab["publisher"],"status","--porcelain") == ""
-    assert g(lab["publisher"],"diff-index","--cached","--quiet","HEAD") == ""
+    # HEAD and index of the maintainer clone are exactly where capture found them.
+    assert g(lab["maintainer"],"rev-parse","HEAD") == lab["base"]
+    assert g(lab["maintainer"],"rev-parse","refs/heads/main") == lab["base"]
+    assert g(lab["maintainer"],"status","--porcelain") == ""
+    assert g(lab["maintainer"],"diff-index","--cached","--quiet","HEAD") == ""
 
 
 def test_recapture_after_source_advance_keeps_captured_main(core, lab):
     t1 = offer(lab)
     first = capture(lab, core)
-    t2 = commit(lab["producer"], "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nBase instruction.\nA useful generic rule.\nA second generic rule.\n", message="second rule")
-    g(lab["producer"], "push", "-q", "origin", "machine/testlab")
+    t2 = commit(lab["contributor"], "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nBase instruction.\nA useful generic rule.\nA second generic rule.\n", message="second rule")
+    g(lab["contributor"], "push", "-q", "origin", "machine/testlab")
     second = capture(lab, core)
     assert second["id"] != first["id"]
     assert second["main_sha"] == first["main_sha"] == lab["base"]
@@ -175,9 +175,9 @@ def test_capture_refuses_unknown_disabled_and_refactor_sources(core, lab):
     unknown = {"ref": "refs/heads/machine/other", "machine": "other",
                "profile": "default", "scope": "shared-generic", "enabled": True}
     with pytest.raises(core.WorkflowError):
-        core.capture(lab["publisher"], lab["store"], unknown)
+        core.capture(lab["maintainer"], lab["store"], unknown)
 
-    config_path = lab["store"] / "publisher.json"
+    config_path = lab["store"] / "maintainer.json"
     config = json.loads(config_path.read_text(encoding="utf-8"))
     config["sources"][0]["enabled"] = False
     config_path.write_text(json.dumps(config), encoding="utf-8")
@@ -188,37 +188,37 @@ def test_capture_refuses_unknown_disabled_and_refactor_sources(core, lab):
 
     # A real refactor-side commit, registered as a source, still cannot be
     # captured as transport kind.
-    producer = lab["producer"]
-    g(producer, "checkout", "-q", "-b", "refactor/topic", "main")
-    commit(producer, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nRefactor draft.\n", message="refactor draft")
-    g(producer, "push", "-q", "origin", "refactor/topic")
-    g(producer, "checkout", "-q", "machine/testlab")
+    contributor = lab["contributor"]
+    g(contributor, "checkout", "-q", "-b", "refactor/topic", "main")
+    commit(contributor, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nRefactor draft.\n", message="refactor draft")
+    g(contributor, "push", "-q", "origin", "refactor/topic")
+    g(contributor, "checkout", "-q", "machine/testlab")
     register_source(lab, {"ref": "refs/heads/refactor/topic", "machine": "testlab",
                           "profile": "default", "scope": "shared-generic", "enabled": True})
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.capture(lab["publisher"], lab["store"], {"ref": "refs/heads/refactor/topic"})
+        core.capture(lab["maintainer"], lab["store"], {"ref": "refs/heads/refactor/topic"})
     assert "refactor" in str(excinfo.value)
 
 
 def test_capture_refuses_unapproved_report_scope_before_content(core, lab):
     offer(lab, "PRIVATE_FIXTURE_CONTEXT_MUST_NOT_RENDER\n")
-    path = lab["store"] / "publisher.json"
+    path = lab["store"] / "maintainer.json"
     config = json.loads(path.read_text())
     config["sources"][0]["scope"] = "mixed-trust"
     path.write_text(json.dumps(config))
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.capture(lab["publisher"], lab["store"], {"ref": lab["source"]["ref"]})
+        core.capture(lab["maintainer"], lab["store"], {"ref": lab["source"]["ref"]})
     assert lab["source"]["ref"] in str(excinfo.value)
     assert "mixed-trust" in str(excinfo.value)
     assert "PRIVATE_FIXTURE_CONTEXT" not in str(excinfo.value)
     assert not list(lab["vault"].rglob("*.md"))
     assert not list((lab["store"] / "candidates").glob("*/state.json"))
-    assert g(lab["publisher"], "for-each-ref", "refs/hermes-sync/candidates") == ""
+    assert g(lab["maintainer"], "for-each-ref", "refs/hermes-sync/candidates") == ""
 
 
 def test_capture_allows_configured_shared_generic_report_scope(core, lab):
     offer(lab)
-    path = lab["store"] / "publisher.json"
+    path = lab["store"] / "maintainer.json"
     config = json.loads(path.read_text())
     config["report"]["allowed_scopes"] = ["shared-generic"]
     path.write_text(json.dumps(config))
@@ -229,13 +229,13 @@ def test_capture_allows_configured_shared_generic_report_scope(core, lab):
         capture(lab, core)  # Existing journals do not bypass a changed destination policy.
 
 
-@pytest.mark.parametrize("action", ["render", "publish"])
+@pytest.mark.parametrize("action", ["render", "integrate"])
 def test_report_scope_revocation_blocks_existing_candidate(core, lab, action):
     offer(lab)
     c = reviewed(core, lab)
     directory = lab["store"] / "candidates" / c["id"]
     original = (directory / "review.md").read_bytes()
-    path = lab["store"] / "publisher.json"
+    path = lab["store"] / "maintainer.json"
     config = json.loads(path.read_text())
     config["report"]["allowed_scopes"] = []
     path.write_text(json.dumps(config))
@@ -245,44 +245,44 @@ def test_report_scope_revocation_blocks_existing_candidate(core, lab, action):
                                json.loads((directory / "checks.json").read_text())["checks"],
                                c["reviewed_tree"])
         else:
-            core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+            core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert (directory / "review.md").read_bytes() == original
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
-@pytest.mark.parametrize("phase", ["capture", "publish"])
+@pytest.mark.parametrize("phase", ["capture", "integrate"])
 @pytest.mark.parametrize("material", ["credential", "forbidden-path"])
 def test_incoming_history_exposure_blocks_even_after_final_tree_cleanup(core, lab, monkeypatch, phase, material):
     path = "skills/demo/exposure.md" if material == "credential" else "skills/demo/.env"
     value = "ghp_" + "X" * 24  # Synthetic scanner fixture, never a real credential.
-    commit(lab["producer"], value + "\n", path=path)
-    g(lab["producer"], "rm", "--", path)
-    g(lab["producer"], "commit", "-q", "-m", "remove exposed fixture material")
-    g(lab["producer"], "push", "-q", "origin", "machine/testlab")
-    if phase == "publish":
+    commit(lab["contributor"], value + "\n", path=path)
+    g(lab["contributor"], "rm", "--", path)
+    g(lab["contributor"], "commit", "-q", "-m", "remove exposed fixture material")
+    g(lab["contributor"], "push", "-q", "origin", "machine/testlab")
+    if phase == "integrate":
         # A journal created by an older implementation (before capture screened
-        # history) must still be stopped by the real publication gate.
+        # history) must still be stopped by the real integration gate.
         with monkeypatch.context() as legacy:
             legacy.setattr(core, "screen_source_history", lambda *args: {"findings": []})
-            c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+            c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
             assert c["input_paths"] == []
             review = {**review_for(c), "summary": "Acknowledge a no-net-change source tip", "files": []}
             c = record_full_review(core, lab, c, review)
-        action = lambda: core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        action = lambda: core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     else:
         c = None
         action = lambda: capture(lab, core)
-    before = remote_ref(lab["producer"], "refs/heads/main")
+    before = remote_ref(lab["contributor"], "refs/heads/main")
     with pytest.raises(core.WorkflowError) as excinfo:
         action()
     diagnostic = str(excinfo.value)
     assert "incident" in diagnostic and path in diagnostic
     assert ("credential-pattern" if material == "credential" else "forbidden-path") in diagnostic
     assert value not in diagnostic
-    assert remote_ref(lab["producer"], "refs/heads/main") == before
+    assert remote_ref(lab["contributor"], "refs/heads/main") == before
     if phase == "capture":
         assert not list((lab["store"] / "candidates").glob("*/state.json"))
-        assert g(lab["publisher"], "for-each-ref", "refs/hermes-sync/candidates") == ""
+        assert g(lab["maintainer"], "for-each-ref", "refs/hermes-sync/candidates") == ""
     else:
         assert c is not None
         state = core.load_candidate(lab["store"], c["id"])
@@ -290,9 +290,9 @@ def test_incoming_history_exposure_blocks_even_after_final_tree_cleanup(core, la
         assert value not in json.dumps(state, default=str)
 
 
-def test_publisher_config_is_validated_strictly(core, lab):
+def test_maintainer_config_is_validated_strictly(core, lab):
     offer(lab)
-    config_path = lab["store"] / "publisher.json"
+    config_path = lab["store"] / "maintainer.json"
     good = json.loads(config_path.read_text(encoding="utf-8"))
 
     missing_field = json.loads(json.dumps(good))
@@ -307,18 +307,18 @@ def test_publisher_config_is_validated_strictly(core, lab):
     for broken in (missing_field, bad_ref, duplicate, bad_enabled):
         config_path.write_text(json.dumps(broken), encoding="utf-8")
         with pytest.raises(core.WorkflowError):
-            core.load_publisher_config(lab["store"])
+            core.load_maintainer_config(lab["store"])
 
     # A syntactically valid registry that names a different checkout is refused
     # at capture time, as is a relative store path.
     wrong_repo = json.loads(json.dumps(good))
-    wrong_repo["publisher_repo"] = str(lab["store"])
+    wrong_repo["maintainer_repo"] = str(lab["store"])
     config_path.write_text(json.dumps(wrong_repo), encoding="utf-8")
     with pytest.raises(core.WorkflowError):
         capture(lab, core)
     config_path.write_text(json.dumps(good), encoding="utf-8")
     with pytest.raises(core.WorkflowError):
-        core.capture(lab["publisher"], Path("relative/state"), lab["source"])
+        core.capture(lab["maintainer"], Path("relative/state"), lab["source"])
 
 
 def test_load_candidate_rejects_tampered_or_traversing_id(core, lab):
@@ -331,7 +331,7 @@ def test_load_candidate_rejects_tampered_or_traversing_id(core, lab):
     with pytest.raises(core.WorkflowError):
         core.load_candidate(lab["store"], candidate["id"])
     with pytest.raises(core.WorkflowError):
-        core.load_candidate(lab["store"], "../../publisher")
+        core.load_candidate(lab["store"], "../../maintainer")
 
 
 # ---------------------------------------------------------------------------
@@ -340,17 +340,17 @@ def test_load_candidate_rejects_tampered_or_traversing_id(core, lab):
 
 def test_transport_rejects_unpublished_side_parent(core, lab):
     t = offer(lab)
-    producer = lab["producer"]
-    g(producer, "checkout", "-q", "-b", "topic", t)
-    side = commit(producer, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nSide rule.\n", message="side work")
-    g(producer, "checkout", "-q", "machine/testlab")
-    commit(producer, "trunk note\n", message="trunk work", path="skills/demo/TRUNK.md")
-    g(producer, "merge", "-q", "--no-ff", "-m", "merge unpublished topic", "topic")
-    merge = g(producer, "rev-parse", "HEAD")
-    merge_parents = g(producer, "rev-list", "--parents", "-n", "1", merge).split()[1:]
+    contributor = lab["contributor"]
+    g(contributor, "checkout", "-q", "-b", "topic", t)
+    side = commit(contributor, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nSide rule.\n", message="side work")
+    g(contributor, "checkout", "-q", "machine/testlab")
+    commit(contributor, "trunk note\n", message="trunk work", path="skills/demo/TRUNK.md")
+    g(contributor, "merge", "-q", "--no-ff", "-m", "merge unpublished topic", "topic")
+    merge = g(contributor, "rev-parse", "HEAD")
+    merge_parents = g(contributor, "rev-list", "--parents", "-n", "1", merge).split()[1:]
     assert merge_parents[0] != side and side in merge_parents
     assert len(merge_parents) == 2
-    g(producer, "push", "-q", "origin", "machine/testlab")
+    g(contributor, "push", "-q", "origin", "machine/testlab")
 
     with pytest.raises(core.WorkflowError) as excinfo:
         capture(lab, core)
@@ -358,19 +358,19 @@ def test_transport_rejects_unpublished_side_parent(core, lab):
     assert merge in message and side in message
     # Rejected before any candidate journal or pin was created.
     assert not list((lab["store"] / "candidates").glob("*/state.json"))
-    assert g(lab["publisher"], "for-each-ref", "refs/hermes-sync/candidates") == ""
+    assert g(lab["maintainer"], "for-each-ref", "refs/hermes-sync/candidates") == ""
 
 
 def test_transport_rejects_known_refactor_fast_forward(core, lab):
-    producer = lab["producer"]
-    g(producer, "checkout", "-q", "-b", "refactor/topic", "main")
-    refactor_tip = commit(producer, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nRefactor draft.\n", message="refactor draft")
-    g(producer, "push", "-q", "origin", "refactor/topic")
-    g(producer, "checkout", "-q", "machine/testlab")
-    g(producer, "merge", "-q", "--ff-only", "refactor/topic")
-    assert g(producer, "rev-parse", "HEAD") == refactor_tip
-    assert g(producer, "rev-parse", "refs/remotes/origin/refactor/topic") == refactor_tip
-    g(producer, "push", "-q", "origin", "machine/testlab")
+    contributor = lab["contributor"]
+    g(contributor, "checkout", "-q", "-b", "refactor/topic", "main")
+    refactor_tip = commit(contributor, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nRefactor draft.\n", message="refactor draft")
+    g(contributor, "push", "-q", "origin", "refactor/topic")
+    g(contributor, "checkout", "-q", "machine/testlab")
+    g(contributor, "merge", "-q", "--ff-only", "refactor/topic")
+    assert g(contributor, "rev-parse", "HEAD") == refactor_tip
+    assert g(contributor, "rev-parse", "refs/remotes/origin/refactor/topic") == refactor_tip
+    g(contributor, "push", "-q", "origin", "machine/testlab")
 
     with pytest.raises(core.WorkflowError) as excinfo:
         capture(lab, core)
@@ -379,26 +379,26 @@ def test_transport_rejects_known_refactor_fast_forward(core, lab):
     assert not list((lab["store"] / "candidates").glob("*/state.json"))
 
 
-def test_transport_accepts_published_main_merge(core, lab):
-    producer = lab["producer"]
-    g(producer, "checkout", "-q", "machine/testlab")
-    commit(producer, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nBase instruction.\nSource rule.\n", message="source work")
-    g(producer, "checkout", "-q", "main")
-    main_tip = commit(producer, "main side\n", message="main work", path="skills/demo/MAIN.md")
-    g(producer, "push", "-q", "origin", "main")
-    g(producer, "checkout", "-q", "machine/testlab")
-    source_commit = g(producer, "rev-parse", "HEAD")
-    g(producer, "fetch", "-q", "origin")
-    g(producer, "merge", "-q", "--no-ff", "-m", "merge published main", "origin/main")
-    merge = g(producer, "rev-parse", "HEAD")
-    merge_parents = g(producer, "rev-list", "--parents", "-n", "1", merge).split()[1:]
+def test_transport_accepts_integrated_main_merge(core, lab):
+    contributor = lab["contributor"]
+    g(contributor, "checkout", "-q", "machine/testlab")
+    commit(contributor, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nBase instruction.\nSource rule.\n", message="source work")
+    g(contributor, "checkout", "-q", "main")
+    main_tip = commit(contributor, "main side\n", message="main work", path="skills/demo/MAIN.md")
+    g(contributor, "push", "-q", "origin", "main")
+    g(contributor, "checkout", "-q", "machine/testlab")
+    source_commit = g(contributor, "rev-parse", "HEAD")
+    g(contributor, "fetch", "-q", "origin")
+    g(contributor, "merge", "-q", "--no-ff", "-m", "merge integrated main", "origin/main")
+    merge = g(contributor, "rev-parse", "HEAD")
+    merge_parents = g(contributor, "rev-list", "--parents", "-n", "1", merge).split()[1:]
     assert merge_parents == [source_commit, main_tip]
-    g(producer, "push", "-q", "origin", "machine/testlab")
+    g(contributor, "push", "-q", "origin", "machine/testlab")
 
     candidate = capture(lab, core)
     assert candidate["main_sha"] == main_tip
     assert candidate["source_sha"] == merge
-    assert core.source_status(lab["publisher"], candidate["main_sha"], candidate["source_sha"]) == "pending"
+    assert core.source_status(lab["maintainer"], candidate["main_sha"], candidate["source_sha"]) == "pending"
 
 
 # ---------------------------------------------------------------------------
@@ -408,22 +408,22 @@ def test_transport_accepts_published_main_merge(core, lab):
 def test_source_status_acknowledges_empty_diff(core, lab):
     t = offer(lab)
     a = capture(lab, core)
-    assert core.source_status(lab["publisher"], a["main_sha"], t) == "pending"
-    assert core.source_status(lab["publisher"], a["main_sha"], a["main_sha"]) == "consumed"
+    assert core.source_status(lab["maintainer"], a["main_sha"], t) == "pending"
+    assert core.source_status(lab["maintainer"], a["main_sha"], a["main_sha"]) == "consumed"
 
-    producer = lab["producer"]
-    tree_of_t = g(producer, "rev-parse", f"{t}^{{tree}}")
-    g(producer, "commit", "-q", "--allow-empty", "-m", "empty tip")
-    empty = g(producer, "rev-parse", "HEAD")
+    contributor = lab["contributor"]
+    tree_of_t = g(contributor, "rev-parse", f"{t}^{{tree}}")
+    g(contributor, "commit", "-q", "--allow-empty", "-m", "empty tip")
+    empty = g(contributor, "rev-parse", "HEAD")
     assert empty != t
-    assert g(producer, "rev-parse", f"{empty}^{{tree}}") == tree_of_t
-    g(producer, "push", "-q", "origin", "machine/testlab")
+    assert g(contributor, "rev-parse", f"{empty}^{{tree}}") == tree_of_t
+    g(contributor, "push", "-q", "origin", "machine/testlab")
 
     b = capture(lab, core)
     assert b["id"] != a["id"] and b["source_sha"] == empty
     # Same tree as M's line, but not an ancestor: still pending, not consumed.
-    assert core.source_status(lab["publisher"], b["main_sha"], empty) == "pending"
-    assert not core.is_ancestor(lab["publisher"], empty, b["main_sha"])
+    assert core.source_status(lab["maintainer"], b["main_sha"], empty) == "pending"
+    assert not core.is_ancestor(lab["maintainer"], empty, b["main_sha"])
 
 
 # ---------------------------------------------------------------------------
@@ -475,12 +475,12 @@ def staged_status(repo, base, *options):
     return sorted(rows, key=lambda row: row[1:])
 
 
-def publish_files(lab, files, message="extend base"):
-    """Commit real base files on producer main, then fast-forward transport."""
-    producer = lab["producer"]
-    g(producer, "checkout", "-q", "main")
+def integrate_files(lab, files, message="extend base"):
+    """Commit real base files on contributor main, then fast-forward transport."""
+    contributor = lab["contributor"]
+    g(contributor, "checkout", "-q", "main")
     for path, (data, mode) in files.items():
-        target = producer / path
+        target = contributor / path
         target.parent.mkdir(parents=True, exist_ok=True)
         if isinstance(data, bytes):
             target.write_bytes(data)
@@ -488,23 +488,23 @@ def publish_files(lab, files, message="extend base"):
             target.write_text(data, encoding="utf-8")
         if mode is not None:
             os.chmod(target, mode)
-        g(producer, "add", "--", path)
-    g(producer, "commit", "-q", "-m", message)
-    g(producer, "push", "-q", "origin", "main")
-    g(producer, "checkout", "-q", "machine/testlab")
-    g(producer, "merge", "-q", "--ff-only", "main")
-    g(producer, "push", "-q", "origin", "machine/testlab")
-    return g(producer, "rev-parse", "HEAD")
+        g(contributor, "add", "--", path)
+    g(contributor, "commit", "-q", "-m", message)
+    g(contributor, "push", "-q", "origin", "main")
+    g(contributor, "checkout", "-q", "machine/testlab")
+    g(contributor, "merge", "-q", "--ff-only", "main")
+    g(contributor, "push", "-q", "origin", "machine/testlab")
+    return g(contributor, "rev-parse", "HEAD")
 
 
 def source_commit(lab, mutate, message="source change", stage=True):
-    producer = lab["producer"]
-    mutate(producer)
+    contributor = lab["contributor"]
+    mutate(contributor)
     if stage:
-        g(producer, "add", "-A")
-    g(producer, "commit", "-q", "-m", message)
-    g(producer, "push", "-q", "origin", "machine/testlab")
-    return g(producer, "rev-parse", "HEAD")
+        g(contributor, "add", "-A")
+    g(contributor, "commit", "-q", "-m", message)
+    g(contributor, "push", "-q", "origin", "machine/testlab")
+    return g(contributor, "rev-parse", "HEAD")
 
 
 def replace_text(path, old, new):
@@ -515,57 +515,57 @@ def replace_text(path, old, new):
 
 def test_prepare_materializes_clean_addition(core, lab):
     t=offer(lab)
-    c=core.capture(lab["publisher"],lab["store"],lab["source"])
-    p=core.prepare(lab["publisher"],lab["store"],c)
+    c=core.capture(lab["maintainer"],lab["store"],lab["source"])
+    p=core.prepare(lab["maintainer"],lab["store"],c)
     w=Path(p["worktree"])
     assert "A useful generic rule." in (w/"skills/demo/SKILL.md").read_text()
     assert g(w,"rev-parse","HEAD")==lab["base"]
     assert g(w,"rev-parse","MERGE_HEAD")==t
-    assert g(lab["producer"],"branch","--show-current")=="machine/testlab"
+    assert g(lab["contributor"],"branch","--show-current")=="machine/testlab"
 
     # Extensions: isolated worktree, complete index, no hooks/rerere, journal.
     assert p["status"] == "prepared" and p["conflict_paths"] == []
     assert p["input_paths"] == ["skills/demo/SKILL.md"]
     assert w == (lab["store"] / "worktrees" / c["id"]).resolve()
     assert w.is_relative_to(lab["store"].resolve())
-    assert not w.is_relative_to(lab["producer"].resolve())
+    assert not w.is_relative_to(lab["contributor"].resolve())
     assert not w.is_relative_to(lab["vault"].resolve())
     assert g(w, "diff", "--cached", "--name-only") == "skills/demo/SKILL.md"
     hooks = g(w, "config", "core.hooksPath")
     assert hooks == str(lab["store"] / "hooks-disabled" / c["id"])
     assert not Path(hooks).exists()
     assert g(w, "config", "rerere.enabled") == "false"
-    assert g(lab["publisher"], "rev-parse", "refs/heads/main") == lab["base"]
-    assert g(lab["publisher"], "rev-parse", "HEAD") == lab["base"]
-    assert g(lab["publisher"], "status", "--porcelain") == ""
+    assert g(lab["maintainer"], "rev-parse", "refs/heads/main") == lab["base"]
+    assert g(lab["maintainer"], "rev-parse", "HEAD") == lab["base"]
+    assert g(lab["maintainer"], "status", "--porcelain") == ""
     journal = json.loads((lab["store"] / "candidates" / c["id"] / "state.json").read_text(encoding="utf-8"))
     assert journal["status"] == "prepared" and journal["worktree"] == str(w)
     assert journal["input_paths"] == ["skills/demo/SKILL.md"] and journal["conflict_paths"] == []
     assert p["_store"] == lab["store"].resolve()
 
     # Preparing the same captured candidate again is idempotent, not destructive.
-    again = core.prepare(lab["publisher"], lab["store"], p)
+    again = core.prepare(lab["maintainer"], lab["store"], p)
     assert again["worktree"] == str(w) and again["status"] == "prepared"
     assert g(w, "rev-parse", "MERGE_HEAD") == t
 
 
 def test_prepare_does_not_execute_repository_hooks(core, lab):
     offer(lab)
-    sentinel = lab["publisher"] / "hook-executed"
-    hook = lab["publisher"] / ".git" / "hooks" / "post-checkout"
+    sentinel = lab["maintainer"] / "hook-executed"
+    hook = lab["maintainer"] / ".git" / "hooks" / "post-checkout"
     hook.parent.mkdir(parents=True, exist_ok=True)
     hook.write_text(f"#!/bin/sh\ntouch {sentinel}\n", encoding="utf-8")
     os.chmod(hook, 0o755)
 
     c = capture(lab, core)
-    p = core.prepare(lab["publisher"], lab["store"], c)
+    p = core.prepare(lab["maintainer"], lab["store"], c)
     assert p["status"] == "prepared"
     assert g(Path(p["worktree"]), "config", "core.hooksPath") == str(lab["store"] / "hooks-disabled" / c["id"])
     assert not sentinel.exists()
 
 
 def test_prepare_preserves_deleted_and_empty_files(core, lab):
-    base = publish_files(lab, {
+    base = integrate_files(lab, {
         "skills/demo/old.md": ("Obsolete guidance.\n", None),
         "skills/demo/empty.md": ("Will be emptied.\n", None),
     })
@@ -575,7 +575,7 @@ def test_prepare_preserves_deleted_and_empty_files(core, lab):
         (root / "skills/demo/added-empty.md").write_text("", encoding="utf-8"),
     ), "delete, empty and add an empty file")
     c = capture(lab, core)
-    p = core.prepare(lab["publisher"], lab["store"], c)
+    p = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(p["worktree"])
     stages = index_stage(w)
     assert "skills/demo/old.md" not in stages
@@ -595,11 +595,11 @@ def test_prepare_preserves_deleted_and_empty_files(core, lab):
     }
     assert c["source_sha"] == tip
     assert c["main_sha"] != lab["base"]
-    assert g(lab["publisher"], "rev-parse", "refs/heads/main") == lab["base"]
+    assert g(lab["maintainer"], "rev-parse", "refs/heads/main") == lab["base"]
 
 
 def test_prepare_preserves_executable_mode(core, lab):
-    base = publish_files(lab, {"skills/demo/tool.sh": ("#!/bin/sh\necho base\n", 0o755)})
+    base = integrate_files(lab, {"skills/demo/tool.sh": ("#!/bin/sh\necho base\n", 0o755)})
 
     def mutate(root):
         os.chmod(root / "skills/demo/tool.sh", 0o644)
@@ -609,7 +609,7 @@ def test_prepare_preserves_executable_mode(core, lab):
 
     source_commit(lab, mutate, "toggle and add executable text")
     c = capture(lab, core)
-    p = core.prepare(lab["publisher"], lab["store"], c)
+    p = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(p["worktree"])
     stages = index_stage(w)
     assert stages["skills/demo/tool.sh"][0] == "100644"
@@ -637,35 +637,35 @@ def test_prepare_blocks_binary_and_symlink(core, lab, kind, label):
     tip = source_commit(lab, mutate, f"unsupported {kind}", stage=kind != "gitlink")
 
     # The fixture really contains the unsupported Git object mode/bytes.
-    listing = g(lab["producer"], "ls-tree", "-r", tip)
+    listing = g(lab["contributor"], "ls-tree", "-r", tip)
     if kind == "binary":
         assert "100644 blob" in listing and "skills/demo/blob.bin" in listing
-        assert b"\x00" in git_out(lab["producer"], "cat-file", "blob", f"{tip}:skills/demo/blob.bin")
+        assert b"\x00" in git_out(lab["contributor"], "cat-file", "blob", f"{tip}:skills/demo/blob.bin")
     elif kind == "symlink":
         assert "120000 blob" in listing and "skills/demo/link.md" in listing
     else:
         assert "160000 commit" in listing and "skills/demo/module" in listing
 
     c = capture(lab, core)
-    publisher_main = g(lab["publisher"], "rev-parse", "refs/heads/main")
-    producer_main = g(lab["producer"], "rev-parse", "refs/heads/main")
+    maintainer_main = g(lab["maintainer"], "rev-parse", "refs/heads/main")
+    contributor_main = g(lab["contributor"], "rev-parse", "refs/heads/main")
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.prepare(lab["publisher"], lab["store"], c)
+        core.prepare(lab["maintainer"], lab["store"], c)
     message = str(excinfo.value)
     assert "skills/demo/" in message and label in message and "unsupported" in message
-    assert g(lab["publisher"], "rev-parse", "refs/heads/main") == publisher_main
-    assert g(lab["producer"], "rev-parse", "refs/heads/main") == producer_main
+    assert g(lab["maintainer"], "rev-parse", "refs/heads/main") == maintainer_main
+    assert g(lab["contributor"], "rev-parse", "refs/heads/main") == contributor_main
     assert not (lab["store"] / "worktrees" / c["id"]).exists()
     blocked = core.load_candidate(lab["store"], c["id"])
     assert blocked["status"] == "blocked" and blocked["last_error"]
 
 
 def test_prepare_handles_rename(core, lab):
-    base = publish_files(lab, {"skills/demo/old-name.md": ("Renamable guidance.\n", None)})
+    base = integrate_files(lab, {"skills/demo/old-name.md": ("Renamable guidance.\n", None)})
     source_commit(lab, lambda root: g(root, "mv", "skills/demo/old-name.md", "skills/demo/new-name.md"),
                   "rename a text file")
     c = capture(lab, core)
-    p = core.prepare(lab["publisher"], lab["store"], c)
+    p = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(p["worktree"])
     assert staged_status(w, base, "-M") == [
         ("R100", "skills/demo/old-name.md", "skills/demo/new-name.md"),
@@ -680,24 +680,24 @@ def test_prepare_handles_rename(core, lab):
 
 
 def test_prepare_exposes_conflicts_without_ours_default(core, lab):
-    producer = lab["producer"]
-    g(producer, "checkout", "-q", "main")
-    replace_text(producer / "skills/demo/SKILL.md", "Base instruction.", "Main branch instruction.")
-    g(producer, "add", "--", "skills/demo/SKILL.md")
-    g(producer, "commit", "-q", "-m", "main-side same-line edit")
-    g(producer, "push", "-q", "origin", "main")
-    g(producer, "checkout", "-q", "machine/testlab")
-    replace_text(producer / "skills/demo/SKILL.md", "Base instruction.", "Transport branch instruction.")
-    g(producer, "add", "--", "skills/demo/SKILL.md")
-    g(producer, "commit", "-q", "-m", "transport-side same-line edit")
-    g(producer, "push", "-q", "origin", "machine/testlab")
-    main_sha = g(producer, "rev-parse", "refs/heads/main")
-    tip = g(producer, "rev-parse", "HEAD")
+    contributor = lab["contributor"]
+    g(contributor, "checkout", "-q", "main")
+    replace_text(contributor / "skills/demo/SKILL.md", "Base instruction.", "Main branch instruction.")
+    g(contributor, "add", "--", "skills/demo/SKILL.md")
+    g(contributor, "commit", "-q", "-m", "main-side same-line edit")
+    g(contributor, "push", "-q", "origin", "main")
+    g(contributor, "checkout", "-q", "machine/testlab")
+    replace_text(contributor / "skills/demo/SKILL.md", "Base instruction.", "Transport branch instruction.")
+    g(contributor, "add", "--", "skills/demo/SKILL.md")
+    g(contributor, "commit", "-q", "-m", "transport-side same-line edit")
+    g(contributor, "push", "-q", "origin", "machine/testlab")
+    main_sha = g(contributor, "rev-parse", "refs/heads/main")
+    tip = g(contributor, "rev-parse", "HEAD")
     assert main_sha != tip
 
     c = capture(lab, core)
     assert c["main_sha"] == main_sha and c["source_sha"] == tip
-    p = core.prepare(lab["publisher"], lab["store"], c)
+    p = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(p["worktree"])
     assert p["status"] == "prepared"
     assert p["conflict_paths"] == ["skills/demo/SKILL.md"]
@@ -708,77 +708,77 @@ def test_prepare_exposes_conflicts_without_ours_default(core, lab):
     text = (w / "skills/demo/SKILL.md").read_text(encoding="utf-8")
     assert "<<<<<<< HEAD" in text and "=======" in text and ">>>>>>>" in text
     assert "Main branch instruction." in text and "Transport branch instruction." in text
-    main_blob = git_out(lab["publisher"], "show", f"{main_sha}:skills/demo/SKILL.md").decode("utf-8")
+    main_blob = git_out(lab["maintainer"], "show", f"{main_sha}:skills/demo/SKILL.md").decode("utf-8")
     assert text != main_blob  # a silent keep-ours default would equal the main blob
     journal = json.loads((lab["store"] / "candidates" / c["id"] / "state.json").read_text(encoding="utf-8"))
     assert journal["status"] == "prepared"
     assert journal["conflict_paths"] == ["skills/demo/SKILL.md"]
-    assert g(lab["publisher"], "rev-parse", "refs/heads/main") == lab["base"]
+    assert g(lab["maintainer"], "rev-parse", "refs/heads/main") == lab["base"]
 
 
 def test_prepare_blocks_custom_merge_driver_without_running_it(core, lab):
-    publish_files(lab, {".gitattributes": ("skills/demo/*.md merge=sentinel\n", None)})
-    producer = lab["producer"]
-    g(producer, "checkout", "-q", "main")
-    replace_text(producer / "skills/demo/SKILL.md", "# Demo\n", "# Demo\n\nMain branch context.\n")
-    g(producer, "add", "--", "skills/demo/SKILL.md")
-    g(producer, "commit", "-q", "-m", "main edit before fork")
-    g(producer, "push", "-q", "origin", "main")
-    g(producer, "checkout", "-q", "machine/testlab")
+    integrate_files(lab, {".gitattributes": ("skills/demo/*.md merge=sentinel\n", None)})
+    contributor = lab["contributor"]
+    g(contributor, "checkout", "-q", "main")
+    replace_text(contributor / "skills/demo/SKILL.md", "# Demo\n", "# Demo\n\nMain branch context.\n")
+    g(contributor, "add", "--", "skills/demo/SKILL.md")
+    g(contributor, "commit", "-q", "-m", "main edit before fork")
+    g(contributor, "push", "-q", "origin", "main")
+    g(contributor, "checkout", "-q", "machine/testlab")
     source_commit(lab, lambda root: replace_text(
         root / "skills/demo/SKILL.md", "Base instruction.",
         "Base instruction.\nA useful generic rule."), "source edit under custom driver")
-    sentinel = lab["publisher"] / "sentinel-executed"
-    g(lab["publisher"], "config", "merge.sentinel.driver", f"touch {sentinel}")
-    assert g(lab["publisher"], "config", "merge.sentinel.driver")
+    sentinel = lab["maintainer"] / "sentinel-executed"
+    g(lab["maintainer"], "config", "merge.sentinel.driver", f"touch {sentinel}")
+    assert g(lab["maintainer"], "config", "merge.sentinel.driver")
 
     c = capture(lab, core)
-    assert g(lab["publisher"], "show", f"{c['main_sha']}:.gitattributes").strip() == "skills/demo/*.md merge=sentinel"
-    publisher_main = g(lab["publisher"], "rev-parse", "refs/heads/main")
+    assert g(lab["maintainer"], "show", f"{c['main_sha']}:.gitattributes").strip() == "skills/demo/*.md merge=sentinel"
+    maintainer_main = g(lab["maintainer"], "rev-parse", "refs/heads/main")
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.prepare(lab["publisher"], lab["store"], c)
+        core.prepare(lab["maintainer"], lab["store"], c)
     message = str(excinfo.value)
     assert "sentinel" in message and "unsupported" in message
     assert not sentinel.exists()
     assert not (lab["store"] / "worktrees" / c["id"]).exists()
-    assert g(lab["publisher"], "rev-parse", "refs/heads/main") == publisher_main
+    assert g(lab["maintainer"], "rev-parse", "refs/heads/main") == maintainer_main
 
 
 @pytest.mark.parametrize("route", ["local-default", "global-default", "info-attributes", "attributes-file"])
 def test_prepare_refuses_external_merge_configuration_without_execution(core, lab, monkeypatch, route):
-    producer = lab["producer"]
-    g(producer, "checkout", "-q", "main")
-    commit(producer, "Main side conflicts.\n")
-    g(producer, "push", "-q", "origin", "main")
-    g(producer, "checkout", "-q", "machine/testlab")
+    contributor = lab["contributor"]
+    g(contributor, "checkout", "-q", "main")
+    commit(contributor, "Main side conflicts.\n")
+    g(contributor, "push", "-q", "origin", "main")
+    g(contributor, "checkout", "-q", "machine/testlab")
     offer(lab, "Source side conflicts.\n")
     sentinel = lab["store"] / "external-merge-executed"
-    g(lab["publisher"], "config", "merge.sentinel.driver", f"touch '{sentinel}'")
+    g(lab["maintainer"], "config", "merge.sentinel.driver", f"touch '{sentinel}'")
     if route == "global-default":
         global_config = lab["store"] / "gitconfig"
         global_config.write_text("[merge]\n\tdefault = sentinel\n")
         monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(global_config))
     elif route == "local-default":
-        g(lab["publisher"], "config", "merge.default", "sentinel")
+        g(lab["maintainer"], "config", "merge.default", "sentinel")
     else:
-        attributes = (lab["publisher"] / ".git/info/attributes" if route == "info-attributes"
+        attributes = (lab["maintainer"] / ".git/info/attributes" if route == "info-attributes"
                       else lab["store"] / "global-attributes")
         attributes.parent.mkdir(parents=True, exist_ok=True)
         attributes.write_text("skills/demo/*.md merge=sentinel\n")
         if route == "attributes-file":
-            g(lab["publisher"], "config", "core.attributesFile", str(attributes))
+            g(lab["maintainer"], "config", "core.attributesFile", str(attributes))
     c = capture(lab, core)
     before = {key: (g(lab[key], "show-ref"), g(lab[key], "write-tree"),
-                    g(lab[key], "status", "--porcelain")) for key in ("publisher", "producer")}
+                    g(lab[key], "status", "--porcelain")) for key in ("maintainer", "contributor")}
     with pytest.raises(core.WorkflowError, match="unsupported.*merge|merge.*unsupported"):
-        core.prepare(lab["publisher"], lab["store"], c)
+        core.prepare(lab["maintainer"], lab["store"], c)
     assert not sentinel.exists()
     assert not Path(c["_store"] / "worktrees" / c["id"]).exists()
     assert core.load_candidate(lab["store"], c["id"])["status"] == "blocked"
     assert {key: (g(lab[key], "show-ref"), g(lab[key], "write-tree"),
                   g(lab[key], "status", "--porcelain")) for key in before} == before
-    assert remote_ref(producer, "refs/heads/main") == c["main_sha"]
-    assert remote_ref(producer, lab["source"]["ref"]) == c["source_sha"]
+    assert remote_ref(contributor, "refs/heads/main") == c["main_sha"]
+    assert remote_ref(contributor, lab["source"]["ref"]) == c["source_sha"]
 
 
 @pytest.mark.parametrize("scope", ["local", "global", "include"])
@@ -792,24 +792,24 @@ def test_prepare_refuses_any_defined_merge_driver(core, lab, monkeypatch, scope,
     sentinel = lab["store"] / "builtin-merge-driver-ran"
     definition = f"touch {sentinel}; exit 1"
     if scope == "local":
-        g(lab["publisher"], "config", f"merge.{driver}.driver", definition)
+        g(lab["maintainer"], "config", f"merge.{driver}.driver", definition)
     else:
         external = lab["store"] / "driver.gitconfig"
-        g(lab["publisher"], "config", "--file", str(external), f"merge.{driver}.driver", definition)
+        g(lab["maintainer"], "config", "--file", str(external), f"merge.{driver}.driver", definition)
         if scope == "global":
             monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(external))
         else:
-            g(lab["publisher"], "config", "include.path", str(external))
+            g(lab["maintainer"], "config", "include.path", str(external))
     # The text case is the exact review probe; the other definition is unused.
-    g(lab["publisher"], "config", "merge.default", "text")
+    g(lab["maintainer"], "config", "merge.default", "text")
     c = capture(lab, core)
     before = {key: (g(lab[key], "show-ref"), g(lab[key], "write-tree"),
                     (lab[key] / ".git/index").read_bytes(),
                     (lab[key] / "skills/demo/SKILL.md").read_bytes())
-              for key in ("publisher", "producer")}
+              for key in ("maintainer", "contributor")}
     refusal = None
     try:
-        core.prepare(lab["publisher"], lab["store"], c)
+        core.prepare(lab["maintainer"], lab["store"], c)
     except core.WorkflowError as exc:
         refusal = str(exc)
     assert refusal and not sentinel.exists(), (
@@ -821,15 +821,15 @@ def test_prepare_refuses_any_defined_merge_driver(core, lab, monkeypatch, scope,
     assert {key: (g(lab[key], "show-ref"), g(lab[key], "write-tree"),
                   (lab[key] / ".git/index").read_bytes(),
                   (lab[key] / "skills/demo/SKILL.md").read_bytes()) for key in before} == before
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
-    assert remote_ref(lab["producer"], lab["source"]["ref"]) == c["source_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], lab["source"]["ref"]) == c["source_sha"]
 
 
 @pytest.mark.parametrize("driver", ["text", "binary", "union", "normal"])
 def test_prepare_accepts_builtin_default_merge_driver(core, lab, driver):
     offer(lab)
-    g(lab["publisher"], "config", "merge.default", driver)
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    g(lab["maintainer"], "config", "merge.default", driver)
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     assert c["status"] == "prepared"
 
 
@@ -837,7 +837,7 @@ def test_prepare_accepts_builtin_default_merge_driver(core, lab, driver):
 def test_prepare_refuses_candidate_dir_inside_runtime_or_report_root(core, lab, root):
     offer(lab)
     c = capture(lab, core)
-    config_path = lab["store"] / "publisher.json"
+    config_path = lab["store"] / "maintainer.json"
     config = json.loads(config_path.read_text(encoding="utf-8"))
     if root == "runtime":
         config["runtime_roots"] = [str(lab["store"])]
@@ -846,7 +846,7 @@ def test_prepare_refuses_candidate_dir_inside_runtime_or_report_root(core, lab, 
     config_path.write_text(json.dumps(config), encoding="utf-8")
 
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.prepare(lab["publisher"], lab["store"], c)
+        core.prepare(lab["maintainer"], lab["store"], c)
     assert f"{root} root" in str(excinfo.value)
     assert not (lab["store"] / "worktrees" / c["id"]).exists()
 
@@ -860,12 +860,12 @@ def test_prepare_refuses_inconsistent_existing_dir_without_deleting(core, lab):
     marker.write_text("keep me\n", encoding="utf-8")
 
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.prepare(lab["publisher"], lab["store"], c)
+        core.prepare(lab["maintainer"], lab["store"], c)
     assert "inconsistent state" in str(excinfo.value)
     assert marker.read_text(encoding="utf-8") == "keep me\n"
     assert not (candidate_dir / "skills").exists()
     assert core.load_candidate(lab["store"], c["id"])["status"] == "captured"
-    assert g(lab["publisher"], "rev-parse", "refs/heads/main") == lab["base"]
+    assert g(lab["maintainer"], "rev-parse", "refs/heads/main") == lab["base"]
 
 
 # ---------------------------------------------------------------------------
@@ -891,14 +891,14 @@ def review_for(c, path="skills/demo/SKILL.md", *, change_type="addition", decisi
 def test_review_rejects_missing_paths_or_invented_quotes(core, lab):
     tip = offer(lab)
     c = capture(lab, core)
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(c["worktree"])
     good = review_for(c)
-    assert core.validate_review(c, good, lab["publisher"], w) is None
+    assert core.validate_review(c, good, lab["maintainer"], w) is None
 
     # An empty file list cannot cover a candidate that changes a path.
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.validate_review(c, {**good, "files": []}, lab["publisher"], w)
+        core.validate_review(c, {**good, "files": []}, lab["maintainer"], w)
     message = str(excinfo.value)
     assert "cover" in message and "skills/demo/SKILL.md" in message
 
@@ -906,14 +906,14 @@ def test_review_rejects_missing_paths_or_invented_quotes(core, lab):
     invented = clone(good)
     invented["files"][0]["source_anchors"][0]["quote"] = "A rule nobody wrote."
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.validate_review(c, invented, lab["publisher"], w)
+        core.validate_review(c, invented, lab["maintainer"], w)
     assert "quote" in str(excinfo.value) and "skills/demo/SKILL.md" in str(excinfo.value)
 
     # Source refs are limited to captured M, T and merge bases.
     foreign = clone(good)
     foreign["files"][0]["source_anchors"][0]["ref"] = "f" * 40
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.validate_review(c, foreign, lab["publisher"], w)
+        core.validate_review(c, foreign, lab["maintainer"], w)
     assert "merge base" in str(excinfo.value)
 
     # Review text is data: no command/execution fields anywhere in the schema.
@@ -926,11 +926,11 @@ def test_review_rejects_missing_paths_or_invented_quotes(core, lab):
         armed = clone(good)
         mutate(armed)
         with pytest.raises(core.WorkflowError) as excinfo:
-            core.validate_review(c, armed, lab["publisher"], w)
+            core.validate_review(c, armed, lab["maintainer"], w)
         assert "unsupported" in str(excinfo.value)
 
     with pytest.raises(core.WorkflowError):
-        core.validate_review(c, {**good, "summary": "   "}, lab["publisher"], w)
+        core.validate_review(c, {**good, "summary": "   "}, lab["maintainer"], w)
 
     # An additionally edited path is allowed only when its reason names it.
     extra = w / "skills/demo/extra.md"
@@ -943,25 +943,25 @@ def test_review_rejects_missing_paths_or_invented_quotes(core, lab):
         "reason": "Collapsed a duplicate", "replacements": [],
     })
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.validate_review(c, two_paths, lab["publisher"], w)
+        core.validate_review(c, two_paths, lab["maintainer"], w)
     assert "skills/demo/extra.md" in str(excinfo.value) and "reason" in str(excinfo.value)
     two_paths["files"][1]["reason"] = "Collapsed duplicate guidance into skills/demo/extra.md"
-    assert core.validate_review(c, two_paths, lab["publisher"], w) is None
+    assert core.validate_review(c, two_paths, lab["maintainer"], w) is None
 
 
 def test_review_acknowledges_empty_diff_with_summary(core, lab):
-    g(lab["producer"], "commit", "-q", "--allow-empty", "-m", "empty tip")
-    g(lab["producer"], "push", "-q", "origin", "machine/testlab")
+    g(lab["contributor"], "commit", "-q", "--allow-empty", "-m", "empty tip")
+    g(lab["contributor"], "push", "-q", "origin", "machine/testlab")
     c = capture(lab, core)
     assert c["main_sha"] == lab["base"] and c["source_sha"] != lab["base"]
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     assert c["input_paths"] == [] and c["conflict_paths"] == []
     ack = {"schema": 1, "candidate_id": c["id"], "main_sha": c["main_sha"],
            "source_sha": c["source_sha"],
            "summary": "Consume an empty tip that changes no canonical content", "files": []}
-    assert core.validate_review(c, ack, lab["publisher"], Path(c["worktree"])) is None
+    assert core.validate_review(c, ack, lab["maintainer"], Path(c["worktree"])) is None
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.validate_review(c, {**ack, "summary": "  "}, lab["publisher"], Path(c["worktree"]))
+        core.validate_review(c, {**ack, "summary": "  "}, lab["maintainer"], Path(c["worktree"]))
     assert "summary" in str(excinfo.value)
 
 
@@ -971,7 +971,7 @@ def test_review_replacement_requires_old_and_new_anchors(core, lab):
     tip = offer(lab, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\n"
                      f"Base instruction.\n{instance}\n")
     c = capture(lab, core)
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(c["worktree"])
     staged = (w / "skills/demo/SKILL.md").read_text(encoding="utf-8")
     assert instance in staged and tip == c["source_sha"]
@@ -988,7 +988,7 @@ def test_review_replacement_requires_old_and_new_anchors(core, lab):
     review = review_for(c, change_type="correction", decision="combine",
                         reason="Replace an instance-specific path with portable text",
                         anchors=anchors, replacements=[replacement])
-    assert core.validate_review(c, review, lab["publisher"], w) is None
+    assert core.validate_review(c, review, lab["maintainer"], w) is None
 
     def broken(mutate):
         value = clone(review)
@@ -1006,7 +1006,7 @@ def test_review_replacement_requires_old_and_new_anchors(core, lab):
     }
     for expected, value in cases.items():
         with pytest.raises(core.WorkflowError) as excinfo:
-            core.validate_review(c, value, lab["publisher"], w)
+            core.validate_review(c, value, lab["maintainer"], w)
         assert expected in str(excinfo.value), (expected, str(excinfo.value))
 
     # Re-introducing the old instruction next to the new one keeps it live.
@@ -1014,7 +1014,7 @@ def test_review_replacement_requires_old_and_new_anchors(core, lab):
         handle.write(instance + "\n")
     g(w, "add", "--", "skills/demo/SKILL.md")
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.validate_review(c, review, lab["publisher"], w)
+        core.validate_review(c, review, lab["maintainer"], w)
     assert "still occurs" in str(excinfo.value)
 
 
@@ -1034,7 +1034,7 @@ def test_final_gate_ignores_fixed_incoming_pointer(core, lab):
         "add an illustrative example",
     )
     c = capture(lab, core)
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(c["worktree"])
     assert c["source_sha"] == tip
     assert instance in (w / "skills/demo/SKILL.md").read_text(encoding="utf-8")
@@ -1058,7 +1058,7 @@ def test_final_gate_ignores_fixed_incoming_pointer(core, lab):
     # even though a source anchor quotes it: the hit is not a path/date veto, but
     # the review still has to name what stays and why.
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.validate_review(c, unchanged, lab["publisher"], w)
+        core.validate_review(c, unchanged, lab["maintainer"], w)
     message = str(excinfo.value)
     assert "instance-specific" in message and instance in message
 
@@ -1068,7 +1068,7 @@ def test_final_gate_ignores_fixed_incoming_pointer(core, lab):
     g(w, "add", "--", "skills/demo/SKILL.md")
     corrected = clone(unchanged)
     corrected["files"][0]["reason"] = "Generalize an instance-specific deployment path"
-    assert core.validate_review(c, corrected, lab["publisher"], w) is None
+    assert core.validate_review(c, corrected, lab["maintainer"], w) is None
     tree = core.validate_tree(c, w, corrected)
     assert tree == {"tree": g(w, "write-tree"),
                     "paths": ["skills/demo/SKILL.md", "skills/demo/example.md"]}
@@ -1076,20 +1076,20 @@ def test_final_gate_ignores_fixed_incoming_pointer(core, lab):
 
 
 def test_final_gate_blocks_unmerged_and_unstaged(core, lab):
-    producer = lab["producer"]
-    g(producer, "checkout", "-q", "main")
-    replace_text(producer / "skills/demo/SKILL.md", "Base instruction.", "Main branch instruction.")
-    g(producer, "add", "--", "skills/demo/SKILL.md")
-    g(producer, "commit", "-q", "-m", "main-side same-line edit")
-    g(producer, "push", "-q", "origin", "main")
-    g(producer, "checkout", "-q", "machine/testlab")
-    replace_text(producer / "skills/demo/SKILL.md", "Base instruction.", "Transport branch instruction.")
-    g(producer, "add", "--", "skills/demo/SKILL.md")
-    g(producer, "commit", "-q", "-m", "transport-side same-line edit")
-    g(producer, "push", "-q", "origin", "machine/testlab")
+    contributor = lab["contributor"]
+    g(contributor, "checkout", "-q", "main")
+    replace_text(contributor / "skills/demo/SKILL.md", "Base instruction.", "Main branch instruction.")
+    g(contributor, "add", "--", "skills/demo/SKILL.md")
+    g(contributor, "commit", "-q", "-m", "main-side same-line edit")
+    g(contributor, "push", "-q", "origin", "main")
+    g(contributor, "checkout", "-q", "machine/testlab")
+    replace_text(contributor / "skills/demo/SKILL.md", "Base instruction.", "Transport branch instruction.")
+    g(contributor, "add", "--", "skills/demo/SKILL.md")
+    g(contributor, "commit", "-q", "-m", "transport-side same-line edit")
+    g(contributor, "push", "-q", "origin", "machine/testlab")
 
     c = capture(lab, core)
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(c["worktree"])
     assert c["conflict_paths"] == ["skills/demo/SKILL.md"]
     conflict_review = {
@@ -1122,7 +1122,7 @@ def test_final_gate_blocks_unmerged_and_unstaged(core, lab):
         "old_quote": "Transport branch instruction.", "new_path": "skills/demo/SKILL.md",
         "new_quote": "Merged canonical instruction.", "reason": "Resolve the conflicting rewrite",
     }]
-    assert core.validate_review(c, review, lab["publisher"], w) is None
+    assert core.validate_review(c, review, lab["maintainer"], w) is None
     clean = core.validate_tree(c, w, review)
     assert set(clean) == {"tree", "paths"}
     assert clean["tree"] == g(w, "write-tree")
@@ -1147,7 +1147,7 @@ def test_final_gate_blocks_unmerged_and_unstaged(core, lab):
 
 
 def test_final_gate_preserves_all_manifest_paths(core, lab):
-    publish_files(lab, {"skills/demo/old.md": ("Obsolete guidance.\n", None)})
+    integrate_files(lab, {"skills/demo/old.md": ("Obsolete guidance.\n", None)})
     instance = "Local only: /home/olaf/private/notes.md"
 
     def mutate(root):
@@ -1159,7 +1159,7 @@ def test_final_gate_preserves_all_manifest_paths(core, lab):
 
     source_commit(lab, mutate, "add, delete and add a rejected path")
     c = capture(lab, core)
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(c["worktree"])
     assert set(c["input_paths"]) == {
         "skills/demo/old.md", "skills/demo/new.md", "skills/demo/rejected.md",
@@ -1199,7 +1199,7 @@ def test_final_gate_preserves_all_manifest_paths(core, lab):
              "reason": "Instance-specific local path; not a shared lesson", "replacements": []},
         ],
     }
-    assert core.validate_review(c, review, lab["publisher"], w) is None
+    assert core.validate_review(c, review, lab["maintainer"], w) is None
     gate = core.validate_tree(c, w, review)
     assert gate["paths"] == [
         "skills/demo/SKILL.md", "skills/demo/new.md",
@@ -1223,7 +1223,7 @@ def test_final_gate_preserves_all_manifest_paths(core, lab):
         "new_quote": "portable text", "reason": "Portable replacement",
     }]
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.validate_review(c, ghost, lab["publisher"], w)
+        core.validate_review(c, ghost, lab["maintainer"], w)
     assert "not present in the final staged result" in str(excinfo.value)
 
 
@@ -1236,7 +1236,7 @@ FAILING_PACKAGE_TEST = "def test_the_candidate_is_wrong():\n    assert 1 == 2\n"
 
 def failing_package_candidate(core, lab):
     """Candidate that adds one deliberately failing package test."""
-    publish_files(lab, {"skills/skill-library-maintenance/SKILL.md":
+    integrate_files(lab, {"skills/skill-library-maintenance/SKILL.md":
                         ("---\nname: skill-library-maintenance\ndescription: Maintenance.\n---\n\n"
                          "# Maintenance\n\nBase guidance.\n", None)})
 
@@ -1247,18 +1247,18 @@ def failing_package_candidate(core, lab):
 
     tip = source_commit(lab, mutate, "add a deliberately failing package test")
     c = capture(lab, core)
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(c["worktree"])
     path = "skills/skill-library-maintenance/tests/test_deliberate_failure.py"
     review = review_for(c, path=path, quote="assert 1 == 2",
                         reason="Deliberate failing fixture proving check propagation")
-    core.validate_review(c, review, lab["publisher"], w)
+    core.validate_review(c, review, lab["maintainer"], w)
     assert c["source_sha"] == tip
     return c, w, review
 
 
 def test_checks_run_every_changed_package_and_block_omitted_suite(core, lab):
-    publish_files(lab, {
+    integrate_files(lab, {
         "skills/unchanged/tests/test_never_run.py": (FAILING_PACKAGE_TEST, None),
     })
     paths = ["skills/demo/tests/test_failure.py", "skills/other/tests/test_success.py"]
@@ -1267,7 +1267,7 @@ def test_checks_run_every_changed_package_and_block_omitted_suite(core, lab):
             (root / path).parent.mkdir(parents=True, exist_ok=True)
             (root / path).write_text(text)
     source_commit(lab, mutate)
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     w = Path(c["worktree"])
     rows = core.run_checks(c, w)
     by_name = {row["name"]: row for row in rows}
@@ -1292,7 +1292,7 @@ def test_checks_run_every_changed_package_and_block_omitted_suite(core, lab):
 
 def test_checks_discover_packages_from_agent_staged_changes(core, lab):
     offer(lab)
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     w = Path(c["worktree"])
     path = "skills/agent-added/tests/test_failure.py"
     (w / path).parent.mkdir(parents=True)
@@ -1306,20 +1306,20 @@ def test_checks_discover_packages_from_agent_staged_changes(core, lab):
 
 def test_other_package_cannot_remove_previously_required_suite(core, lab):
     path = "skills/demo/tests/test_old.py"
-    publish_files(lab, {path: ("def test_old():\n    assert True\n", None)})
+    integrate_files(lab, {path: ("def test_old():\n    assert True\n", None)})
     source_commit(lab, lambda root: (root / path).unlink())
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     with pytest.raises(core.WorkflowError, match="disappeared.*skills/demo/tests"):
         core.run_checks(c, Path(c["worktree"]))
 
 
 def test_each_changed_package_gets_its_trusted_validator(core, lab):
     validator = "skills/skill-builder/scripts/skills-ref.sh"
-    publish_files(lab, {validator: ("#!/bin/sh\nprintf 'validated %s\\n' \"$2\"\n", 0o755)})
-    g(lab["publisher"], "fetch", "-q", "origin")
-    g(lab["publisher"], "merge", "-q", "--ff-only", "origin/main")
+    integrate_files(lab, {validator: ("#!/bin/sh\nprintf 'validated %s\\n' \"$2\"\n", 0o755)})
+    g(lab["maintainer"], "fetch", "-q", "origin")
+    g(lab["maintainer"], "merge", "-q", "--ff-only", "origin/main")
     offer(lab)
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     rows = {row["name"]: row for row in core.run_checks(c, Path(c["worktree"]))}
     assert "package-validator:skills/demo" in rows
     assert rows["package-validator:skills/demo"]["status"] == "passed"
@@ -1376,7 +1376,7 @@ def test_candidate_root_modules_cannot_replace_pytest_runner(core, lab, shadow_p
             target.write_text(text)
 
     source_commit(lab, mutate)
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     w = Path(c["worktree"])
     rows = core.run_checks(c, w)
     row = next(row for row in rows if row["name"] == "package-tests:skills/demo")
@@ -1391,9 +1391,9 @@ def test_candidate_root_modules_cannot_replace_pytest_runner(core, lab, shadow_p
     with pytest.raises(core.WorkflowError, match="failed.*package-tests:skills/demo"):
         core.record_review(lab["store"], c["id"], review, rows, validation)
     with pytest.raises(core.WorkflowError):
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert core.load_candidate(lab["store"], c["id"])["status"] == "prepared"
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
 def pytest_control_candidate(core, lab, files):
@@ -1405,7 +1405,7 @@ def pytest_control_candidate(core, lab, files):
             target.write_text(text)
 
     source_commit(lab, mutate)
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     review = review_for(c)
     review["files"] = [review_for(c, path=path, quote=text.splitlines()[0])["files"][0]
                        for path, text in files.items()]
@@ -1417,9 +1417,9 @@ def refuse_failed_pytest_publication(core, lab, c, w, review, rows):
     with pytest.raises(core.WorkflowError, match="failed.*package-tests:skills/demo"):
         core.record_review(lab["store"], c["id"], review, rows, validation)
     with pytest.raises(core.WorkflowError):
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert core.load_candidate(lab["store"], c["id"])["status"] == "prepared"
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
 @pytest.mark.parametrize("payload", [
@@ -1624,7 +1624,7 @@ def test_candidate_pytest_configuration_cannot_suppress_required_failure(
           ("deep-uncalled", "async def outer():\n    class Inner:\n        def helper():\n"
                             "            global ordinary, HOOK\n"),
       ]],
-    # The reviewer's ordinary static bindings previously published real failures.
+    # The reviewer's ordinary static bindings previously integrated real failures.
     pytest.param("skills/demo/conftest.py", "from runner_helper import pytest_sessionfinish\n",
                  "pytest_sessionfinish", id="direct-import-hook"),
     pytest.param("skills/demo/conftest.py", "for pytest_plugins in [['runner_plugin']]:\n    pass\n",
@@ -1728,16 +1728,16 @@ def test_package_conftest_runner_control_refuses_publication(
     assert not (directory / "checks-run.json").exists(), "refusal left green check evidence"
     assert not (directory / "checks.json").exists()
     with pytest.raises(core.WorkflowError):
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert core.load_candidate(lab["store"], c["id"])["status"] == "prepared"
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
 @pytest.mark.parametrize("with_suite", [False, True], ids=["without-suite", "with-suite"])
 def test_changed_package_checks_unchanged_conftests_even_without_suite(core, lab, with_suite):
     path = "skills/demo/helpers/deep/conftest.py"
     payload = "def pytest_sessionfinish(session, exitstatus):\n    session.exitstatus = 0\n"
-    publish_files(lab, {path: (payload, None)})
+    integrate_files(lab, {path: (payload, None)})
     files = {"skills/demo/new-guidance.md": "New guidance in this package.\n"}
     if with_suite:
         files["skills/demo/tests/test_failure.py"] = FAILING_PACKAGE_TEST
@@ -1747,8 +1747,8 @@ def test_changed_package_checks_unchanged_conftests_even_without_suite(core, lab
         core.run_checks(c, w)
     assert not (lab["store"] / "candidates" / c["id"] / "checks-run.json").exists()
     with pytest.raises(core.WorkflowError):
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
 def test_runner_control_refusal_removes_previous_green_run(core, lab):
@@ -1765,13 +1765,13 @@ def test_runner_control_refusal_removes_previous_green_run(core, lab):
         core.run_checks(c, w)
     assert not evidence.exists(), "refused rerun kept earlier green evidence"
     with pytest.raises(core.WorkflowError):
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
 @pytest.mark.parametrize("conftest_kind", ["fixtures-only", "nested-function-locals", "nested-dunder-locals",
                                          "class-local-getattr", "ordinary-globals"])
-def test_package_owned_conftest_fixture_still_applies_and_candidate_publishes(core, lab, conftest_kind):
+def test_package_owned_conftest_fixture_still_applies_and_candidate_integrates(core, lab, conftest_kind):
     files = {
         "conftest.py": "def pytest_cmdline_main(config):\n"
                        "    print('ROOT_CONFTEST_REPLACED_RUNNER')\n    return 0\n",
@@ -1853,8 +1853,8 @@ def test_package_owned_conftest_fixture_still_applies_and_candidate_publishes(co
     note.parent.mkdir(parents=True, exist_ok=True)
     note.write_text(text)
     core.verify_report(c, text, lab["vault"])
-    published = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
-    assert published["status"] == "published"
+    integrated = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
+    assert integrated["status"] == "integrated"
     assert g(lab["remote"], "rev-parse", "refs/heads/main^{tree}") == validation["tree"]
 
 
@@ -1882,14 +1882,14 @@ def isolated_pytest_candidate(core, lab):
             target.write_text(text)
 
     source_commit(lab, mutate)
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     review = review_for(c)
     review["files"] = [review_for(c, path=path, quote=text.splitlines()[0])["files"][0]
                        for path, text in files.items()]
     return c, Path(c["worktree"]), review
 
 
-def test_clean_candidate_uses_real_isolated_pytest_and_can_publish(core, lab, monkeypatch):
+def test_clean_candidate_uses_real_isolated_pytest_and_can_integrate(core, lab, monkeypatch):
     # A changed argv must not misclassify pytest as a trusted wrapper and restore
     # the operator's broader PATH. Candidate imports still use pytest's prepend.
     monkeypatch.setenv("PATH", str(lab["store"] / "untrusted-operator-bin") + os.pathsep + os.environ["PATH"])
@@ -1919,19 +1919,19 @@ def test_clean_candidate_uses_real_isolated_pytest_and_can_publish(core, lab, mo
     note.parent.mkdir(parents=True, exist_ok=True)
     note.write_text(text)
     core.verify_report(c, text, lab["vault"])
-    published = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
-    assert published["status"] == "published"
+    integrated = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
+    assert integrated["status"] == "integrated"
     assert g(lab["remote"], "rev-parse", "refs/heads/main^{tree}") == binding["tree"]
 
 
-@pytest.mark.parametrize("phase", ["record", "publish"])
+@pytest.mark.parametrize("phase", ["record", "integrate"])
 @pytest.mark.parametrize("changed", ["isolated-startup", "confcutdir", "rootdir", "config-path", "config-bytes"])
 def test_changed_pytest_invocation_invalidates_check_evidence(core, lab, monkeypatch, phase, changed):
     c, w, review = isolated_pytest_candidate(core, lab)
     rows = core.run_checks(c, w)
     validation = core.validate_tree(c, w, review)
     filename = "checks-run.json"
-    if phase == "publish":
+    if phase == "integrate":
         c = core.record_review(lab["store"], c["id"], review, rows, validation)
         text = core.render_review(c, review, rows, validation["tree"])
         note = lab["vault"] / c["report_relative_path"]
@@ -1961,19 +1961,19 @@ def test_changed_pytest_invocation_invalidates_check_evidence(core, lab, monkeyp
         if phase == "record":
             core.record_review(lab["store"], c["id"], review, rows, validation)
         else:
-            core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+            core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     no_publication_writes(calls)
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
-@pytest.mark.parametrize("phase", ["record", "publish"])
+@pytest.mark.parametrize("phase", ["record", "integrate"])
 @pytest.mark.parametrize("changed", ["saved-policy", "missing-policy", "current-policy", "previous-policy"])
 def test_changed_conftest_policy_invalidates_check_evidence(core, lab, monkeypatch, phase, changed):
     c, w, review = isolated_pytest_candidate(core, lab)
     rows = core.run_checks(c, w)
     validation = core.validate_tree(c, w, review)
     filename = "checks-run.json"
-    if phase == "publish":
+    if phase == "integrate":
         c = core.record_review(lab["store"], c["id"], review, rows, validation)
         text = core.render_review(c, review, rows, validation["tree"])
         note = lab["vault"] / c["report_relative_path"]
@@ -2003,12 +2003,12 @@ def test_changed_conftest_policy_invalidates_check_evidence(core, lab, monkeypat
         if phase == "record":
             core.record_review(lab["store"], c["id"], review, rows, validation)
         else:
-            core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+            core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     no_publication_writes(calls)
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
-@pytest.mark.parametrize("phase", ["record", "publish"])
+@pytest.mark.parametrize("phase", ["record", "integrate"])
 @pytest.mark.parametrize("previous_policy", ["ast-no-module-pytest-bindings-v1", "ast-no-module-pytest-bindings-v2",
                                             "ast-no-module-pytest-bindings-v3"])
 def test_v4_refuses_genuine_previous_policy_evidence(core, lab, monkeypatch, phase, previous_policy):
@@ -2020,7 +2020,7 @@ def test_v4_refuses_genuine_previous_policy_evidence(core, lab, monkeypatch, pha
         rows = core.run_checks(c, w)
         validation = core.validate_tree(c, w, review)
         filename = "checks-run.json"
-        if phase == "publish":
+        if phase == "integrate":
             c = core.record_review(lab["store"], c["id"], review, rows, validation)
             text = core.render_review(c, review, rows, validation["tree"])
             note = lab["vault"] / c["report_relative_path"]
@@ -2039,9 +2039,9 @@ def test_v4_refuses_genuine_previous_policy_evidence(core, lab, monkeypatch, pha
         if phase == "record":
             core.record_review(lab["store"], c["id"], review, rows, validation)
         else:
-            core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+            core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     no_publication_writes(calls)
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
 def execute_artifact_test(lab, text):
@@ -2056,12 +2056,12 @@ def execute_artifact_test(lab, text):
 
 
 @pytest.mark.parametrize("bit", ["--skip-worktree", "--assume-unchanged"])
-def test_hidden_working_bytes_cannot_certify_published_tree(core, lab, bit):
+def test_hidden_working_bytes_cannot_certify_integrated_tree(core, lab, bit):
     path = "skills/demo/tests/test_failure.py"
     failing = "def test_failure():\n    assert False\n"
     source_commit(lab, lambda root: (
         (root / path).parent.mkdir(parents=True), (root / path).write_text(failing)))
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     w = Path(c["worktree"])
     tree = g(w, "write-tree")
     g(w, "update-index", bit, "--", path)
@@ -2074,7 +2074,7 @@ def test_hidden_working_bytes_cannot_certify_published_tree(core, lab, bit):
     except core.WorkflowError as exc:
         assert "skip-worktree" in str(exc) or "assume-unchanged" in str(exc)
         assert core.load_candidate(lab["store"], c["id"])["status"] == "prepared"
-        assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+        assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
         assert not (lab["store"] / "candidates" / c["id"] / "checks-run.json").exists()
         actual = execute_artifact_test(lab, g(w, "show", f"{tree}:{path}") + "\n")
         assert actual.returncode == 1 and "1 failed" in actual.stdout
@@ -2084,7 +2084,7 @@ def test_hidden_working_bytes_cannot_certify_published_tree(core, lab, bit):
     if row["status"] == "failed":
         with pytest.raises(core.WorkflowError, match="failed.*package-tests"):
             core.record_review(lab["store"], c["id"], review, rows, validation)
-        assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+        assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
         return
     c = core.record_review(lab["store"], c["id"], review, rows, validation)
     text = core.render_review(c, review, rows, validation["tree"])
@@ -2092,11 +2092,11 @@ def test_hidden_working_bytes_cannot_certify_published_tree(core, lab, bit):
     note.parent.mkdir(parents=True, exist_ok=True)
     note.write_text(text)
     core.verify_report(c, text, lab["vault"])
-    published = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+    integrated = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     actual = execute_artifact_test(lab, g(lab["remote"], "show", f"refs/heads/main:{path}") + "\n")
     assert actual.returncode == row["exit_code"], (
-        f"checks={row['status']}/{row['exit_code']}, published pytest={actual.returncode}; "
-        f"publication={published['status']}; {actual.stdout}")
+        f"checks={row['status']}/{row['exit_code']}, integrated pytest={actual.returncode}; "
+        f"integration={integrated['status']}; {actual.stdout}")
 
 
 @pytest.mark.parametrize("passes", [False, True])
@@ -2105,7 +2105,7 @@ def test_checks_execute_clean_bound_tree_despite_transient_working_bytes(core, l
     staged = f"def test_failure():\n    assert {passes}\n"
     source_commit(lab, lambda root: (
         (root / path).parent.mkdir(parents=True), (root / path).write_text(staged)))
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     w = Path(c["worktree"])
     real = core._run_check_process
     tested_roots = []
@@ -2135,7 +2135,7 @@ def test_checks_execute_clean_bound_tree_despite_transient_working_bytes(core, l
     if not passes:
         with pytest.raises(core.WorkflowError, match="failed.*package-tests"):
             core.record_review(lab["store"], c["id"], review, rows, validation)
-        assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+        assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
         artifact = g(w, "show", f"{binding['tree']}:{path}")
     else:
         c = core.record_review(lab["store"], c["id"], review, rows, validation)
@@ -2144,8 +2144,8 @@ def test_checks_execute_clean_bound_tree_despite_transient_working_bytes(core, l
         note.parent.mkdir(parents=True, exist_ok=True)
         note.write_text(text)
         core.verify_report(c, text, lab["vault"])
-        published = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
-        assert published["status"] == "published"
+        integrated = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
+        assert integrated["status"] == "integrated"
         artifact = g(lab["remote"], "show", f"refs/heads/main:{path}")
     actual = execute_artifact_test(lab, artifact + "\n")
     assert actual.returncode == row["exit_code"]
@@ -2161,7 +2161,7 @@ def test_clean_check_materialization_is_invalidated_and_cleaned_on_failure(core,
             "import time\ndef test_slow():\n    time.sleep(10)\n")
     source_commit(lab, lambda root: (
         (root / path).parent.mkdir(parents=True), (root / path).write_text(text)))
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     w = Path(c["worktree"])
     roots, configs, real = [], [], core._run_check_process
     def observe(argv, cwd):
@@ -2177,7 +2177,7 @@ def test_clean_check_materialization_is_invalidated_and_cleaned_on_failure(core,
     assert len(configs) == 1 and not configs[0].parent.exists()
     assert (w / path).read_text() == text
     assert not (lab["store"] / "candidates" / c["id"] / "checks-run.json").exists()
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
 def test_plan_owned_pytest_config_mutation_invalidates_checks_and_is_cleaned(core, lab, monkeypatch):
@@ -2197,7 +2197,7 @@ def test_plan_owned_pytest_config_mutation_invalidates_checks_and_is_cleaned(cor
     assert len(configs) == 1 and not configs[0].parent.exists()
     assert not (lab["store"] / "candidates" / c["id"] / "checks-run.json").exists()
     assert core.load_candidate(lab["store"], c["id"])["status"] == "prepared"
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
 def test_check_materialization_uses_raw_tree_blobs_not_archive_attributes(core, lab):
@@ -2217,17 +2217,17 @@ def test_check_materialization_uses_raw_tree_blobs_not_archive_attributes(core, 
             "    assert not Path('skills/demo/raw.txt').stat().st_mode & 0o222\n"
             "    assert not Path('.git').exists()\n")
     source_commit(lab, mutate)
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     rows = core.run_checks(c, Path(c["worktree"]))
     row = next(row for row in rows if row["name"] == "package-tests:skills/demo")
     assert row["status"] == "passed" and "1 passed" in row["stdout"]
 
 
 @pytest.mark.parametrize("bit", ["--skip-worktree", "--assume-unchanged"])
-@pytest.mark.parametrize("phase", ["during-checks", "during-validation", "validate", "record", "publish"])
+@pytest.mark.parametrize("phase", ["during-checks", "during-validation", "validate", "record", "integrate"])
 def test_index_visibility_flags_refused_at_every_gate(core, lab, monkeypatch, bit, phase):
     offer(lab)
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     w, path = Path(c["worktree"]), "skills/demo/SKILL.md"
     review = review_for(c)
     if phase == "during-checks":
@@ -2241,7 +2241,7 @@ def test_index_visibility_flags_refused_at_every_gate(core, lab, monkeypatch, bi
     else:
         rows = core.run_checks(c, w)
         validation = core.validate_tree(c, w, review)
-        if phase == "publish":
+        if phase == "integrate":
             c = core.record_review(lab["store"], c["id"], review, rows, validation)
             text = core.render_review(c, review, rows, validation["tree"])
             note = lab["vault"] / c["report_relative_path"]
@@ -2260,10 +2260,10 @@ def test_index_visibility_flags_refused_at_every_gate(core, lab, monkeypatch, bi
         action = {"during-validation": lambda: core.validate_tree(c, w, review),
                   "validate": lambda: core.validate_tree(c, w, review),
                   "record": lambda: core.record_review(lab["store"], c["id"], review, rows, validation),
-                  "publish": lambda: core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])}[phase]
+                  "integrate": lambda: core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])}[phase]
     with pytest.raises(core.WorkflowError, match="skip-worktree|assume-unchanged"):
         action()
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
     if phase == "during-checks":
         assert not (lab["store"] / "candidates" / c["id"] / "checks-run.json").exists()
 
@@ -2292,13 +2292,13 @@ def test_stale_green_checks_cannot_authorize_revalidated_failing_tree(core, lab)
     with pytest.raises(core.WorkflowError, match="check.*tree|tree.*check"):
         core.record_review(lab["store"], c["id"], review, checks, validation)
     assert core.load_candidate(lab["store"], c["id"])["status"] == "prepared"
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
 @pytest.mark.parametrize("changed", ["missing-run", "forged-rows"])
 def test_record_review_requires_authoritative_check_evidence(core, lab, changed):
     offer(lab)
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     w, review = Path(c["worktree"]), review_for(c)
     rows = core.run_checks(c, w)
     binding_path = lab["store"] / "candidates" / c["id"] / "checks-run.json"
@@ -2314,7 +2314,7 @@ def test_record_review_requires_authoritative_check_evidence(core, lab, changed)
 
 def test_checks_bind_exact_tree_plan_and_rows_across_restart(core, lab):
     offer(lab)
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     w, review = Path(c["worktree"]), review_for(c)
     rows = core.run_checks(c, w)
     directory = lab["store"] / "candidates" / c["id"]
@@ -2334,7 +2334,7 @@ def test_checks_bind_exact_tree_plan_and_rows_across_restart(core, lab):
 
 
 @pytest.mark.parametrize("changed", ["binding", "tree", "plan", "rows"])
-def test_publish_requires_untampered_recorded_check_binding(core, lab, monkeypatch, changed):
+def test_integrate_requires_untampered_recorded_check_binding(core, lab, monkeypatch, changed):
     offer(lab)
     c = reviewed(core, lab)
     target = lab["store"] / "candidates" / c["id"] / "checks.json"
@@ -2342,7 +2342,7 @@ def test_publish_requires_untampered_recorded_check_binding(core, lab, monkeypat
     if changed == "binding":
         evidence.pop("digest", None)
     elif changed == "tree":
-        evidence["tree"] = g(lab["publisher"], "rev-parse", f"{c['main_sha']}^{{tree}}")
+        evidence["tree"] = g(lab["maintainer"], "rev-parse", f"{c['main_sha']}^{{tree}}")
     elif changed == "plan":
         evidence["plan"] = []
     else:
@@ -2350,13 +2350,13 @@ def test_publish_requires_untampered_recorded_check_binding(core, lab, monkeypat
     target.write_text(json.dumps(evidence), encoding="utf-8")
     calls = record_git_calls(core, monkeypatch)
     with pytest.raises(core.WorkflowError, match="check.*(binding|digest)"):
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     no_publication_writes(calls)
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
 def test_missing_previously_required_runner_is_an_error(core, lab, tmp_path):
-    publish_files(lab, {
+    integrate_files(lab, {
         "skills/skill-library-maintenance/tests/test_package_ok.py":
             ("def test_package_works():\n    assert True\n", None),
     })
@@ -2364,13 +2364,13 @@ def test_missing_previously_required_runner_is_an_error(core, lab, tmp_path):
     source_commit(lab, lambda root: (root / path).unlink(),
                   "delete the only package test runner")
     c = capture(lab, core)
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(c["worktree"])
     review = review_for(c, path=path, quote="def test_package_works():",
                         change_type="unsuitable", reason="Remove the package test runner",
                         anchors=[{"ref": c["main_sha"], "path": path,
                                   "quote": "def test_package_works():"}])
-    core.validate_review(c, review, lab["publisher"], w)
+    core.validate_review(c, review, lab["maintainer"], w)
     with pytest.raises(core.WorkflowError) as excinfo:
         core.run_checks(c, w)
     assert "disappeared" in str(excinfo.value)
@@ -2378,14 +2378,14 @@ def test_missing_previously_required_runner_is_an_error(core, lab, tmp_path):
 
     # A package that never configured a runner is honestly not-applicable.
     fresh = build_lab(tmp_path / "fresh")
-    publish_files(fresh, {"skills/skill-library-maintenance/SKILL.md":
+    integrate_files(fresh, {"skills/skill-library-maintenance/SKILL.md":
                           ("---\nname: skill-library-maintenance\ndescription: M.\n---\n\n"
                            "# Maintenance\n", None)})
     source_commit(fresh, lambda root: replace_text(
         root / "skills/skill-library-maintenance/SKILL.md", "# Maintenance\n",
         "# Maintenance\n\nA generic rule.\n"), "edit the package without a runner")
-    other = core.capture(fresh["publisher"], fresh["store"], fresh["source"])
-    other = core.prepare(fresh["publisher"], fresh["store"], other)
+    other = core.capture(fresh["maintainer"], fresh["store"], fresh["source"])
+    other = core.prepare(fresh["maintainer"], fresh["store"], other)
     rows = core.run_checks(other, Path(other["worktree"]))
     package_row = {row["name"]: row for row in rows}[
         "package-tests:skills/skill-library-maintenance"]
@@ -2452,12 +2452,12 @@ def test_validation_uses_trusted_tools_and_isolates_candidate_tests(core, lab, m
     audit = "skills/skill-library-maintenance/scripts/audit-skill-library.py"
     validator = "skills/skill-builder/scripts/skills-ref.sh"
     test = "skills/skill-library-maintenance/tests/test_isolation.py"
-    publish_files(lab, {
+    integrate_files(lab, {
         audit: ("import sys\nprint('trusted audit', sys.argv[1])\n", None),
         validator: ("#!/bin/sh\nprintf 'trusted validator %s\\n' \"$2\"\n", 0o755),
     })
-    g(lab["publisher"], "fetch", "-q", "origin")
-    g(lab["publisher"], "merge", "-q", "--ff-only", "origin/main")
+    g(lab["maintainer"], "fetch", "-q", "origin")
+    g(lab["maintainer"], "merge", "-q", "--ff-only", "origin/main")
     sentinel = lab["store"] / "candidate-tool-executed"
     live = lab["store"] / "live-profile"
     live.mkdir()
@@ -2489,7 +2489,7 @@ def test_validation_uses_trusted_tools_and_isolates_candidate_tests(core, lab, m
         (root / test).parent.mkdir(parents=True, exist_ok=True),
         (root / test).write_text(isolation_test),
     ))
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     rows = {row["name"]: row for row in core.run_checks(c, Path(c["worktree"]))}
     assert not sentinel.exists(), "candidate-supplied validation tooling executed before review"
     assert rows["library-audit"]["status"] == "passed"
@@ -2504,20 +2504,20 @@ def test_validation_uses_trusted_tools_and_isolates_candidate_tests(core, lab, m
 def test_candidate_tool_without_trusted_implementation_is_a_required_failure(core, lab):
     sentinel = lab["store"] / "untrusted-only-tool-executed"
     path = "skills/skill-library-maintenance/scripts/audit-skill-library.py"
-    commit(lab["producer"], f"from pathlib import Path\nPath({str(sentinel)!r}).touch()\n", path=path)
-    g(lab["producer"], "push", "-q", "origin", "machine/testlab")
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    commit(lab["contributor"], f"from pathlib import Path\nPath({str(sentinel)!r}).touch()\n", path=path)
+    g(lab["contributor"], "push", "-q", "origin", "machine/testlab")
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     row = {r["name"]: r for r in core.run_checks(c, Path(c["worktree"]))}["library-audit"]
     assert row["required"] is True and row["status"] == "failed" and row["exit_code"] == 127
-    assert "missing from trusted publisher" in row["stderr"]
+    assert "missing from trusted maintainer" in row["stderr"]
     assert not sentinel.exists()
 
 
 def test_candidate_test_execution_has_a_bounded_timeout(core, lab, monkeypatch):
     path = "skills/demo/tests/test_slow.py"
-    commit(lab["producer"], "import time\ndef test_slow():\n    time.sleep(10)\n", path=path)
-    g(lab["producer"], "push", "-q", "origin", "machine/testlab")
-    c = core.prepare(lab["publisher"], lab["store"], capture(lab, core))
+    commit(lab["contributor"], "import time\ndef test_slow():\n    time.sleep(10)\n", path=path)
+    g(lab["contributor"], "push", "-q", "origin", "machine/testlab")
+    c = core.prepare(lab["maintainer"], lab["store"], capture(lab, core))
     monkeypatch.setattr(core, "CHECK_TIMEOUT", 1)
     with pytest.raises(core.WorkflowError, match="timed out after 1s"):
         core.run_checks(c, Path(c["worktree"]))
@@ -2528,10 +2528,10 @@ def test_candidate_test_execution_has_a_bounded_timeout(core, lab, monkeypatch):
 def test_checks_are_invalidated_by_a_changed_candidate(core, lab):
     offer(lab)
     c = capture(lab, core)
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(c["worktree"])
     review = review_for(c)
-    core.validate_review(c, review, lab["publisher"], w)
+    core.validate_review(c, review, lab["maintainer"], w)
     checks = core.run_checks(c, w)
     validation = core.validate_tree(c, w, review)
 
@@ -2558,15 +2558,15 @@ def test_checks_are_invalidated_by_a_changed_candidate(core, lab):
 # ---------------------------------------------------------------------------
 
 def reviewed(core, lab):
-    c=core.capture(lab["publisher"],lab["store"],lab["source"])
-    c=core.prepare(lab["publisher"],lab["store"],c)
+    c=core.capture(lab["maintainer"],lab["store"],lab["source"])
+    c=core.prepare(lab["maintainer"],lab["store"],c)
     w=Path(c["worktree"])
     r={"schema":1,"candidate_id":c["id"],"main_sha":c["main_sha"],"source_sha":c["source_sha"],
        "summary":"Accept a useful generic addition",
        "files":[{"path":"skills/demo/SKILL.md","change_type":"addition","decision":"accept",
                  "source_anchors":[{"ref":c["source_sha"],"path":"skills/demo/SKILL.md","quote":"A useful generic rule."}],
                  "reason":"Useful generic addition","replacements":[]}]}
-    core.validate_review(c,r,lab["publisher"],w)
+    core.validate_review(c,r,lab["maintainer"],w)
     checks=core.run_checks(c,w)
     v=core.validate_tree(c,w,r)
     # Implementation must persist normalized review/checks/tree in this API call:
@@ -2652,10 +2652,10 @@ def test_report_binds_inputs_review_and_tree(core, lab, monkeypatch):
 def test_report_payload_is_not_written_to_the_vault(core, lab):
     offer(lab)
     c = capture(lab, core)
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     w = Path(c["worktree"])
     review = review_for(c)
-    core.validate_review(c, review, lab["publisher"], w)
+    core.validate_review(c, review, lab["maintainer"], w)
     checks = core.run_checks(c, w)
     validation = core.validate_tree(c, w, review)
     with pytest.raises(core.WorkflowError):
@@ -2683,26 +2683,26 @@ def test_report_payload_is_not_written_to_the_vault(core, lab):
 
 
 # ---------------------------------------------------------------------------
-# B7: one publisher lock, keyed to the Git common dir and owned by a token.
+# B7: one maintainer lock, keyed to the Git common dir and owned by a token.
 # ---------------------------------------------------------------------------
 
 def _git_common(repo):
     return Path(g(repo, "rev-parse", "--path-format=absolute", "--git-common-dir"))
 
 
-def _write_store_config(source_store, target_store, publisher_repo):
+def _write_store_config(source_store, target_store, maintainer_repo):
     target_store.mkdir(parents=True)
-    config = json.loads((source_store / "publisher.json").read_text(encoding="utf-8"))
-    config["publisher_repo"] = str(publisher_repo)
-    (target_store / "publisher.json").write_text(json.dumps(config), encoding="utf-8")
+    config = json.loads((source_store / "maintainer.json").read_text(encoding="utf-8"))
+    config["maintainer_repo"] = str(maintainer_repo)
+    (target_store / "maintainer.json").write_text(json.dumps(config), encoding="utf-8")
 
 
-def test_publisher_lock_is_owned_and_never_age_broken(core, lab):
-    common = _git_common(lab["publisher"])
-    expected = common / "hermes-sync" / "publisher.lock"
-    assert core.publisher_lock_path(lab["store"]) == expected
+def test_maintainer_lock_is_owned_and_never_age_broken(core, lab):
+    common = _git_common(lab["maintainer"])
+    expected = common / "hermes-sync" / "maintainer.lock"
+    assert core.maintainer_lock_path(lab["store"]) == expected
 
-    token = core.acquire_publisher_lock(lab["store"])
+    token = core.acquire_maintainer_lock(lab["store"])
     assert expected.is_file()
     record = json.loads(expected.read_text(encoding="utf-8"))
     assert record["token"] == token
@@ -2711,12 +2711,12 @@ def test_publisher_lock_is_owned_and_never_age_broken(core, lab):
 
     # A second acquisition refuses and names the owner; nothing is overwritten.
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.acquire_publisher_lock(lab["store"])
+        core.acquire_maintainer_lock(lab["store"])
     assert token in str(excinfo.value)
 
     # Only the matching owner token may release the lock.
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.release_publisher_lock(lab["store"], "0" * 64)
+        core.release_maintainer_lock(lab["store"], "0" * 64)
     assert expected.is_file()
 
     # Backdating both the file metadata and the recorded acquisition time is
@@ -2725,49 +2725,49 @@ def test_publisher_lock_is_owned_and_never_age_broken(core, lab):
     expected.write_text(json.dumps(record), encoding="utf-8")
     os.utime(expected, (1, 1))
     with pytest.raises(core.WorkflowError):
-        core.acquire_publisher_lock(lab["store"])
+        core.acquire_maintainer_lock(lab["store"])
     assert expected.is_file()
 
-    core.release_publisher_lock(lab["store"], token)
+    core.release_maintainer_lock(lab["store"], token)
     assert not expected.exists()
     with pytest.raises(core.WorkflowError):
-        core.release_publisher_lock(lab["store"], token)
+        core.release_maintainer_lock(lab["store"], token)
 
 
-def test_linked_worktrees_and_alternate_stores_share_publisher_lock(core, lab, tmp_path):
-    linked_a = tmp_path / "publisher-linked-a"
-    linked_b = tmp_path / "publisher-linked-b"
-    g(lab["publisher"], "worktree", "add", "-q", "--detach", str(linked_a), "HEAD")
-    g(lab["publisher"], "worktree", "add", "-q", "--detach", str(linked_b), "HEAD")
+def test_linked_worktrees_and_alternate_stores_share_maintainer_lock(core, lab, tmp_path):
+    linked_a = tmp_path / "maintainer-linked-a"
+    linked_b = tmp_path / "maintainer-linked-b"
+    g(lab["maintainer"], "worktree", "add", "-q", "--detach", str(linked_a), "HEAD")
+    g(lab["maintainer"], "worktree", "add", "-q", "--detach", str(linked_b), "HEAD")
     store_a = tmp_path / "state-linked-a"
     store_b = tmp_path / "state-linked-b"
     _write_store_config(lab["store"], store_a, linked_a)
     _write_store_config(lab["store"], store_b, linked_b)
 
     # Different store paths and different per-worktree gitdirs, one common lock.
-    expected = _git_common(lab["publisher"]) / "hermes-sync" / "publisher.lock"
-    assert core.publisher_lock_path(store_a) == expected
-    assert core.publisher_lock_path(store_b) == expected
+    expected = _git_common(lab["maintainer"]) / "hermes-sync" / "maintainer.lock"
+    assert core.maintainer_lock_path(store_a) == expected
+    assert core.maintainer_lock_path(store_b) == expected
     gitdir_a = Path(g(linked_a, "rev-parse", "--git-dir"))
     gitdir_b = Path(g(linked_b, "rev-parse", "--git-dir"))
     assert gitdir_a != gitdir_b
 
-    token = core.acquire_publisher_lock(store_a)
+    token = core.acquire_maintainer_lock(store_a)
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.acquire_publisher_lock(store_b)
+        core.acquire_maintainer_lock(store_b)
     assert token in str(excinfo.value)
-    core.release_publisher_lock(store_a, token)
+    core.release_maintainer_lock(store_a, token)
 
-    # A separate producer clone is a different repository and stays writable.
-    assert _git_common(lab["producer"]) != _git_common(lab["publisher"])
-    tip = commit(lab["producer"], "---\nname: demo\ndescription: Demonstration skill.\n---\n\n"
+    # A separate contributor clone is a different repository and stays writable.
+    assert _git_common(lab["contributor"]) != _git_common(lab["maintainer"])
+    tip = commit(lab["contributor"], "---\nname: demo\ndescription: Demonstration skill.\n---\n\n"
                  "# Demo\n\nBase instruction.\nProducer-only work.\n")
-    g(lab["producer"], "push", "-q", "origin", "machine/testlab")
-    remote = g(lab["producer"], "ls-remote", "origin", "refs/heads/machine/testlab")
+    g(lab["contributor"], "push", "-q", "origin", "machine/testlab")
+    remote = g(lab["contributor"], "ls-remote", "origin", "refs/heads/machine/testlab")
     assert remote.split()[0] == tip
 
 
-def test_publisher_lock_resolves_a_relative_git_common_dir(core, lab, monkeypatch):
+def test_maintainer_lock_resolves_a_relative_git_common_dir(core, lab, monkeypatch):
     """Old Git without --path-format answers relative to the repo root."""
     real_git = core.git
 
@@ -2780,52 +2780,52 @@ def test_publisher_lock_resolves_a_relative_git_common_dir(core, lab, monkeypatc
         return real_git(repo, *args, **kwargs)
 
     monkeypatch.setattr(core, "git", old_git)
-    assert core.publisher_lock_path(lab["store"]) == (
-        _git_common(lab["publisher"]) / "hermes-sync" / "publisher.lock")
+    assert core.maintainer_lock_path(lab["store"]) == (
+        _git_common(lab["maintainer"]) / "hermes-sync" / "maintainer.lock")
 
 
-def test_producer_lock_lives_in_repo_common_dir_and_owns_its_token(core, lab, tmp_path):
-    """The producer lock is separate from the publisher lock and shared by linked worktrees."""
-    common = _git_common(lab["producer"])
-    expected = common / "hermes-sync" / "producer.lock"
-    assert core.producer_lock_path(lab["producer"]) == expected
-    assert expected != core.publisher_lock_path(lab["store"])
+def test_contributor_lock_lives_in_repo_common_dir_and_owns_its_token(core, lab, tmp_path):
+    """The contributor lock is separate from the maintainer lock and shared by linked worktrees."""
+    common = _git_common(lab["contributor"])
+    expected = common / "hermes-sync" / "contributor.lock"
+    assert core.contributor_lock_path(lab["contributor"]) == expected
+    assert expected != core.maintainer_lock_path(lab["store"])
 
-    linked = tmp_path / "producer-linked"
-    g(lab["producer"], "worktree", "add", "-q", "--detach", str(linked), "HEAD")
-    assert core.producer_lock_path(linked) == expected
+    linked = tmp_path / "contributor-linked"
+    g(lab["contributor"], "worktree", "add", "-q", "--detach", str(linked), "HEAD")
+    assert core.contributor_lock_path(linked) == expected
 
-    token = core.acquire_producer_lock(lab["producer"])
+    token = core.acquire_contributor_lock(lab["contributor"])
     assert expected.is_file()
-    record = core.read_producer_lock(linked)
+    record = core.read_contributor_lock(linked)
     assert record["token"] == token and record["pid"] == os.getpid()
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.acquire_producer_lock(linked)
+        core.acquire_contributor_lock(linked)
     assert token in str(excinfo.value)
     with pytest.raises(core.WorkflowError):
-        core.release_producer_lock(lab["producer"], "0" * 64)
+        core.release_contributor_lock(lab["contributor"], "0" * 64)
     assert expected.is_file()
-    core.release_producer_lock(linked, token)
+    core.release_contributor_lock(linked, token)
     assert not expected.exists()
     with pytest.raises(core.WorkflowError):
-        core.release_producer_lock(lab["producer"], token)
+        core.release_contributor_lock(lab["contributor"], token)
 
 
 def test_source_history_screen_reports_removed_exposure_without_values(core, lab):
     """An intermediate commit's prohibited content is found; no matched value is returned."""
-    producer = lab["producer"]
+    contributor = lab["contributor"]
     synthetic_value = "SYNTHETIC_FIXTURE_VALUE_NOT_A_REAL_CREDENTIAL_0002"
-    added = commit(producer, f"DEMO_API_KEY={synthetic_value}\n", message="fixture env",
+    added = commit(contributor, f"DEMO_API_KEY={synthetic_value}\n", message="fixture env",
                   path=".env")
-    exposed = commit(producer, "A clean-looking rule.\n", message="clean lesson")
+    exposed = commit(contributor, "A clean-looking rule.\n", message="clean lesson")
     # Remove the file again: the final tree is clean, the history is not.
-    (producer / ".env").unlink()
-    g(producer, "add", "-A")
-    g(producer, "commit", "-q", "-m", "remove fixture")
-    tip = g(producer, "rev-parse", "HEAD")
-    assert ".env" not in g(producer, "ls-tree", "-r", "--name-only", tip).split()
+    (contributor / ".env").unlink()
+    g(contributor, "add", "-A")
+    g(contributor, "commit", "-q", "-m", "remove fixture")
+    tip = g(contributor, "rev-parse", "HEAD")
+    assert ".env" not in g(contributor, "ls-tree", "-r", "--name-only", tip).split()
 
-    result = core.screen_source_history(producer, tip, lab["base"])
+    result = core.screen_source_history(contributor, tip, lab["base"])
     assert result["tip"] == tip and result["base_tip"] == lab["base"]
     assert result["commits"] == [added, exposed, tip]
     categories = {finding["category"] for finding in result["findings"]}
@@ -2837,25 +2837,25 @@ def test_source_history_screen_reports_removed_exposure_without_values(core, lab
                for finding in result["findings"])
 
     # A clean range has no findings.
-    clean = core.screen_source_history(producer, lab["base"])
+    clean = core.screen_source_history(contributor, lab["base"])
     assert clean["findings"] == [] and clean["commits"]
 
     # A conflict-resolution merge can introduce content that exists in neither
     # parent; the --cc combined diff is screened for exactly that.
-    g(producer, "checkout", "-q", "-b", "conflict-side", lab["base"])
-    commit(producer, "conflict side line\n", message="side line")
-    g(producer, "checkout", "-q", "machine/testlab")
-    commit(producer, "conflict machine line\n", message="machine line")
-    merge_probe = subprocess.run(["git", "-C", str(producer), "merge", "conflict-side"],
+    g(contributor, "checkout", "-q", "-b", "conflict-side", lab["base"])
+    commit(contributor, "conflict side line\n", message="side line")
+    g(contributor, "checkout", "-q", "machine/testlab")
+    commit(contributor, "conflict machine line\n", message="machine line")
+    merge_probe = subprocess.run(["git", "-C", str(contributor), "merge", "conflict-side"],
                                  capture_output=True, text=True)
     assert merge_probe.returncode != 0
-    resolved = producer / "skills/demo/SKILL.md"
+    resolved = contributor / "skills/demo/SKILL.md"
     resolved.write_text(f"DEMO_API_KEY={synthetic_value}\n", encoding="utf-8")
-    g(producer, "add", "--", "skills/demo/SKILL.md")
-    g(producer, "commit", "-q", "-m", "resolve with synthetic content")
-    merge = g(producer, "rev-parse", "HEAD")
-    assert len(g(producer, "show", "-s", "--format=%P", merge).split()) == 2
-    merge_screen = core.screen_source_history(producer, merge, lab["base"])
+    g(contributor, "add", "--", "skills/demo/SKILL.md")
+    g(contributor, "commit", "-q", "-m", "resolve with synthetic content")
+    merge = g(contributor, "rev-parse", "HEAD")
+    assert len(g(contributor, "show", "-s", "--format=%P", merge).split()) == 2
+    merge_screen = core.screen_source_history(contributor, merge, lab["base"])
     assert any(finding["commit"] == merge and finding["category"] == "credential-pattern"
                for finding in merge_screen["findings"])
     assert synthetic_value not in json.dumps(merge_screen)
@@ -2873,9 +2873,9 @@ def test_source_history_screen_reports_removed_exposure_without_values(core, lab
 
 
 # ---------------------------------------------------------------------------
-# D: exact merge publication (packet 07).
+# D: exact merge integration (packet 07).
 #
-# Every case publishes through core.publish() against the local bare remote;
+# Every case integrates through core.integrate() against the local bare remote;
 # none of them builds the integration merge with `git merge` in the test.
 # ---------------------------------------------------------------------------
 
@@ -2892,7 +2892,7 @@ def record_full_review(core, lab, candidate, review=None):
     """
     worktree = Path(candidate["worktree"])
     review = review if review is not None else review_for(candidate)
-    core.validate_review(candidate, review, lab["publisher"], worktree)
+    core.validate_review(candidate, review, lab["maintainer"], worktree)
     checks = core.run_checks(candidate, worktree)
     validation = core.validate_tree(candidate, worktree, review)
     core.record_review(lab["store"], candidate["id"], review, checks, validation)
@@ -2939,7 +2939,7 @@ def record_git_calls(core, monkeypatch):
 
 
 def assert_no_history_rewrite(calls):
-    """No publication path may force, reset, rebase or run a second merge."""
+    """No integration path may force, reset, rebase or run a second merge."""
     for args in calls:
         assert args[0] not in ("config", "merge", "reset", "rebase", "cherry-pick"), args
         assert "--force" not in args and "--force-with-lease" not in args, args
@@ -2952,59 +2952,59 @@ def remote_ref(repo, ref):
     return g(repo, "ls-remote", "origin", ref).split()[0]
 
 
-def test_publish_preserves_source_ancestry(core, lab):
+def test_integrate_preserves_source_ancestry(core, lab):
     t = offer(lab)
     c = reviewed(core, lab)
-    r = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+    r = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     p = r["result_sha"]
-    assert g(lab["publisher"], "show", "-s", "--format=%P", p).split() == [lab["base"], t]
-    assert g(lab["publisher"], "show", "-s", "--format=%T", p) == c["reviewed_tree"]
-    assert g(lab["producer"], "ls-remote", "origin", "refs/heads/machine/testlab").split()[0] == t
-    assert g(lab["producer"], "ls-remote", "origin", "refs/heads/main").split()[0] == p
+    assert g(lab["maintainer"], "show", "-s", "--format=%P", p).split() == [lab["base"], t]
+    assert g(lab["maintainer"], "show", "-s", "--format=%T", p) == c["reviewed_tree"]
+    assert g(lab["contributor"], "ls-remote", "origin", "refs/heads/machine/testlab").split()[0] == t
+    assert g(lab["contributor"], "ls-remote", "origin", "refs/heads/main").split()[0] == p
 
     # The journal carries the exact result, the pin preserves P, and the note
-    # the publisher produced is the reviewed report (no second content tree).
-    assert r["status"] == "published" and r["published_main"] == p
+    # the maintainer produced is the reviewed report (no second content tree).
+    assert r["status"] == "integrated" and r["integrated_main"] == p
     assert r["result_parents"] == [lab["base"], t]
     assert r["result_tree"] == c["reviewed_tree"]
-    assert g(lab["publisher"], "rev-parse",
+    assert g(lab["maintainer"], "rev-parse",
              f'refs/hermes-sync/candidates/{c["id"]}/result') == p
-    assert core.source_status(lab["publisher"], p, t) == "consumed"
+    assert core.source_status(lab["maintainer"], p, t) == "consumed"
 
-    message = g(lab["publisher"], "log", "-1", "--format=%B", p)
-    assert message.startswith("consolidator:")
+    message = g(lab["maintainer"], "log", "-1", "--format=%B", p)
+    assert message.startswith("maintainer:")
     for trailer in (f"Skill-Sync-Candidate: {c['id']}", f"Source-Ref: {c['source_ref']}",
                     f"Source-Tip: {t}", f"Review-Digest: {c['review_digest']}",
                     f"Reviewed-Tree: {c['reviewed_tree']}"):
         assert trailer in message
 
-    # The publisher clone itself was not checked out, merged or advanced.
-    assert g(lab["publisher"], "rev-parse", "HEAD") == lab["base"]
-    assert g(lab["publisher"], "rev-parse", "refs/heads/main") == lab["base"]
-    assert g(lab["publisher"], "status", "--porcelain") == ""
+    # The maintainer clone itself was not checked out, merged or advanced.
+    assert g(lab["maintainer"], "rev-parse", "HEAD") == lab["base"]
+    assert g(lab["maintainer"], "rev-parse", "refs/heads/main") == lab["base"]
+    assert g(lab["maintainer"], "status", "--porcelain") == ""
 
 
-def test_publish_T_preserves_T2(core, lab, monkeypatch):
+def test_integrate_T_preserves_T2(core, lab, monkeypatch):
     t = offer(lab)
     c = reviewed(core, lab)
     t2 = offer(lab, OFFER_TEXT + "An extra T2 rule.\n")
-    assert t2 != t and core.is_ancestor(lab["producer"], t, t2)
+    assert t2 != t and core.is_ancestor(lab["contributor"], t, t2)
 
     calls = record_git_calls(core, monkeypatch)
-    p = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])["result_sha"]
+    p = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])["result_sha"]
     assert_no_history_rewrite(calls)
 
     # T2 is untouched, T is inside P and T2 is deliberately not.
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t2
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
-    assert core.is_ancestor(lab["publisher"], t, p)
-    assert not core.is_ancestor(lab["publisher"], t2, p)
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t2
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
+    assert core.is_ancestor(lab["maintainer"], t, p)
+    assert not core.is_ancestor(lab["maintainer"], t2, p)
 
     # The later candidate captures T2 and does not duplicate T's accepted text.
-    n = core.capture(lab["publisher"], lab["store"], lab["source"])
+    n = core.capture(lab["maintainer"], lab["store"], lab["source"])
     assert n["id"] != c["id"] and n["main_sha"] == p and n["source_sha"] == t2
-    assert core.source_status(lab["publisher"], p, t2) == "pending"
-    n = core.prepare(lab["publisher"], lab["store"], n)
+    assert core.source_status(lab["maintainer"], p, t2) == "pending"
+    n = core.prepare(lab["maintainer"], lab["store"], n)
     staged = (Path(n["worktree"]) / "skills/demo/SKILL.md").read_text(encoding="utf-8")
     assert staged.count("A useful generic rule.") == 1
     assert "An extra T2 rule." in staged
@@ -3021,23 +3021,23 @@ def test_stale_main_never_pushes(core, lab, tmp_path, monkeypatch):
 
     calls = record_git_calls(core, monkeypatch)
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert "stale" in str(excinfo.value)
     assert not any(args[0] in ("push", "commit-tree") for args in calls)
 
     # The independent commit survives; neither source nor report was disturbed.
-    assert remote_ref(lab["producer"], "refs/heads/main") == independent
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t
+    assert remote_ref(lab["contributor"], "refs/heads/main") == independent
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t
     assert note.read_bytes() == report_bytes
-    assert g(lab["publisher"], "rev-parse", "refs/heads/main") == lab["base"]
+    assert g(lab["maintainer"], "rev-parse", "refs/heads/main") == lab["base"]
     stale = core.load_candidate(lab["store"], c["id"])
     assert stale["status"] == "stale" and stale["result_sha"] == ""
     assert independent[:12] in stale["last_error"]
 
     # A new M produces a distinct candidate that is reviewed and reported again.
-    fresh = core.capture(lab["publisher"], lab["store"], lab["source"])
+    fresh = core.capture(lab["maintainer"], lab["store"], lab["source"])
     assert fresh["id"] != c["id"] and fresh["main_sha"] == independent
-    fresh = core.prepare(lab["publisher"], lab["store"], fresh)
+    fresh = core.prepare(lab["maintainer"], lab["store"], fresh)
     fresh = record_full_review(core, lab, fresh)
     assert fresh["status"] == "report-verified"
     assert fresh["report_relative_path"] != c["report_relative_path"]
@@ -3046,8 +3046,8 @@ def test_stale_main_never_pushes(core, lab, tmp_path, monkeypatch):
 
 def test_reject_only_merge_keeps_original_source(core, lab):
     t = offer(lab)
-    c = core.capture(lab["publisher"], lab["store"], lab["source"])
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.capture(lab["maintainer"], lab["store"], lab["source"])
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     worktree = Path(c["worktree"])
 
     # The agent decided to reject: an explicit path checkout restores M's
@@ -3070,19 +3070,19 @@ def test_reject_only_merge_keeps_original_source(core, lab):
         }],
     }
     c = record_full_review(core, lab, c, review)
-    r = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+    r = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     p = r["result_sha"]
 
     # Same tree as M, but a real merge commit with the original source history.
-    assert g(lab["publisher"], "show", "-s", "--format=%P", p).split() == [c["main_sha"], t]
-    assert g(lab["publisher"], "show", "-s", "--format=%T", p) == (
-        g(lab["publisher"], "rev-parse", f'{c["main_sha"]}^{{tree}}'))
-    # The rejected text is not in the published tree even though T keeps it.
-    assert g(lab["publisher"], "show", "-s", "--format=%T", p) != g(
-        lab["producer"], "rev-parse", f'{t}^{{tree}}')
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t
-    assert r["status"] == "published"
-    assert core.source_status(lab["publisher"], p, t) == "consumed"
+    assert g(lab["maintainer"], "show", "-s", "--format=%P", p).split() == [c["main_sha"], t]
+    assert g(lab["maintainer"], "show", "-s", "--format=%T", p) == (
+        g(lab["maintainer"], "rev-parse", f'{c["main_sha"]}^{{tree}}'))
+    # The rejected text is not in the integrated tree even though T keeps it.
+    assert g(lab["maintainer"], "show", "-s", "--format=%T", p) != g(
+        lab["contributor"], "rev-parse", f'{t}^{{tree}}')
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t
+    assert r["status"] == "integrated"
+    assert core.source_status(lab["maintainer"], p, t) == "consumed"
 
     # The rejection is documented, not silently dropped.
     text = (lab["vault"] / c["report_relative_path"]).read_text(encoding="utf-8")
@@ -3090,14 +3090,14 @@ def test_reject_only_merge_keeps_original_source(core, lab):
     assert "Not useful for this library" in text and "reject" in text
 
 
-def test_empty_diff_acknowledgment_publishes_merge(core, lab):
-    g(lab["producer"], "commit", "-q", "--allow-empty", "-m", "empty tip")
-    t = g(lab["producer"], "rev-parse", "HEAD")
-    g(lab["producer"], "push", "-q", "origin", "machine/testlab")
+def test_empty_diff_acknowledgment_integrates_merge(core, lab):
+    g(lab["contributor"], "commit", "-q", "--allow-empty", "-m", "empty tip")
+    t = g(lab["contributor"], "rev-parse", "HEAD")
+    g(lab["contributor"], "push", "-q", "origin", "machine/testlab")
 
-    c = core.capture(lab["publisher"], lab["store"], lab["source"])
+    c = core.capture(lab["maintainer"], lab["store"], lab["source"])
     assert c["source_sha"] == t and c["main_sha"] == lab["base"]
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     assert c["input_paths"] == [] and c["conflict_paths"] == []
 
     review = {"schema": 1, "candidate_id": c["id"], "main_sha": c["main_sha"],
@@ -3105,34 +3105,34 @@ def test_empty_diff_acknowledgment_publishes_merge(core, lab):
               "summary": "Consume an empty tip that changes no canonical content",
               "files": []}
     c = record_full_review(core, lab, c, review)
-    r = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+    r = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     p = r["result_sha"]
 
     # A merge acknowledgment: parents M,T; tree stays exactly M's tree.
-    assert g(lab["publisher"], "show", "-s", "--format=%P", p).split() == [lab["base"], t]
-    assert g(lab["publisher"], "show", "-s", "--format=%T", p) == g(
-        lab["publisher"], "rev-parse", f'{lab["base"]}^{{tree}}')
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
-    assert core.source_status(lab["publisher"], p, t) == "consumed"
+    assert g(lab["maintainer"], "show", "-s", "--format=%P", p).split() == [lab["base"], t]
+    assert g(lab["maintainer"], "show", "-s", "--format=%T", p) == g(
+        lab["maintainer"], "rev-parse", f'{lab["base"]}^{{tree}}')
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
+    assert core.source_status(lab["maintainer"], p, t) == "consumed"
     text = (lab["vault"] / c["report_relative_path"]).read_text(encoding="utf-8")
     assert "empty" in text.lower() and "no canonical content" in text
 
 
-def test_repeat_publish_creates_no_second_integration_commit(core, lab, monkeypatch):
+def test_repeat_integration_creates_no_second_commit(core, lab, monkeypatch):
     t = offer(lab)
     c = reviewed(core, lab)
-    first = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+    first = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     p = first["result_sha"]
-    assert first["status"] == "published" and remote_ref(lab["producer"], "refs/heads/main") == p
-    count = int(g(lab["publisher"], "rev-list", "--count", p))
+    assert first["status"] == "integrated" and remote_ref(lab["contributor"], "refs/heads/main") == p
+    count = int(g(lab["maintainer"], "rev-list", "--count", p))
 
     calls = record_git_calls(core, monkeypatch)
-    second = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+    second = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert second["result_sha"] == p
-    assert second["status"] in ("published", "receipt-pending", "complete")
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
-    assert int(g(lab["publisher"], "rev-list", "--count", p)) == count
+    assert second["status"] in ("integrated", "receipt-pending", "complete")
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
+    assert int(g(lab["maintainer"], "rev-list", "--count", p)) == count
     assert not any(args[0] in ("commit-tree", "push", "update-ref") for args in calls)
     assert_no_history_rewrite(calls)
 
@@ -3160,22 +3160,22 @@ def test_ff_rejection_race_is_stale_not_forced(core, lab, tmp_path, monkeypatch)
 
     monkeypatch.setattr(core, "git", racing_git)
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert "stale" in str(excinfo.value)
 
     # The racing commit survives and the review evidence is preserved, not forced.
     independent = raced["sha"]
-    assert remote_ref(lab["producer"], "refs/heads/main") == independent
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t
+    assert remote_ref(lab["contributor"], "refs/heads/main") == independent
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t
     stale = core.load_candidate(lab["store"], c["id"])
     assert stale["status"] == "stale" and stale["result_sha"]
-    assert g(lab["publisher"], "rev-parse",
+    assert g(lab["maintainer"], "rev-parse",
              f'refs/hermes-sync/candidates/{c["id"]}/result') == stale["result_sha"]
-    assert g(lab["publisher"], "show", "-s", "--format=%P", stale["result_sha"]).split() == [
+    assert g(lab["maintainer"], "show", "-s", "--format=%P", stale["result_sha"]).split() == [
         lab["base"], t]
 
 
-def test_publish_persists_intent_before_push(core, lab, monkeypatch):
+def test_integrate_persists_intent_before_push(core, lab, monkeypatch):
     """The journal must already carry P and its parents when the push starts."""
     t = offer(lab)
     c = reviewed(core, lab)
@@ -3191,15 +3191,15 @@ def test_publish_persists_intent_before_push(core, lab, monkeypatch):
         return real(repo, *args, **kwargs)
 
     monkeypatch.setattr(core, "git", spy)
-    r = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+    r = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     journal = seen["journal"]
-    assert journal["status"] == "publish-intent"
+    assert journal["status"] == "integrate-intent"
     assert journal["result_sha"] == r["result_sha"]
     assert seen["refspec"] == f"{r['result_sha']}:refs/heads/main"
     assert journal["result_parents"] == [lab["base"], t]
     assert journal["result_tree"] == c["reviewed_tree"]
     assert journal["report_sha256"] == c["report_sha256"]
-    assert r["status"] == "published"
+    assert r["status"] == "integrated"
 
 
 def test_reconcile_confirms_a_crash_after_push(core, lab, monkeypatch):
@@ -3216,24 +3216,24 @@ def test_reconcile_confirms_a_crash_after_push(core, lab, monkeypatch):
 
     monkeypatch.setattr(core, "git", dying_git)
     with pytest.raises(RuntimeError):
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     interrupted = core.load_candidate(lab["store"], c["id"])
-    assert interrupted["status"] == "publish-intent" and interrupted["result_sha"]
+    assert interrupted["status"] == "integrate-intent" and interrupted["result_sha"]
     p = interrupted["result_sha"]
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
     # The lock was released even though the process died mid-call.
-    token = core.acquire_publisher_lock(lab["store"])
-    core.release_publisher_lock(lab["store"], token)
+    token = core.acquire_maintainer_lock(lab["store"])
+    core.release_maintainer_lock(lab["store"], token)
 
     monkeypatch.setattr(core, "git", real)
-    count = int(g(lab["publisher"], "rev-list", "--count", p))
-    reconciled = core.reconcile(lab["publisher"], lab["store"], c["id"])
-    assert reconciled["status"] == "published"
+    count = int(g(lab["maintainer"], "rev-list", "--count", p))
+    reconciled = core.reconcile(lab["maintainer"], lab["store"], c["id"])
+    assert reconciled["status"] == "integrated"
     assert reconciled["result_sha"] == p
-    assert reconciled["published_main"] == p
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
-    assert int(g(lab["publisher"], "rev-list", "--count", p)) == count
-    assert core.source_status(lab["publisher"], p, t) == "consumed"
+    assert reconciled["integrated_main"] == p
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
+    assert int(g(lab["maintainer"], "rev-list", "--count", p)) == count
+    assert core.source_status(lab["maintainer"], p, t) == "consumed"
 
 
 def test_reconcile_retries_the_same_saved_result(core, lab, monkeypatch):
@@ -3249,60 +3249,60 @@ def test_reconcile_retries_the_same_saved_result(core, lab, monkeypatch):
 
     monkeypatch.setattr(core, "git", failing_push)
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
-    assert "publish-intent retained" in str(excinfo.value)
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
+    assert "integrate-intent retained" in str(excinfo.value)
     interrupted = core.load_candidate(lab["store"], c["id"])
-    assert interrupted["status"] == "publish-intent"
+    assert interrupted["status"] == "integrate-intent"
     p = interrupted["result_sha"]
-    assert remote_ref(lab["producer"], "refs/heads/main") == lab["base"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == lab["base"]
 
     monkeypatch.setattr(core, "git", real)
-    reconciled = core.reconcile(lab["publisher"], lab["store"], c["id"])
-    assert reconciled["status"] == "published" and reconciled["result_sha"] == p
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
-    assert g(lab["publisher"], "show", "-s", "--format=%P", p).split() == [lab["base"], t]
-    assert int(g(lab["publisher"], "rev-list", "--count", p)) == 3
+    reconciled = core.reconcile(lab["maintainer"], lab["store"], c["id"])
+    assert reconciled["status"] == "integrated" and reconciled["result_sha"] == p
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
+    assert g(lab["maintainer"], "show", "-s", "--format=%P", p).split() == [lab["base"], t]
+    assert int(g(lab["maintainer"], "rev-list", "--count", p)) == 3
 
 
-def test_publish_blocks_a_rewritten_source(core, lab, monkeypatch):
-    """A source rewrite that drops T is blocked, never published over."""
+def test_integrate_blocks_a_rewritten_source(core, lab, monkeypatch):
+    """A source rewrite that drops T is blocked, never integrated over."""
     t = offer(lab)
     c = reviewed(core, lab)
-    producer = lab["producer"]
-    g(producer, "checkout", "-q", "-B", "rewrite-sim", lab["base"])
-    rewritten = commit(producer, BASE_TEXT + "Replacement rule.\n", message="rewrite transport")
-    g(producer, "push", "--force", "origin", "rewrite-sim:machine/testlab")
-    assert rewritten != t and not core.is_ancestor(producer, t, rewritten)
+    contributor = lab["contributor"]
+    g(contributor, "checkout", "-q", "-B", "rewrite-sim", lab["base"])
+    rewritten = commit(contributor, BASE_TEXT + "Replacement rule.\n", message="rewrite transport")
+    g(contributor, "push", "--force", "origin", "rewrite-sim:machine/testlab")
+    assert rewritten != t and not core.is_ancestor(contributor, t, rewritten)
 
     calls = record_git_calls(core, monkeypatch)
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert "blocked" in str(excinfo.value) and "recapture" in str(excinfo.value)
     assert not any(args[0] in ("push", "commit-tree") for args in calls)
     blocked = core.load_candidate(lab["store"], c["id"])
     assert blocked["status"] == "blocked" and "recapture" in blocked["last_error"]
-    assert remote_ref(producer, "refs/heads/machine/testlab") == rewritten
+    assert remote_ref(contributor, "refs/heads/machine/testlab") == rewritten
 
 
 def test_reconcile_accepts_a_later_main_containing_the_result(core, lab, tmp_path):
     """Main that advanced past P still counts; reconcile adds no commit."""
     t = offer(lab)
     c = reviewed(core, lab)
-    p = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])["result_sha"]
+    p = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])["result_sha"]
     later_clone = second_main_clone(lab, tmp_path, name="later")
     later = independent_main_commit(later_clone)
 
-    reconciled = core.reconcile(lab["publisher"], lab["store"], c["id"])
-    assert reconciled["status"] == "published"
-    assert reconciled["published_main"] == later
+    reconciled = core.reconcile(lab["maintainer"], lab["store"], c["id"])
+    assert reconciled["status"] == "integrated"
+    assert reconciled["integrated_main"] == later
     assert reconciled["result_sha"] == p
-    assert remote_ref(lab["producer"], "refs/heads/main") == later
-    assert core.is_ancestor(lab["publisher"], p, later)
-    assert g(lab["publisher"], "show", "-s", "--format=%P", later).split() == [p]
-    assert int(g(lab["publisher"], "rev-list", "--count", later)) == 4
+    assert remote_ref(lab["contributor"], "refs/heads/main") == later
+    assert core.is_ancestor(lab["maintainer"], p, later)
+    assert g(lab["maintainer"], "show", "-s", "--format=%P", later).split() == [p]
+    assert int(g(lab["maintainer"], "rev-list", "--count", later)) == 4
 
 
-def test_publish_rechecks_tree_review_and_report(core, lab, monkeypatch):
+def test_integrate_rechecks_tree_review_and_report(core, lab, monkeypatch):
     t = offer(lab)
     c = reviewed(core, lab)
     note = lab["vault"] / c["report_relative_path"]
@@ -3314,17 +3314,17 @@ def test_publish_rechecks_tree_review_and_report(core, lab, monkeypatch):
 
     calls = record_git_calls(core, monkeypatch)
 
-    # A candidate edited after review is not published on the old green flag.
+    # A candidate edited after review is not integrated on the old green flag.
     candidate_file.write_text(reviewed_text + "Late unreviewed edit.\n", encoding="utf-8")
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert "unstaged" in str(excinfo.value)
     candidate_file.write_text(reviewed_text, encoding="utf-8")
 
-    # Altered report bytes block publication.
+    # Altered report bytes block integration.
     note.write_text(report_bytes.decode("utf-8") + " ", encoding="utf-8")
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert "does not match" in str(excinfo.value)
     note.write_bytes(report_bytes)
 
@@ -3332,31 +3332,31 @@ def test_publish_rechecks_tree_review_and_report(core, lab, monkeypatch):
     review_path.write_text(json.dumps({**json.loads(review_bytes), "summary": "Rewritten"}) + "",
                            encoding="utf-8")
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert "digest" in str(excinfo.value)
     review_path.write_bytes(review_bytes)
 
     # Nothing above reached the remote or created an integration commit.
     assert not any(args[0] in ("push", "commit-tree") for args in calls)
-    assert remote_ref(lab["producer"], "refs/heads/main") == lab["base"]
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t
+    assert remote_ref(lab["contributor"], "refs/heads/main") == lab["base"]
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t
     assert core.load_candidate(lab["store"], c["id"])["status"] == "report-verified"
 
     # A source disabled after review is refused by the registry re-check.
-    config_path = lab["store"] / "publisher.json"
+    config_path = lab["store"] / "maintainer.json"
     config_bytes = config_path.read_bytes()
     config = json.loads(config_bytes)
     config["sources"][0]["enabled"] = False
     config_path.write_text(json.dumps(config), encoding="utf-8")
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert "disabled" in str(excinfo.value)
     config_path.write_bytes(config_bytes)
     assert not any(args[0] in ("push", "commit-tree") for args in calls)
 
-    # With every input restored the same candidate publishes normally.
-    assert core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])["status"] == "published"
-    assert remote_ref(lab["producer"], "refs/heads/main") != lab["base"]
+    # With every input restored the same candidate integrates normally.
+    assert core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])["status"] == "integrated"
+    assert remote_ref(lab["contributor"], "refs/heads/main") != lab["base"]
 
 
 # ---------------------------------------------------------------------------
@@ -3372,7 +3372,7 @@ RECEIPT_FILE_SUFFIX = "-result.md"
 
 
 def receipt_path(lab, cid):
-    config = json.loads((lab["store"] / "publisher.json").read_text(encoding="utf-8"))
+    config = json.loads((lab["store"] / "maintainer.json").read_text(encoding="utf-8"))
     return lab["vault"] / config["report"]["directory"] / f"skill-sync-{cid}{RECEIPT_FILE_SUFFIX}"
 
 
@@ -3396,7 +3396,7 @@ def crash_after_remote_write(core, lab, monkeypatch, cid):
     monkeypatch.setattr(core, "git", dying_git)
     try:
         with pytest.raises(RuntimeError):
-            core.publish(lab["publisher"], lab["store"], cid, lab["vault"])
+            core.integrate(lab["maintainer"], lab["store"], cid, lab["vault"])
     finally:
         monkeypatch.setattr(core, "git", real)
     return core.load_candidate(lab["store"], cid), seen
@@ -3410,18 +3410,18 @@ def no_publication_writes(calls):
 def rejected_publication(core, lab, cid):
     """A real local bare remote rejects P before updating main."""
     hook = lab["remote"] / "hooks/pre-receive"
-    hook.write_text("#!/bin/sh\nprintf 'fixture rejects publication\\n' >&2\nexit 1\n",
+    hook.write_text("#!/bin/sh\nprintf 'fixture rejects integration\\n' >&2\nexit 1\n",
                     encoding="utf-8")
     hook.chmod(0o755)
     try:
-        with pytest.raises(core.WorkflowError, match="publish-intent retained"):
-            core.publish(lab["publisher"], lab["store"], cid, lab["vault"])
+        with pytest.raises(core.WorkflowError, match="integrate-intent retained"):
+            core.integrate(lab["maintainer"], lab["store"], cid, lab["vault"])
     finally:
         hook.unlink()
     state = core.load_candidate(lab["store"], cid)
-    assert state["status"] == "publish-intent"
+    assert state["status"] == "integrate-intent"
     assert "was not accepted" in state["last_error"]
-    assert remote_ref(lab["producer"], "refs/heads/main") == state["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == state["main_sha"]
     return state
 
 
@@ -3435,7 +3435,7 @@ def test_reconcile_reauthorizes_absent_result_before_retry(core, lab, monkeypatc
         target = lab["vault"] / c["report_relative_path"]
         target.write_bytes(target.read_bytes() + b"Altered before retry.\n")
     elif changed in ("disabled-source", "removed-source", "source-identity"):
-        config_path = lab["store"] / "publisher.json"
+        config_path = lab["store"] / "maintainer.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
         if changed == "removed-source":
             config["sources"] = []
@@ -3462,12 +3462,12 @@ def test_reconcile_reauthorizes_absent_result_before_retry(core, lab, monkeypatc
     fresh = load_core()  # bindings and authorisation must survive process restart
     calls = record_git_calls(fresh, monkeypatch)
     with pytest.raises(fresh.WorkflowError):
-        fresh.reconcile(lab["publisher"], lab["store"], c["id"])
+        fresh.reconcile(lab["maintainer"], lab["store"], c["id"])
     no_publication_writes(calls)
     refused = fresh.load_candidate(lab["store"], c["id"])
     assert refused["status"] == "stale" or refused["incident"]
     assert refused["result_sha"] == intent["result_sha"]
-    assert remote_ref(lab["producer"], "refs/heads/main") == c["main_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == c["main_sha"]
 
 
 def test_reconcile_real_rejection_retries_identical_authorized_result(core, lab, monkeypatch):
@@ -3476,12 +3476,12 @@ def test_reconcile_real_rejection_retries_identical_authorized_result(core, lab,
     intent = rejected_publication(core, lab, c["id"])
     fresh = load_core()
     calls = record_git_calls(fresh, monkeypatch)
-    result = fresh.reconcile(lab["publisher"], lab["store"], c["id"])
-    assert result["result_sha"] == intent["result_sha"] and result["status"] == "published"
+    result = fresh.reconcile(lab["maintainer"], lab["store"], c["id"])
+    assert result["result_sha"] == intent["result_sha"] and result["status"] == "integrated"
     assert [args for args in calls if args[0] == "push"] == [
         ("push", "--no-verify", "origin", f"{intent['result_sha']}:refs/heads/main")]
     assert not [args for args in calls if args[0] in ("commit-tree", "update-ref")]
-    assert remote_ref(lab["producer"], "refs/heads/main") == intent["result_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == intent["result_sha"]
 
 
 def test_reconcile_observed_result_repairs_without_retry_authorization(core, lab, monkeypatch):
@@ -3489,19 +3489,19 @@ def test_reconcile_observed_result_repairs_without_retry_authorization(core, lab
     c = reviewed(core, lab)
     intent, _ = crash_after_remote_write(core, lab, monkeypatch, c["id"])
     note = lab["vault"] / c["report_relative_path"]
-    note.write_bytes(note.read_bytes() + b"Tampered already published review.\n")
-    config_path = lab["store"] / "publisher.json"
+    note.write_bytes(note.read_bytes() + b"Tampered already integrated review.\n")
+    config_path = lab["store"] / "maintainer.json"
     config = json.loads(config_path.read_text(encoding="utf-8"))
     config["sources"][0]["enabled"] = False
     config_path.write_text(json.dumps(config), encoding="utf-8")
     (lab["store"] / "candidates" / c["id"] / "checks.json").unlink()
     fresh = load_core()
     calls = record_git_calls(fresh, monkeypatch)
-    result = fresh.reconcile(lab["publisher"], lab["store"], c["id"])
+    result = fresh.reconcile(lab["maintainer"], lab["store"], c["id"])
     no_publication_writes(calls)
-    assert result["status"] == "published" and result["incident"]
-    assert result["result_sha"] == result["published_main"] == intent["result_sha"]
-    assert remote_ref(lab["producer"], "refs/heads/main") == intent["result_sha"]
+    assert result["status"] == "integrated" and result["incident"]
+    assert result["result_sha"] == result["integrated_main"] == intent["result_sha"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == intent["result_sha"]
 
 
 def test_push_failure_retains_same_result_for_retry(core, lab, monkeypatch):
@@ -3521,45 +3521,45 @@ def test_push_failure_retains_same_result_for_retry(core, lab, monkeypatch):
 
     monkeypatch.setattr(core, "git", failing_push)
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
-    assert "publish-intent retained" in str(excinfo.value)
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
+    assert "integrate-intent retained" in str(excinfo.value)
     assert len(attempts) == 1
 
     intent = core.load_candidate(lab["store"], c["id"])
     p = intent["result_sha"]
-    assert intent["status"] == "publish-intent"
+    assert intent["status"] == "integrate-intent"
     assert p and intent["result_parents"] == [lab["base"], t]
     assert intent["result_tree"] == c["reviewed_tree"]
     # P is a real commit-tree result whose parent order, tree and pin are exact.
-    assert g(lab["publisher"], "cat-file", "-t", p) == "commit"
-    assert g(lab["publisher"], "show", "-s", "--format=%P", p).split() == [lab["base"], t]
-    assert g(lab["publisher"], "show", "-s", "--format=%T", p) == c["reviewed_tree"]
-    assert g(lab["publisher"], "rev-parse",
+    assert g(lab["maintainer"], "cat-file", "-t", p) == "commit"
+    assert g(lab["maintainer"], "show", "-s", "--format=%P", p).split() == [lab["base"], t]
+    assert g(lab["maintainer"], "show", "-s", "--format=%T", p) == c["reviewed_tree"]
+    assert g(lab["maintainer"], "rev-parse",
              f'refs/hermes-sync/candidates/{c["id"]}/result') == p
     # The diagnostic names the exact outcome and the next action.
     assert "simulated transport outage" in intent["last_error"]
     assert "reconcile" in intent["last_error"]
     # Nothing reached the remote; both source refs are exactly where they were.
-    assert remote_ref(lab["producer"], "refs/heads/main") == lab["base"]
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t
-    assert intent["published_main"] == ""
+    assert remote_ref(lab["contributor"], "refs/heads/main") == lab["base"]
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t
+    assert intent["integrated_main"] == ""
     assert "result_observed_at" in intent and intent["result_observed_at"] == ""
 
     # Restored transport: reconcile retries the very same P, once.
     monkeypatch.setattr(core, "git", real)
     calls = record_git_calls(core, monkeypatch)
-    reconciled = core.reconcile(lab["publisher"], lab["store"], c["id"])
+    reconciled = core.reconcile(lab["maintainer"], lab["store"], c["id"])
     pushes = [args for args in calls if args and args[0] == "push"]
     assert pushes == [("push", "--no-verify", "origin", f"{p}:refs/heads/main")]
     assert not [args for args in calls if args and args[0] == "commit-tree"]
-    assert reconciled["status"] == "published"
-    assert reconciled["result_sha"] == p and reconciled["published_main"] == p
+    assert reconciled["status"] == "integrated"
+    assert reconciled["result_sha"] == p and reconciled["integrated_main"] == p
     assert reconciled["result_observed_at"]
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t
     # One integration commit plus the two history commits: no second merge.
-    assert int(g(lab["publisher"], "rev-list", "--count", p)) == 3
-    assert core.source_status(lab["publisher"], p, t) == "consumed"
+    assert int(g(lab["maintainer"], "rev-list", "--count", p)) == 3
+    assert core.source_status(lab["maintainer"], p, t) == "consumed"
     assert_no_history_rewrite(calls)
 
 
@@ -3570,26 +3570,26 @@ def test_reconcile_after_push_does_not_duplicate(core, lab, monkeypatch):
     crashed, seen = crash_after_remote_write(core, lab, monkeypatch, c["id"])
     p = crashed["result_sha"]
     assert seen["refspec"] == f"{p}:refs/heads/main"
-    assert crashed["status"] == "publish-intent" and crashed["published_main"] == ""
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
+    assert crashed["status"] == "integrate-intent" and crashed["integrated_main"] == ""
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
 
     # A fresh process reloads the module and must trust only the persisted journal.
     fresh = load_core()
     calls = record_git_calls(fresh, monkeypatch)
-    reconciled = fresh.reconcile(lab["publisher"], lab["store"], c["id"])
+    reconciled = fresh.reconcile(lab["maintainer"], lab["store"], c["id"])
     no_publication_writes(calls)
-    assert reconciled["status"] in ("published", "receipt-pending")
-    assert reconciled["result_sha"] == p and reconciled["published_main"] == p
-    # Publication is proven from ancestry plus the exact trailers/tree.
-    assert fresh.is_ancestor(lab["publisher"], p,
-                             remote_ref(lab["producer"], "refs/heads/main"))
-    message = g(lab["publisher"], "log", "-1", "--format=%B", p)
-    assert message.startswith("consolidator:")
+    assert reconciled["status"] in ("integrated", "receipt-pending")
+    assert reconciled["result_sha"] == p and reconciled["integrated_main"] == p
+    # Integration is proven from ancestry plus the exact trailers/tree.
+    assert fresh.is_ancestor(lab["maintainer"], p,
+                             remote_ref(lab["contributor"], "refs/heads/main"))
+    message = g(lab["maintainer"], "log", "-1", "--format=%B", p)
+    assert message.startswith("maintainer:")
     for trailer in (f"Skill-Sync-Candidate: {c['id']}", f"Source-Tip: {t}",
                     f"Reviewed-Tree: {c['reviewed_tree']}"):
         assert trailer in message
-    assert g(lab["publisher"], "show", "-s", "--format=%T", p) == c["reviewed_tree"]
-    assert int(g(lab["publisher"], "rev-list", "--count", p)) == 3
+    assert g(lab["maintainer"], "show", "-s", "--format=%T", p) == c["reviewed_tree"]
+    assert int(g(lab["maintainer"], "rev-list", "--count", p)) == 3
 
     # The result payload is rendered once and never re-timestamped afterwards,
     # so a repeated reconcile is byte-identical even if the clock moved.
@@ -3597,25 +3597,25 @@ def test_reconcile_after_push_does_not_duplicate(core, lab, monkeypatch):
     observed_at = reconciled["result_observed_at"]
     assert observed_at in first_text
     monkeypatch.setattr(fresh, "_utc_now", lambda: "2099-12-31T23:59:59Z")
-    again = fresh.reconcile(lab["publisher"], lab["store"], c["id"])
-    assert again["result_sha"] == p and again["published_main"] == p
+    again = fresh.reconcile(lab["maintainer"], lab["store"], c["id"])
+    assert again["result_sha"] == p and again["integrated_main"] == p
     assert again["result_observed_at"] == observed_at
     assert store_result_text(lab, c["id"]) == first_text
     assert "2099" not in first_text
     no_publication_writes(calls)
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
 
 
-def test_receipt_failure_does_not_republish(core, lab, monkeypatch):
-    """D8: receipt delivery is separate, retryable and never re-publishes P."""
+def test_receipt_failure_does_not_reintegrate(core, lab, monkeypatch):
+    """D8: receipt delivery is separate, retryable and never re-integrates P."""
     t = offer(lab)
     c = reviewed(core, lab)
     review_note = lab["vault"] / c["report_relative_path"]
     review_bytes = review_note.read_bytes()
 
-    published = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
-    p = published["result_sha"]
-    assert published["status"] == "published"
+    integrated = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
+    p = integrated["result_sha"]
+    assert integrated["status"] == "integrated"
     # Python renders a payload; it never writes the live receipt note itself.
     receipt = receipt_path(lab, c["id"])
     assert not receipt.exists()
@@ -3629,7 +3629,7 @@ def test_receipt_failure_does_not_republish(core, lab, monkeypatch):
     assert "missing" in str(excinfo.value)
     pending = core.load_candidate(lab["store"], c["id"])
     assert pending["status"] == "receipt-pending"
-    assert pending["result_sha"] == p and pending["published_main"] == p
+    assert pending["result_sha"] == p and pending["integrated_main"] == p
     assert "missing" in pending["last_error"]
     assert pending["receipt_attempts"] == 1
     assert review_note.read_bytes() == review_bytes
@@ -3663,38 +3663,38 @@ def test_receipt_failure_does_not_republish(core, lab, monkeypatch):
     assert done["status"] == "complete"
     assert done["receipt_sha256"] == hashlib.sha256(receipt.read_bytes()).hexdigest()
     assert done["receipt_attempts"] == 4
-    assert done["result_sha"] == p and done["published_main"] == p
+    assert done["result_sha"] == p and done["integrated_main"] == p
     assert done["result_observed_at"] and done["result_observed_at"] in payload
 
     # The receipt step read files only: no push, no commit, no pin movement.
     no_publication_writes(calls)
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
-    assert int(g(lab["publisher"], "rev-list", "--count", p)) == 3
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
+    assert int(g(lab["maintainer"], "rev-list", "--count", p)) == 3
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t
     assert review_note.read_bytes() == review_bytes
     # Re-verifying an exact receipt stays complete and stays byte-identical.
     assert core.verify_result(lab["store"], c["id"], lab["vault"])["status"] == "complete"
     assert store_result_text(lab, c["id"]) == payload
 
 
-@pytest.mark.parametrize("already_complete", [False, True], ids=["published", "complete"])
+@pytest.mark.parametrize("already_complete", [False, True], ids=["integrated", "complete"])
 @pytest.mark.parametrize("changed", ["altered", "missing", "symlink", "stored-payload", "directory"])
 def test_verify_result_reobserves_immutable_review_on_every_call(
         core, lab, monkeypatch, already_complete, changed):
     offer(lab)
     c = reviewed(core, lab)
-    published = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+    integrated = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     review_note = lab["vault"] / c["report_relative_path"]
     original = review_note.read_bytes()
     receipt = receipt_path(lab, c["id"])
-    receipt.write_text(core.render_result(published), encoding="utf-8")
+    receipt.write_text(core.render_result(integrated), encoding="utf-8")
     if already_complete:
         assert core.verify_result(lab["store"], c["id"], lab["vault"])["status"] == "complete"
     stored = lab["store"] / "candidates" / c["id"] / "review.md"
-    config_path = lab["store"] / "publisher.json"
+    config_path = lab["store"] / "maintainer.json"
     config_bytes = config_path.read_bytes()
     if changed == "altered":
-        review_note.write_bytes(original + b"Tampered after publication.\n")
+        review_note.write_bytes(original + b"Tampered after integration.\n")
     elif changed == "missing":
         review_note.unlink()
     elif changed == "symlink":
@@ -3714,7 +3714,7 @@ def test_verify_result_reobserves_immutable_review_on_every_call(
     state = core.load_candidate(lab["store"], c["id"])
     assert state["status"] == "receipt-pending" and state["incident"]
     assert not state["receipt_sha256"] and not state["receipt_verified_at"]
-    assert state["result_sha"] == published["result_sha"]
+    assert state["result_sha"] == integrated["result_sha"]
     no_publication_writes(calls)
 
     # Repairing files alone does not silently clear an already-recorded incident.
@@ -3736,36 +3736,36 @@ def test_report_tampering_after_push_is_an_incident(core, lab, monkeypatch):
     original = review_note.read_bytes()
     crashed, _ = crash_after_remote_write(core, lab, monkeypatch, c["id"])
     p = crashed["result_sha"]
-    assert crashed["status"] == "publish-intent"
+    assert crashed["status"] == "integrate-intent"
 
-    tampered = original.decode("utf-8") + "Tampered after publication.\n"
+    tampered = original.decode("utf-8") + "Tampered after integration.\n"
     review_note.write_text(tampered, encoding="utf-8")
 
     calls = record_git_calls(core, monkeypatch)
-    reconciled = core.reconcile(lab["publisher"], lab["store"], c["id"])
+    reconciled = core.reconcile(lab["maintainer"], lab["store"], c["id"])
     no_publication_writes(calls)
 
-    # Publication stays a fact: same P, same remote main, no "never published".
-    assert reconciled["result_sha"] == p and reconciled["published_main"] == p
-    assert reconciled["status"] in ("published", "receipt-pending")
-    assert reconciled["status"] not in ("publish-intent", "stale", "blocked", "report-verified")
+    # Integration stays a fact: same P, same remote main, no "never integrated".
+    assert reconciled["result_sha"] == p and reconciled["integrated_main"] == p
+    assert reconciled["status"] in ("integrated", "receipt-pending")
+    assert reconciled["status"] not in ("integrate-intent", "stale", "blocked", "report-verified")
     assert "incident" in reconciled and reconciled["incident"]
     assert "review" in reconciled["incident"].lower()
     assert "incident" in reconciled["last_error"].lower()
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
-    assert int(g(lab["publisher"], "rev-list", "--count", p)) == 3
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
+    assert int(g(lab["maintainer"], "rev-list", "--count", p)) == 3
 
     # The receipt cannot complete around an unresolved incident ...
     with pytest.raises(core.WorkflowError) as excinfo:
         core.verify_result(lab["store"], c["id"], lab["vault"])
     assert "incident" in str(excinfo.value)
-    assert core.load_candidate(lab["store"], c["id"])["status"] in ("published", "receipt-pending")
+    assert core.load_candidate(lab["store"], c["id"])["status"] in ("integrated", "receipt-pending")
     # ... and nothing rewrote the immutable review note.
     assert review_note.read_text(encoding="utf-8") == tampered
 
     # Restoring the exact bytes does not erase the recorded incident.
     review_note.write_bytes(original)
-    again = core.reconcile(lab["publisher"], lab["store"], c["id"])
+    again = core.reconcile(lab["maintainer"], lab["store"], c["id"])
     assert again["incident"] == reconciled["incident"]
     assert again["result_sha"] == p
     with pytest.raises(core.WorkflowError) as excinfo:
@@ -3788,35 +3788,35 @@ def test_unconfirmed_remote_read_keeps_intent_until_reconcile(core, lab, monkeyp
 
     monkeypatch.setattr(core, "git", blind_git)
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     message = str(excinfo.value)
-    assert "publish-intent retained" in message and "could not be confirmed" in message
+    assert "integrate-intent retained" in message and "could not be confirmed" in message
 
     uncertain = core.load_candidate(lab["store"], c["id"])
     p = uncertain["result_sha"]
-    assert uncertain["status"] == "publish-intent"
-    assert uncertain["published_main"] == ""
+    assert uncertain["status"] == "integrate-intent"
+    assert uncertain["integrated_main"] == ""
     assert "Could not resolve host" in uncertain["last_error"]
     assert "reconcile" in uncertain["last_error"]
     # The ref really moved: this is unknown, not a failed push to be re-created.
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
-    assert g(lab["publisher"], "show", "-s", "--format=%P", p).split() == [lab["base"], t]
-    # An uncertain outcome cannot be receipted either: only observed publication may.
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
+    assert g(lab["maintainer"], "show", "-s", "--format=%P", p).split() == [lab["base"], t]
+    # An uncertain outcome cannot be receipted either: only observed integration may.
     with pytest.raises(core.WorkflowError) as excinfo:
         core.verify_result(lab["store"], c["id"], lab["vault"])
-    assert "publish-intent" in str(excinfo.value)
+    assert "integrate-intent" in str(excinfo.value)
 
     monkeypatch.setattr(core, "git", real)
     calls = record_git_calls(core, monkeypatch)
-    reconciled = core.reconcile(lab["publisher"], lab["store"], c["id"])
+    reconciled = core.reconcile(lab["maintainer"], lab["store"], c["id"])
     no_publication_writes(calls)
-    assert reconciled["status"] == "published"
-    assert reconciled["result_sha"] == p and reconciled["published_main"] == p
+    assert reconciled["status"] == "integrated"
+    assert reconciled["result_sha"] == p and reconciled["integrated_main"] == p
     assert reconciled["last_error"] == ""
     assert reconciled["result_observed_at"]
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
-    assert int(g(lab["publisher"], "rev-list", "--count", p)) == 3
-    assert core.source_status(lab["publisher"], p, t) == "consumed"
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
+    assert int(g(lab["maintainer"], "rev-list", "--count", p)) == 3
+    assert core.source_status(lab["maintainer"], p, t) == "consumed"
 
 
 # ---------------------------------------------------------------------------
@@ -3824,10 +3824,10 @@ def test_unconfirmed_remote_read_keeps_intent_until_reconcile(core, lab, monkeyp
 # ---------------------------------------------------------------------------
 
 def pending_now(core, lab):
-    return core.pending_lines(lab["publisher"], lab["store"], [lab["source"]])
+    return core.pending_lines(lab["maintainer"], lab["store"], [lab["source"]])
 
 
-@pytest.mark.parametrize("phase", ["publish-intent", "rejected-intent", "published", "receipt-pending", "incident"])
+@pytest.mark.parametrize("phase", ["integrate-intent", "rejected-intent", "integrated", "receipt-pending", "incident"])
 @pytest.mark.parametrize("enabled", [True, False], ids=["enabled", "disabled"])
 def test_monitor_surfaces_unfinished_publication_journals(core, lab, monkeypatch, phase, enabled):
     offer(lab)
@@ -3836,16 +3836,16 @@ def test_monitor_surfaces_unfinished_publication_journals(core, lab, monkeypatch
         rejected_publication(core, lab, c["id"])
     else:
         crash_after_remote_write(core, lab, monkeypatch, c["id"])
-        if phase != "publish-intent":
-            core.reconcile(lab["publisher"], lab["store"], c["id"])
+        if phase != "integrate-intent":
+            core.reconcile(lab["maintainer"], lab["store"], c["id"])
         if phase in ("receipt-pending", "incident"):
             if phase == "incident":
                 note = lab["vault"] / c["report_relative_path"]
                 note.write_bytes(note.read_bytes() + b"Tampered report.\n")
-                core.reconcile(lab["publisher"], lab["store"], c["id"])
+                core.reconcile(lab["maintainer"], lab["store"], c["id"])
             with pytest.raises(core.WorkflowError):
                 core.verify_result(lab["store"], c["id"], lab["vault"])
-    config_path = lab["store"] / "publisher.json"
+    config_path = lab["store"] / "maintainer.json"
     config = json.loads(config_path.read_text(encoding="utf-8"))
     config["sources"][0]["enabled"] = enabled
     config_path.write_text(json.dumps(config), encoding="utf-8")
@@ -3853,11 +3853,11 @@ def test_monitor_surfaces_unfinished_publication_journals(core, lab, monkeypatch
     original = state_path.read_bytes()
     prefix = "incident" if phase == "incident" else "recover"
     expected = [f"{prefix} {c['id']}"]
-    first = core.pending_lines(lab["publisher"], lab["store"])
+    first = core.pending_lines(lab["maintainer"], lab["store"])
     assert first == expected
     monkeypatch.setattr(core, "_utc_now", lambda: "2099-12-31T23:59:59Z")
-    assert core.pending_lines(lab["publisher"], lab["store"]) == first
-    assert core.pending_lines(lab["publisher"], lab["store"], fetch=False) == first
+    assert core.pending_lines(lab["maintainer"], lab["store"]) == first
+    assert core.pending_lines(lab["maintainer"], lab["store"], fetch=False) == first
     assert state_path.read_bytes() == original
 
 
@@ -3866,13 +3866,13 @@ def test_pending_excludes_unsubmitted_refactor_and_consumed_tips(core, lab, tmp_
     was never submitted is not pending work, and a transport tip that main already
     contains is consumed rather than listed forever."""
     t = offer(lab)
-    producer = lab["producer"]
-    g(producer, "checkout", "-q", "-b", "refactor/topic")
-    refactor_tip = commit(producer, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nRefactor-only instruction.\n",
+    contributor = lab["contributor"]
+    g(contributor, "checkout", "-q", "-b", "refactor/topic")
+    refactor_tip = commit(contributor, "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nRefactor-only instruction.\n",
                           message="unsubmitted refactor work",
                           path="skills/demo/REFACTOR.md")
-    g(producer, "push", "-q", "origin", "refactor/topic")
-    g(producer, "checkout", "-q", "machine/testlab")
+    g(contributor, "push", "-q", "origin", "refactor/topic")
+    g(contributor, "checkout", "-q", "machine/testlab")
 
     cid = core.candidate_id("owned-skills", "refs/heads/machine/testlab",
                             lab["base"], t, "skill-review-v1", "transport")
@@ -3892,9 +3892,9 @@ def test_pending_excludes_unsubmitted_refactor_and_consumed_tips(core, lab, tmp_
 def test_pending_includes_unacknowledged_empty_diff_tip(core, lab):
     """A same-tree tip that is not an ancestor of main is genuine pending work:
     consumption is an ancestry fact, never a diff-size shortcut."""
-    g(lab["producer"], "commit", "-q", "--allow-empty", "-m", "empty acknowledgment tip")
-    g(lab["producer"], "push", "-q", "origin", "machine/testlab")
-    tip = g(lab["producer"], "rev-parse", "HEAD")
+    g(lab["contributor"], "commit", "-q", "--allow-empty", "-m", "empty acknowledgment tip")
+    g(lab["contributor"], "push", "-q", "origin", "machine/testlab")
+    tip = g(lab["contributor"], "rev-parse", "HEAD")
     cid = core.candidate_id("owned-skills", "refs/heads/machine/testlab",
                             lab["base"], tip, "skill-review-v1", "transport")
     assert pending_now(core, lab) == [f"pending {cid}"]
@@ -3903,16 +3903,16 @@ def test_pending_includes_unacknowledged_empty_diff_tip(core, lab):
 def test_retry_changes_monitor_once(core, lab):
     """--retry is one explicit generation step: the blocked line changes to a
     pending line exactly once per invocation and then stays byte-stable."""
-    producer = lab["producer"]
-    link = producer / "skills/demo/link"
+    contributor = lab["contributor"]
+    link = contributor / "skills/demo/link"
     os.symlink("SKILL.md", link)
-    g(producer, "add", "--", "skills/demo/link")
-    g(producer, "commit", "-q", "-m", "source adds a symlink")
-    g(producer, "push", "-q", "origin", "machine/testlab")
+    g(contributor, "add", "--", "skills/demo/link")
+    g(contributor, "commit", "-q", "-m", "source adds a symlink")
+    g(contributor, "push", "-q", "origin", "machine/testlab")
 
-    c = core.capture(lab["publisher"], lab["store"], lab["source"])
+    c = core.capture(lab["maintainer"], lab["store"], lab["source"])
     with pytest.raises(core.WorkflowError):
-        core.prepare(lab["publisher"], lab["store"], c)
+        core.prepare(lab["maintainer"], lab["store"], c)
     blocked = core.load_candidate(lab["store"], c["id"])
     assert blocked["status"] == "blocked" and blocked.get("retry_generation", 0) == 0
     assert pending_now(core, lab) == [f"blocked {c['id']}"]
@@ -3928,7 +3928,7 @@ def test_retry_changes_monitor_once(core, lab):
     with pytest.raises(core.WorkflowError):
         core.retry_candidate(lab["store"], c["id"])        # captured, not blocked
     with pytest.raises(core.WorkflowError):
-        core.prepare(lab["publisher"], lab["store"], c)
+        core.prepare(lab["maintainer"], lab["store"], c)
     again = core.retry_candidate(lab["store"], c["id"])
     assert again["retry_generation"] == 2
     assert pending_now(core, lab) == [f"pending {c['id']} retry 2"]
@@ -3939,7 +3939,7 @@ def test_retry_changes_monitor_once(core, lab):
 #
 # A refactor branch is never transport work: it becomes a candidate only through
 # an operator submission naming the exact ref, the exact remote tip and the
-# replacement brief. Publication is one merge M,T whose tree is exactly the
+# replacement brief. Integration is one merge M,T whose tree is exactly the
 # submitted tip tree, so an edit after submission is refused rather than curated.
 # ---------------------------------------------------------------------------
 
@@ -3983,34 +3983,34 @@ def refactor_review(candidate, path="skills/demo/SKILL.md"):
 
 def make_refactor_branch(lab, text=REFACTOR_TEXT, ref=REFACTOR_REF):
     """The developer's own refactor branch: branch from main, commit, back it up."""
-    producer = lab["producer"]
+    contributor = lab["contributor"]
     name = ref[len("refs/heads/"):]
-    g(producer, "fetch", "-q", "origin")
-    g(producer, "checkout", "-q", "-b", name, "origin/main")
-    tip = commit(producer, text, message="refactor the demo instruction")
-    g(producer, "push", "-q", "-u", "origin", name)
+    g(contributor, "fetch", "-q", "origin")
+    g(contributor, "checkout", "-q", "-b", name, "origin/main")
+    tip = commit(contributor, text, message="refactor the demo instruction")
+    g(contributor, "push", "-q", "-u", "origin", name)
     return ref, tip
 
 
 def merge_main_into_refactor(lab, ref=REFACTOR_REF):
-    """Merge published main into the refactor branch (never a rebase); push T."""
-    producer = lab["producer"]
+    """Merge integrated main into the refactor branch (never a rebase); push T."""
+    contributor = lab["contributor"]
     name = ref[len("refs/heads/"):]
-    g(producer, "fetch", "-q", "origin")
-    g(producer, "checkout", "-q", name)
-    g(producer, "merge", "-q", "--no-ff", "--no-edit", "-m",
+    g(contributor, "fetch", "-q", "origin")
+    g(contributor, "checkout", "-q", name)
+    g(contributor, "merge", "-q", "--no-ff", "--no-edit", "-m",
       "merge origin/main into the refactor branch", "origin/main")
-    tip = g(producer, "rev-parse", "HEAD")
-    g(producer, "push", "-q", "origin", name)
+    tip = g(contributor, "rev-parse", "HEAD")
+    g(contributor, "push", "-q", "origin", name)
     return tip
 
 
 def prepared_refactor(core, lab, ref=REFACTOR_REF):
     """Submit, capture and prepare one refactor candidate; returns (candidate, tip)."""
     ref, tip = make_refactor_branch(lab, ref=ref)
-    core.submit_refactor(lab["publisher"], lab["store"], ref, tip, refactor_brief())
-    candidate = core.capture(lab["publisher"], lab["store"], {"ref": ref}, kind="refactor")
-    return core.prepare(lab["publisher"], lab["store"], candidate), tip
+    core.submit_refactor(lab["maintainer"], lab["store"], ref, tip, refactor_brief())
+    candidate = core.capture(lab["maintainer"], lab["store"], {"ref": ref}, kind="refactor")
+    return core.prepare(lab["maintainer"], lab["store"], candidate), tip
 
 
 def test_refactor_requires_explicit_tip_submission(core, lab, tmp_path):
@@ -4021,7 +4021,7 @@ def test_refactor_requires_explicit_tip_submission(core, lab, tmp_path):
 
     # No submission record: a pushed refactor branch is not ready.
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.capture(lab["publisher"], lab["store"], {"ref": ref}, kind="refactor")
+        core.capture(lab["maintainer"], lab["store"], {"ref": ref}, kind="refactor")
     message = str(excinfo.value)
     assert "submit" in message and "refactor" in message
 
@@ -4038,39 +4038,39 @@ def test_refactor_requires_explicit_tip_submission(core, lab, tmp_path):
          "validation_notes": "y"},
     ):
         with pytest.raises(core.WorkflowError):
-            core.submit_refactor(lab["publisher"], lab["store"], ref, tip, bad)
+            core.submit_refactor(lab["maintainer"], lab["store"], ref, tip, bad)
 
     # Only a refactor branch ref and an exact full remote tip may be submitted.
     for bad_ref in ("refs/heads/machine/testlab", "refactor/skill-sync", "refs/heads/refactor/"):
         with pytest.raises(core.WorkflowError):
-            core.submit_refactor(lab["publisher"], lab["store"], bad_ref, tip, refactor_brief())
+            core.submit_refactor(lab["maintainer"], lab["store"], bad_ref, tip, refactor_brief())
     for bad_tip in (lab["base"], tip[:12], "f" * 40):
         with pytest.raises(core.WorkflowError):
-            core.submit_refactor(lab["publisher"], lab["store"], ref, bad_tip, refactor_brief())
+            core.submit_refactor(lab["maintainer"], lab["store"], ref, bad_tip, refactor_brief())
 
-    submission = core.submit_refactor(lab["publisher"], lab["store"], ref, tip, refactor_brief())
+    submission = core.submit_refactor(lab["maintainer"], lab["store"], ref, tip, refactor_brief())
     assert submission["id"] == core.candidate_id(
         "owned-skills", ref, lab["base"], tip, "skill-review-v1", "refactor")
     assert submission["kind"] == "refactor" and submission["tip"] == tip
     assert submission["main_sha"] == lab["base"]
-    assert submission["publisher_identity"] == {
-        "machine": "publisher-test", "profile": "default", "scope": "shared-generic"}
+    assert submission["maintainer_identity"] == {
+        "machine": "maintainer-test", "profile": "default", "scope": "shared-generic"}
     assert submission["brief_sha256"]
     assert pending_now(core, lab) == [f"pending {submission['id']}"]
     # Repeating the identical submission is idempotent; a different brief for
     # the same tip is refused (the approved content cannot be swapped).
     assert core.submit_refactor(
-        lab["publisher"], lab["store"], ref, tip, refactor_brief())["id"] == submission["id"]
+        lab["maintainer"], lab["store"], ref, tip, refactor_brief())["id"] == submission["id"]
     with pytest.raises(core.WorkflowError):
-        core.submit_refactor(lab["publisher"], lab["store"], ref, tip,
+        core.submit_refactor(lab["maintainer"], lab["store"], ref, tip,
                              refactor_brief(summary="A different approval"))
 
-    candidate = core.capture(lab["publisher"], lab["store"], {"ref": ref}, kind="refactor")
+    candidate = core.capture(lab["maintainer"], lab["store"], {"ref": ref}, kind="refactor")
     assert candidate["kind"] == "refactor" and candidate["source_sha"] == tip
     assert candidate["main_sha"] == lab["base"]
-    assert candidate["source_machine"] == "publisher-test"
+    assert candidate["source_machine"] == "maintainer-test"
     assert candidate["source_profile"] == "default"
-    assert g(lab["publisher"], "rev-parse",
+    assert g(lab["maintainer"], "rev-parse",
              f"refs/hermes-sync/candidates/{submission['id']}/source") == tip
     # The journal loads only through its submission record; retry is a status
     # refusal, not a "not registered" registration failure.
@@ -4091,10 +4091,10 @@ def test_refactor_requires_explicit_tip_submission(core, lab, tmp_path):
     assert core.load_candidate(lab["store"], candidate["id"])["source_sha"] == tip
 
     # A later refactor backup commit does not move the submitted T or its cid.
-    t2 = commit(lab["producer"], REFACTOR_TEXT + "An extra refactor note.\n",
+    t2 = commit(lab["contributor"], REFACTOR_TEXT + "An extra refactor note.\n",
                 message="more refactor work")
-    g(lab["producer"], "push", "-q", "origin", REFACTOR_REF[len("refs/heads/"):])
-    again = core.capture(lab["publisher"], lab["store"], {"ref": ref}, kind="refactor")
+    g(lab["contributor"], "push", "-q", "origin", REFACTOR_REF[len("refs/heads/"):])
+    again = core.capture(lab["maintainer"], lab["store"], {"ref": ref}, kind="refactor")
     assert again["id"] == candidate["id"] and again["source_sha"] == tip
     assert pending_now(core, lab) == [f"pending {candidate['id']}"]
 
@@ -4102,21 +4102,21 @@ def test_refactor_requires_explicit_tip_submission(core, lab, tmp_path):
     second = second_main_clone(lab, tmp_path)
     advanced = independent_main_commit(second)
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.capture(lab["publisher"], lab["store"], {"ref": ref}, kind="refactor")
+        core.capture(lab["maintainer"], lab["store"], {"ref": ref}, kind="refactor")
     message = str(excinfo.value)
     assert "merge" in message and advanced[:12] in message and "rebase" not in message
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.submit_refactor(lab["publisher"], lab["store"], ref, t2, refactor_brief())
+        core.submit_refactor(lab["maintainer"], lab["store"], ref, t2, refactor_brief())
     message = str(excinfo.value)
     assert "does not contain" in message and "main" in message and "rebase" not in message
 
     # Merging current main into the branch and submitting the merged tip is the
     # only path forward: new main, new tip, new cid.
     merged = merge_main_into_refactor(lab, ref)
-    renewed = core.submit_refactor(lab["publisher"], lab["store"], ref, merged, refactor_brief())
+    renewed = core.submit_refactor(lab["maintainer"], lab["store"], ref, merged, refactor_brief())
     assert renewed["main_sha"] == advanced and renewed["tip"] == merged
     assert renewed["id"] != submission["id"]
-    fresh = core.capture(lab["publisher"], lab["store"], {"ref": ref}, kind="refactor")
+    fresh = core.capture(lab["maintainer"], lab["store"], {"ref": ref}, kind="refactor")
     assert fresh["id"] == renewed["id"]
     assert fresh["main_sha"] == advanced and fresh["source_sha"] == merged
 
@@ -4131,20 +4131,20 @@ def test_refactor_promotion_tree_equals_submitted_tip(core, lab, tmp_path):
     assert core.is_ancestor(second, lab["base"], advanced_main)
 
     tip = merge_main_into_refactor(lab, ref)
-    assert core.is_ancestor(lab["producer"], advanced_main, tip)
-    submitted_tree = g(lab["producer"], "rev-parse", f"{tip}^{{tree}}")
+    assert core.is_ancestor(lab["contributor"], advanced_main, tip)
+    submitted_tree = g(lab["contributor"], "rev-parse", f"{tip}^{{tree}}")
 
-    submission = core.submit_refactor(lab["publisher"], lab["store"], ref, tip, refactor_brief())
-    candidate = core.capture(lab["publisher"], lab["store"], {"ref": ref}, kind="refactor")
+    submission = core.submit_refactor(lab["maintainer"], lab["store"], ref, tip, refactor_brief())
+    candidate = core.capture(lab["maintainer"], lab["store"], {"ref": ref}, kind="refactor")
     assert candidate["id"] == submission["id"]
     assert candidate["main_sha"] == advanced_main and candidate["source_sha"] == tip
-    candidate = core.prepare(lab["publisher"], lab["store"], candidate)
+    candidate = core.prepare(lab["maintainer"], lab["store"], candidate)
     assert candidate["input_paths"] == ["skills/demo/SKILL.md"]
 
     # The native merge of current main into T is already tree(T): no agent edit.
     worktree = Path(candidate["worktree"])
     review = refactor_review(candidate)
-    core.validate_review(candidate, review, lab["publisher"], worktree)
+    core.validate_review(candidate, review, lab["maintainer"], worktree)
     checks = core.run_checks(candidate, worktree)
     validation = core.validate_tree(candidate, worktree, review)
     assert validation["tree"] == submitted_tree
@@ -4156,18 +4156,18 @@ def test_refactor_promotion_tree_equals_submitted_tip(core, lab, tmp_path):
     note.write_text(text, encoding="utf-8")
     core.verify_report(current, text, lab["vault"])
 
-    result = core.publish(lab["publisher"], lab["store"], candidate["id"], lab["vault"])
+    result = core.integrate(lab["maintainer"], lab["store"], candidate["id"], lab["vault"])
     p = result["result_sha"]
-    assert g(lab["publisher"], "show", "-s", "--format=%P", p).split() == [advanced_main, tip]
-    assert g(lab["publisher"], "show", "-s", "--format=%T", p) == submitted_tree
+    assert g(lab["maintainer"], "show", "-s", "--format=%P", p).split() == [advanced_main, tip]
+    assert g(lab["maintainer"], "show", "-s", "--format=%T", p) == submitted_tree
     assert result["result_parents"] == [advanced_main, tip]
     assert result["result_tree"] == submitted_tree
     # Source ref untouched; main now contains both parents.
-    assert remote_ref(lab["producer"], ref) == tip
-    assert remote_ref(lab["producer"], "refs/heads/main") == p
-    assert core.is_ancestor(lab["publisher"], advanced_main, p)
-    assert core.is_ancestor(lab["publisher"], tip, p)
-    assert core.source_status(lab["publisher"], p, tip) == "consumed"
+    assert remote_ref(lab["contributor"], ref) == tip
+    assert remote_ref(lab["contributor"], "refs/heads/main") == p
+    assert core.is_ancestor(lab["maintainer"], advanced_main, p)
+    assert core.is_ancestor(lab["maintainer"], tip, p)
+    assert core.source_status(lab["maintainer"], p, tip) == "consumed"
 
     # The receipt path is the same for a refactor: exact bytes, then complete.
     result_text = (lab["store"] / "candidates" / candidate["id"] / "result.md").read_text(
@@ -4185,7 +4185,7 @@ def test_refactor_refuses_agent_edit_after_submission(core, lab):
     candidate, tip = prepared_refactor(core, lab)
     current = record_full_review(core, lab, candidate, review=refactor_review(candidate))
     assert current["status"] == "report-verified"
-    submitted_tree = g(lab["publisher"], "rev-parse", f"{tip}^{{tree}}")
+    submitted_tree = g(lab["maintainer"], "rev-parse", f"{tip}^{{tree}}")
     worktree = Path(current["worktree"])
 
     extra = worktree / "skills/demo/EXTRA.md"
@@ -4199,68 +4199,68 @@ def test_refactor_refuses_agent_edit_after_submission(core, lab):
     assert "submitted tip" in message and "submit" in message and "rebase" not in message
 
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], current["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], current["id"], lab["vault"])
     assert "submitted tip" in str(excinfo.value)
-    assert remote_ref(lab["producer"], "refs/heads/main") == lab["base"]
+    assert remote_ref(lab["contributor"], "refs/heads/main") == lab["base"]
     assert core.load_candidate(lab["store"], current["id"])["status"] == "report-verified"
 
-    # Discarding the extra edit restores the exact submitted tree and publishes.
+    # Discarding the extra edit restores the exact submitted tree and integrates.
     extra.unlink()
     g(worktree, "rm", "-q", "--cached", "skills/demo/EXTRA.md")
     assert core.validate_tree(current, worktree, refactor_review(current))["tree"] == submitted_tree
-    result = core.publish(lab["publisher"], lab["store"], current["id"], lab["vault"])
-    assert g(lab["publisher"], "show", "-s", "--format=%T", result["result_sha"]) == submitted_tree
+    result = core.integrate(lab["maintainer"], lab["store"], current["id"], lab["vault"])
+    assert g(lab["maintainer"], "show", "-s", "--format=%T", result["result_sha"]) == submitted_tree
 
 
-def test_refactor_freeze_allows_producer_commits(core, lab, tmp_path):
-    """F3: the refactor promotion takes the same short publisher lock; another
-    publisher refuses while a producer clone still commits and pushes."""
+def test_refactor_freeze_allows_contributor_commits(core, lab, tmp_path):
+    """F3: the refactor promotion takes the same short maintainer lock; another
+    maintainer refuses while a contributor clone still commits and pushes."""
     candidate, tip = prepared_refactor(core, lab)
     current = record_full_review(core, lab, candidate, review=refactor_review(candidate))
-    # Preparation and the whole review run without holding the publisher lock:
-    # only the final promotion freezes other publishers.
-    assert core.read_publisher_lock(lab["store"]) is None
+    # Preparation and the whole review run without holding the maintainer lock:
+    # only the final promotion freezes other maintainers.
+    assert core.read_maintainer_lock(lab["store"]) is None
 
-    token = core.acquire_publisher_lock(lab["store"])
+    token = core.acquire_maintainer_lock(lab["store"])
     try:
         with pytest.raises(core.WorkflowError) as excinfo:
-            core.publish(lab["publisher"], lab["store"], current["id"], lab["vault"])
+            core.integrate(lab["maintainer"], lab["store"], current["id"], lab["vault"])
         message = str(excinfo.value).lower()
-        assert "publisher" in message and "lock" in message
+        assert "maintainer" in message and "lock" in message
 
-        producer = tmp_path / "producer-during-freeze"
+        contributor = tmp_path / "contributor-during-freeze"
         subprocess.run(["git", "clone", "-q", "-b", "machine/testlab",
-                        str(lab["remote"]), str(producer)], check=True)
+                        str(lab["remote"]), str(contributor)], check=True)
         for key, value in (("user.name", "Freeze"), ("user.email", "freeze@example.invalid")):
-            g(producer, "config", key, value)
-        transport_tip = commit(producer, OFFER_TEXT + "A producer edit during the freeze.\n",
-                               message="producer work during the refactor freeze")
-        g(producer, "push", "-q", "origin", "machine/testlab")
-        assert remote_ref(producer, "refs/heads/machine/testlab") == transport_tip
+            g(contributor, "config", key, value)
+        transport_tip = commit(contributor, OFFER_TEXT + "A contributor edit during the freeze.\n",
+                               message="contributor work during the refactor freeze")
+        g(contributor, "push", "-q", "origin", "machine/testlab")
+        assert remote_ref(contributor, "refs/heads/machine/testlab") == transport_tip
     finally:
-        core.release_publisher_lock(lab["store"], token)
+        core.release_maintainer_lock(lab["store"], token)
 
-    published = core.publish(lab["publisher"], lab["store"], current["id"], lab["vault"])
-    p = published["result_sha"]
-    assert g(lab["publisher"], "show", "-s", "--format=%P", p).split() == [lab["base"], tip]
-    assert g(lab["publisher"], "show", "-s", "--format=%T", p) == g(
-        lab["publisher"], "rev-parse", f"{tip}^{{tree}}")
+    integrated = core.integrate(lab["maintainer"], lab["store"], current["id"], lab["vault"])
+    p = integrated["result_sha"]
+    assert g(lab["maintainer"], "show", "-s", "--format=%P", p).split() == [lab["base"], tip]
+    assert g(lab["maintainer"], "show", "-s", "--format=%T", p) == g(
+        lab["maintainer"], "rev-parse", f"{tip}^{{tree}}")
 
-    # The producer's freeze-time work was not consumed and is still pending.
+    # The contributor's freeze-time work was not consumed and is still pending.
     transport_cid = core.candidate_id("owned-skills", "refs/heads/machine/testlab",
                                       p, transport_tip, "skill-review-v1", "transport")
-    # Publication is consumed, but the refactor's receipt still needs delivery.
+    # Integration is consumed, but the refactor's receipt still needs delivery.
     assert pending_now(core, lab) == sorted([
         f"pending {transport_cid}", f"recover {current['id']}"])
 
-    # Publication moved main, so the old refactor submission is stale: it needs
+    # Integration moved main, so the old refactor submission is stale: it needs
     # a merge-main, a fresh review and a new exact-tip submission.
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.capture(lab["publisher"], lab["store"], {"ref": REFACTOR_REF}, kind="refactor")
+        core.capture(lab["maintainer"], lab["store"], {"ref": REFACTOR_REF}, kind="refactor")
     message = str(excinfo.value)
     assert "merge" in message and "submit" in message and "rebase" not in message
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.submit_refactor(lab["publisher"], lab["store"], REFACTOR_REF, tip, refactor_brief())
+        core.submit_refactor(lab["maintainer"], lab["store"], REFACTOR_REF, tip, refactor_brief())
     assert "does not contain" in str(excinfo.value)
 
 
@@ -4298,9 +4298,9 @@ def test_periodic_review_cursor_visits_each_skill_once(core):
 # ---------------------------------------------------------------------------
 # H: end-to-end acceptance matrix (packet 13).
 #
-# Every publisher step below goes through the CORE API against a real local
+# Every maintainer step below goes through the CORE API against a real local
 # bare remote; nothing here hand-builds the integration merge or fabricates a
-# process result. The test acts only as producer (real commits and pushes),
+# process result. The test acts only as contributor (real commits and pushes),
 # reviewing agent (review JSON, conflict resolution, report delivery), and
 # operator (refactor submission, report-specific feedback). All repository,
 # state and report artifacts live under the pytest tmp dir and are test data.
@@ -4372,7 +4372,7 @@ def e2e_review(candidate, summary, files):
 
 
 def e2e_transport_commit(repo, changes, message):
-    """A real producer commit on the current transport checkout, then a push."""
+    """A real contributor commit on the current transport checkout, then a push."""
     for path, text in changes.items():
         target = repo / path
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -4384,81 +4384,81 @@ def e2e_transport_commit(repo, changes, message):
     return tip
 
 
-def e2e_publish_candidate(core, lab, candidate, review):
-    """Record the review and report through CORE, then publish exactly it."""
+def e2e_integrate_candidate(core, lab, candidate, review):
+    """Record the review and report through CORE, then integrate exactly it."""
     current = record_full_review(core, lab, candidate, review)
     assert current["status"] == "report-verified"
-    return core.publish(lab["publisher"], lab["store"], current["id"], lab["vault"])
+    return core.integrate(lab["maintainer"], lab["store"], current["id"], lab["vault"])
 
 
-def test_e2e_two_producers_curated_merge(core, lab, tmp_path, monkeypatch):
-    """Two producer clones edit disjoint paths and separate regions of one file.
+def test_e2e_two_contributors_curated_merge(core, lab, tmp_path, monkeypatch):
+    """Two contributor clones edit disjoint paths and separate regions of one file.
 
     Each contribution is captured, prepared (native merge), reviewed, reported
-    and published through CORE. Main contains both effects, each source tip is
-    an ancestor of published main, and neither source ref is ever reset.
+    and integrated through CORE. Main contains both effects, each source tip is
+    an ancestor of integrated main, and neither source ref is ever reset.
     """
-    producer_a = lab["producer"]
+    contributor_a = lab["contributor"]
 
     # Shared-history setup: one demo skill with two independent sections.
-    g(producer_a, "checkout", "-q", "main")
-    (producer_a / "skills/demo/SKILL.md").write_text(SECTION_TEXT, encoding="utf-8")
-    g(producer_a, "add", "--", "skills/demo/SKILL.md")
-    g(producer_a, "commit", "-q", "-m", "expand the demo skill into sections")
-    m0 = g(producer_a, "rev-parse", "HEAD")
-    g(producer_a, "push", "-q", "origin", "main")
-    g(producer_a, "checkout", "-q", "machine/testlab")
-    g(producer_a, "merge", "-q", "--ff-only", "main")
-    g(producer_a, "push", "-q", "origin", "machine/testlab")
+    g(contributor_a, "checkout", "-q", "main")
+    (contributor_a / "skills/demo/SKILL.md").write_text(SECTION_TEXT, encoding="utf-8")
+    g(contributor_a, "add", "--", "skills/demo/SKILL.md")
+    g(contributor_a, "commit", "-q", "-m", "expand the demo skill into sections")
+    m0 = g(contributor_a, "rev-parse", "HEAD")
+    g(contributor_a, "push", "-q", "origin", "main")
+    g(contributor_a, "checkout", "-q", "machine/testlab")
+    g(contributor_a, "merge", "-q", "--ff-only", "main")
+    g(contributor_a, "push", "-q", "origin", "machine/testlab")
 
-    # Producer B is a separate clone with its own registered transport ref.
-    g(producer_a, "checkout", "-q", "-b", "machine/lab2", m0)
-    g(producer_a, "push", "-q", "-u", "origin", "machine/lab2")
-    g(producer_a, "checkout", "-q", "machine/testlab")
-    producer_b = tmp_path / "producer-b"
+    # Contributor B is a separate clone with its own registered transport ref.
+    g(contributor_a, "checkout", "-q", "-b", "machine/lab2", m0)
+    g(contributor_a, "push", "-q", "-u", "origin", "machine/lab2")
+    g(contributor_a, "checkout", "-q", "machine/testlab")
+    contributor_b = tmp_path / "contributor-b"
     subprocess.run(["git", "clone", "-q", "-b", "machine/lab2", str(lab["remote"]),
-                    str(producer_b)], check=True)
-    for key, value in (("user.name", "Producer B"), ("user.email", "b@example.invalid")):
-        g(producer_b, "config", key, value)
+                    str(contributor_b)], check=True)
+    for key, value in (("user.name", "Contributor B"), ("user.email", "b@example.invalid")):
+        g(contributor_b, "config", key, value)
     second_source = {"ref": "refs/heads/machine/lab2", "machine": "lab2",
                      "profile": "default", "scope": "shared-generic", "enabled": True}
     register_source(lab, second_source)
 
     # A edits the Alpha region and adds a disjoint path.
-    replace_text(producer_a / "skills/demo/SKILL.md", "Alpha base paragraph.",
-                 "Alpha rule from producer A.")
-    (producer_a / "skills/demo/alpha.md").write_text(
-        "Alpha note from producer A.\n", encoding="utf-8")
-    g(producer_a, "add", "--", "skills/demo/SKILL.md", "skills/demo/alpha.md")
-    g(producer_a, "commit", "-q", "-m", "producer A contribution")
-    ta = g(producer_a, "rev-parse", "HEAD")
-    g(producer_a, "push", "-q", "origin", "machine/testlab")
+    replace_text(contributor_a / "skills/demo/SKILL.md", "Alpha base paragraph.",
+                 "Alpha rule from contributor A.")
+    (contributor_a / "skills/demo/alpha.md").write_text(
+        "Alpha note from contributor A.\n", encoding="utf-8")
+    g(contributor_a, "add", "--", "skills/demo/SKILL.md", "skills/demo/alpha.md")
+    g(contributor_a, "commit", "-q", "-m", "contributor A contribution")
+    ta = g(contributor_a, "rev-parse", "HEAD")
+    g(contributor_a, "push", "-q", "origin", "machine/testlab")
 
     # B edits the Beta region of the same file and adds another disjoint path.
-    replace_text(producer_b / "skills/demo/SKILL.md", "Beta base paragraph.",
-                 "Beta rule from producer B.")
-    (producer_b / "skills/demo/beta.md").write_text(
-        "Beta note from producer B.\n", encoding="utf-8")
-    g(producer_b, "add", "--", "skills/demo/SKILL.md", "skills/demo/beta.md")
-    g(producer_b, "commit", "-q", "-m", "producer B contribution")
-    tb = g(producer_b, "rev-parse", "HEAD")
-    g(producer_b, "push", "-q", "origin", "machine/lab2")
+    replace_text(contributor_b / "skills/demo/SKILL.md", "Beta base paragraph.",
+                 "Beta rule from contributor B.")
+    (contributor_b / "skills/demo/beta.md").write_text(
+        "Beta note from contributor B.\n", encoding="utf-8")
+    g(contributor_b, "add", "--", "skills/demo/SKILL.md", "skills/demo/beta.md")
+    g(contributor_b, "commit", "-q", "-m", "contributor B contribution")
+    tb = g(contributor_b, "rev-parse", "HEAD")
+    g(contributor_b, "push", "-q", "origin", "machine/lab2")
 
     # Candidate A: M0 + TA, native clean merge, real review/checks/report.
-    ca = core.capture(lab["publisher"], lab["store"], lab["source"])
+    ca = core.capture(lab["maintainer"], lab["store"], lab["source"])
     assert ca["main_sha"] == m0 and ca["source_sha"] == ta
-    ca = core.prepare(lab["publisher"], lab["store"], ca)
+    ca = core.prepare(lab["maintainer"], lab["store"], ca)
     assert ca["conflict_paths"] == []
     assert sorted(ca["input_paths"]) == ["skills/demo/SKILL.md", "skills/demo/alpha.md"]
-    review_a = e2e_review(ca, "Accept producer A's Alpha wording and disjoint note", [
+    review_a = e2e_review(ca, "Accept contributor A's Alpha wording and disjoint note", [
         e2e_file("skills/demo/SKILL.md", "correction", "accept", ta,
-                 "Alpha rule from producer A.",
-                 "Producer A's reviewed wording for the Alpha section",
+                 "Alpha rule from contributor A.",
+                 "Contributor A's reviewed wording for the Alpha section",
                  [e2e_replacement("skills/demo/SKILL.md", m0, "Alpha base paragraph.",
-                                  "Alpha rule from producer A.",
+                                  "Alpha rule from contributor A.",
                                   "Reviewed Alpha wording replaces the base paragraph")]),
         e2e_file("skills/demo/alpha.md", "addition", "accept", ta,
-                 "Alpha note from producer A.", "A disjoint generic reference note"),
+                 "Alpha note from contributor A.", "A disjoint generic reference note"),
     ])
     ca = record_full_review(core, lab, ca, review_a)
     assert ca["status"] == "report-verified"
@@ -4475,61 +4475,61 @@ def test_e2e_two_producers_curated_merge(core, lab, tmp_path, monkeypatch):
     assert ca["id"] in note_a_bytes.decode("utf-8").replace("`", "")
 
     calls = record_git_calls(core, monkeypatch)
-    pa = core.publish(lab["publisher"], lab["store"], ca["id"], lab["vault"])["result_sha"]
+    pa = core.integrate(lab["maintainer"], lab["store"], ca["id"], lab["vault"])["result_sha"]
     assert_no_history_rewrite(calls)
-    assert e2e_parents(lab["publisher"], pa) == [m0, ta]
-    assert e2e_tree(lab["publisher"], pa) == ca["reviewed_tree"]
-    assert e2e_main(producer_a) == pa
+    assert e2e_parents(lab["maintainer"], pa) == [m0, ta]
+    assert e2e_tree(lab["maintainer"], pa) == ca["reviewed_tree"]
+    assert e2e_main(contributor_a) == pa
 
-    # Candidate B: captured against the published P_A, not against M0.
-    cb = core.capture(lab["publisher"], lab["store"], second_source)
+    # Candidate B: captured against the integrated P_A, not against M0.
+    cb = core.capture(lab["maintainer"], lab["store"], second_source)
     assert cb["main_sha"] == pa and cb["source_sha"] == tb
-    cb = core.prepare(lab["publisher"], lab["store"], cb)
+    cb = core.prepare(lab["maintainer"], lab["store"], cb)
     assert cb["conflict_paths"] == []
     staged_b = (Path(cb["worktree"]) / "skills/demo/SKILL.md").read_text(encoding="utf-8")
-    assert "Alpha rule from producer A." in staged_b
-    assert "Beta rule from producer B." in staged_b
-    review_b = e2e_review(cb, "Accept producer B's Beta wording and disjoint note", [
+    assert "Alpha rule from contributor A." in staged_b
+    assert "Beta rule from contributor B." in staged_b
+    review_b = e2e_review(cb, "Accept contributor B's Beta wording and disjoint note", [
         e2e_file("skills/demo/SKILL.md", "correction", "accept", tb,
-                 "Beta rule from producer B.",
-                 "Producer B's reviewed wording for the Beta section",
+                 "Beta rule from contributor B.",
+                 "Contributor B's reviewed wording for the Beta section",
                  [e2e_replacement("skills/demo/SKILL.md", pa, "Beta base paragraph.",
-                                  "Beta rule from producer B.",
+                                  "Beta rule from contributor B.",
                                   "Reviewed Beta wording replaces the base paragraph")]),
         e2e_file("skills/demo/beta.md", "addition", "accept", tb,
-                 "Beta note from producer B.", "A disjoint generic reference note"),
+                 "Beta note from contributor B.", "A disjoint generic reference note"),
     ])
     cb = record_full_review(core, lab, cb, review_b)
     assert e2e_note(lab, cb).is_file()
     calls = record_git_calls(core, monkeypatch)
-    pb = core.publish(lab["publisher"], lab["store"], cb["id"], lab["vault"])["result_sha"]
+    pb = core.integrate(lab["maintainer"], lab["store"], cb["id"], lab["vault"])["result_sha"]
     assert_no_history_rewrite(calls)
-    assert e2e_parents(lab["publisher"], pb) == [pa, tb]
-    assert e2e_tree(lab["publisher"], pb) == cb["reviewed_tree"]
+    assert e2e_parents(lab["maintainer"], pb) == [pa, tb]
+    assert e2e_tree(lab["maintainer"], pb) == cb["reviewed_tree"]
 
     # Main contains both contributions exactly once; no path was duplicated.
-    g(producer_a, "fetch", "-q", "origin")
-    final_skill = g(producer_a, "show", f"{pb}:skills/demo/SKILL.md")
-    assert final_skill.count("Alpha rule from producer A.") == 1
-    assert final_skill.count("Beta rule from producer B.") == 1
+    g(contributor_a, "fetch", "-q", "origin")
+    final_skill = g(contributor_a, "show", f"{pb}:skills/demo/SKILL.md")
+    assert final_skill.count("Alpha rule from contributor A.") == 1
+    assert final_skill.count("Beta rule from contributor B.") == 1
     assert "Alpha base paragraph." not in final_skill
     assert "Beta base paragraph." not in final_skill
-    assert g(producer_a, "show", f"{pb}:skills/demo/alpha.md") == "Alpha note from producer A."
-    assert g(producer_a, "show", f"{pb}:skills/demo/beta.md") == "Beta note from producer B."
+    assert g(contributor_a, "show", f"{pb}:skills/demo/alpha.md") == "Alpha note from contributor A."
+    assert g(contributor_a, "show", f"{pb}:skills/demo/beta.md") == "Beta note from contributor B."
 
-    # Both source tips are ancestors of published main; both refs are untouched.
-    assert e2e_parents(lab["publisher"], pb) == [pa, tb]
-    assert e2e_parents(lab["publisher"], pa) == [m0, ta]
-    assert core.is_ancestor(lab["publisher"], ta, pb)
-    assert core.is_ancestor(lab["publisher"], tb, pb)
-    assert core.is_ancestor(lab["publisher"], m0, pb)
-    assert remote_ref(producer_a, "refs/heads/machine/testlab") == ta
-    assert remote_ref(producer_b, "refs/heads/machine/lab2") == tb
-    assert core.source_status(lab["publisher"], pb, ta) == "consumed"
-    assert core.source_status(lab["publisher"], pb, tb) == "consumed"
-    assert e2e_main(producer_a) == pb
+    # Both source tips are ancestors of integrated main; both refs are untouched.
+    assert e2e_parents(lab["maintainer"], pb) == [pa, tb]
+    assert e2e_parents(lab["maintainer"], pa) == [m0, ta]
+    assert core.is_ancestor(lab["maintainer"], ta, pb)
+    assert core.is_ancestor(lab["maintainer"], tb, pb)
+    assert core.is_ancestor(lab["maintainer"], m0, pb)
+    assert remote_ref(contributor_a, "refs/heads/machine/testlab") == ta
+    assert remote_ref(contributor_b, "refs/heads/machine/lab2") == tb
+    assert core.source_status(lab["maintainer"], pb, ta) == "consumed"
+    assert core.source_status(lab["maintainer"], pb, tb) == "consumed"
+    assert e2e_main(contributor_a) == pb
 
-    # The report bytes the publisher verified are still the immutable fixture notes.
+    # The report bytes the maintainer verified are still the immutable fixture notes.
     assert note_a.read_bytes() == note_a_bytes
     assert ca["report_sha256"] == hashlib.sha256(note_a_bytes).hexdigest()
     note_b = e2e_note(lab, cb)
@@ -4539,7 +4539,7 @@ def test_e2e_two_producers_curated_merge(core, lab, tmp_path, monkeypatch):
     assert cb["source_sha"] in note_b.read_text(encoding="utf-8")
     assert lab["vault"].is_relative_to(tmp_path)          # generated report = test data
 
-    e2e_print("two_producers_curated_merge", M=m0, TA=ta, TB=tb, P_A=pa, P_B=pb,
+    e2e_print("two_contributors_curated_merge", M=m0, TA=ta, TB=tb, P_A=pa, P_B=pb,
               tree_A=ca["reviewed_tree"], tree_B=cb["reviewed_tree"], main=pb)
 
 
@@ -4553,17 +4553,17 @@ def test_e2e_same_line_semantic_replacement(core, lab, tmp_path):
     g(second, "push", "-q", "origin", "main")
     m = g(second, "rev-parse", "HEAD")
 
-    producer = lab["producer"]
-    replace_text(producer / "skills/demo/SKILL.md", "Base instruction.",
+    contributor = lab["contributor"]
+    replace_text(contributor / "skills/demo/SKILL.md", "Base instruction.",
                  "Base instruction, revised on the machine.")
-    g(producer, "add", "--", "skills/demo/SKILL.md")
-    g(producer, "commit", "-q", "-m", "source rewrites the instruction")
-    t = g(producer, "rev-parse", "HEAD")
-    g(producer, "push", "-q", "origin", "machine/testlab")
+    g(contributor, "add", "--", "skills/demo/SKILL.md")
+    g(contributor, "commit", "-q", "-m", "source rewrites the instruction")
+    t = g(contributor, "rev-parse", "HEAD")
+    g(contributor, "push", "-q", "origin", "machine/testlab")
 
-    c = core.capture(lab["publisher"], lab["store"], lab["source"])
+    c = core.capture(lab["maintainer"], lab["store"], lab["source"])
     assert c["main_sha"] == m and c["source_sha"] == t
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     assert c["conflict_paths"] == ["skills/demo/SKILL.md"]
     worktree = Path(c["worktree"])
     conflicted = (worktree / "skills/demo/SKILL.md").read_text(encoding="utf-8")
@@ -4592,7 +4592,7 @@ def test_e2e_same_line_semantic_replacement(core, lab, tmp_path):
                                   "Base instruction, unified and reviewed.",
                                   "Synthesised replacement removes both conflicting rewrites")]),
     ])
-    core.validate_review(c, review, lab["publisher"], worktree)
+    core.validate_review(c, review, lab["maintainer"], worktree)
     checks = core.run_checks(c, worktree)
     validation = core.validate_tree(c, worktree, review)
     core.record_review(lab["store"], c["id"], review, checks, validation)
@@ -4603,17 +4603,17 @@ def test_e2e_same_line_semantic_replacement(core, lab, tmp_path):
     note.write_text(text, encoding="utf-8")
     core.verify_report(current, text, lab["vault"])
 
-    p = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])["result_sha"]
-    assert e2e_parents(lab["publisher"], p) == [m, t]
-    assert e2e_tree(lab["publisher"], p) == validation["tree"]
-    g(lab["producer"], "fetch", "-q", "origin")
-    final_text = g(lab["producer"], "show", f"{p}:skills/demo/SKILL.md")
+    p = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])["result_sha"]
+    assert e2e_parents(lab["maintainer"], p) == [m, t]
+    assert e2e_tree(lab["maintainer"], p) == validation["tree"]
+    g(lab["contributor"], "fetch", "-q", "origin")
+    final_text = g(lab["contributor"], "show", f"{p}:skills/demo/SKILL.md")
     assert final_text == resolved_text.rstrip("\n")
     assert final_text.count("Base instruction") == 1
     assert "revised on main." not in final_text
     assert "revised on the machine." not in final_text
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t
-    assert e2e_main(lab["producer"]) == p
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t
+    assert e2e_main(lab["contributor"]) == p
 
     # The report keeps the old and new anchors it validated.
     report = note.read_text(encoding="utf-8")
@@ -4629,63 +4629,63 @@ def test_e2e_concurrent_T2_after_capture(core, lab):
     """T2 arrives during review; P still contains exactly T and no text twice."""
     t = offer(lab)
     c = record_full_review(core, lab, core.prepare(
-        lab["publisher"], lab["store"],
-        core.capture(lab["publisher"], lab["store"], lab["source"])))
+        lab["maintainer"], lab["store"],
+        core.capture(lab["maintainer"], lab["store"], lab["source"])))
     assert c["status"] == "report-verified"
 
     # A later source commit lands while the reviewed candidate is still T.
     t2 = offer(lab, OFFER_TEXT + "An extra T2 rule.\n")
-    assert t2 != t and core.is_ancestor(lab["producer"], t, t2)
+    assert t2 != t and core.is_ancestor(lab["contributor"], t, t2)
 
-    p = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])["result_sha"]
-    assert e2e_parents(lab["publisher"], p) == [lab["base"], t]
-    assert e2e_tree(lab["publisher"], p) == c["reviewed_tree"]
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t2
-    assert e2e_main(lab["producer"]) == p
-    assert core.is_ancestor(lab["publisher"], t, p)
-    assert not core.is_ancestor(lab["publisher"], t2, p)
+    p = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])["result_sha"]
+    assert e2e_parents(lab["maintainer"], p) == [lab["base"], t]
+    assert e2e_tree(lab["maintainer"], p) == c["reviewed_tree"]
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t2
+    assert e2e_main(lab["contributor"]) == p
+    assert core.is_ancestor(lab["maintainer"], t, p)
+    assert not core.is_ancestor(lab["maintainer"], t2, p)
 
-    # The next candidate captures T2 against published P and adds only T2's effect.
-    n = core.capture(lab["publisher"], lab["store"], lab["source"])
+    # The next candidate captures T2 against integrated P and adds only T2's effect.
+    n = core.capture(lab["maintainer"], lab["store"], lab["source"])
     assert n["id"] != c["id"]
     assert n["main_sha"] == p and n["source_sha"] == t2
-    assert core.source_status(lab["publisher"], p, t2) == "pending"
-    n = core.prepare(lab["publisher"], lab["store"], n)
+    assert core.source_status(lab["maintainer"], p, t2) == "pending"
+    n = core.prepare(lab["maintainer"], lab["store"], n)
     assert n["conflict_paths"] == []
     staged = (Path(n["worktree"]) / "skills/demo/SKILL.md").read_text(encoding="utf-8")
     assert staged.count("A useful generic rule.") == 1
     assert staged.count("An extra T2 rule.") == 1
-    review = e2e_review(n, "Accept only the new T2 effect on published main", [
+    review = e2e_review(n, "Accept only the new T2 effect on integrated main", [
         e2e_file("skills/demo/SKILL.md", "addition", "accept", t2,
                  "An extra T2 rule.", "A new generic rule not yet on main"),
     ])
     n = record_full_review(core, lab, n, review)
-    p2 = core.publish(lab["publisher"], lab["store"], n["id"], lab["vault"])["result_sha"]
-    assert e2e_parents(lab["publisher"], p2) == [p, t2]
-    g(lab["producer"], "fetch", "-q", "origin")
-    final_text = g(lab["producer"], "show", f"{p2}:skills/demo/SKILL.md")
+    p2 = core.integrate(lab["maintainer"], lab["store"], n["id"], lab["vault"])["result_sha"]
+    assert e2e_parents(lab["maintainer"], p2) == [p, t2]
+    g(lab["contributor"], "fetch", "-q", "origin")
+    final_text = g(lab["contributor"], "show", f"{p2}:skills/demo/SKILL.md")
     assert final_text.count("A useful generic rule.") == 1
     assert final_text.count("An extra T2 rule.") == 1
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t2
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t2
 
     e2e_print("concurrent_T2_after_capture", M=lab["base"], T=t, T2=t2, P=p, P2=p2,
-              parents_P=e2e_parents(lab["publisher"], p),
-              parents_P2=e2e_parents(lab["publisher"], p2),
+              parents_P=e2e_parents(lab["maintainer"], p),
+              parents_P2=e2e_parents(lab["maintainer"], p2),
               tree_T=c["reviewed_tree"], tree_T2=n["reviewed_tree"],
-              tree_P=e2e_tree(lab["publisher"], p),
-              remote_main=e2e_main(lab["producer"]),
-              remote_source=remote_ref(lab["producer"], "refs/heads/machine/testlab"))
+              tree_P=e2e_tree(lab["maintainer"], p),
+              remote_main=e2e_main(lab["contributor"]),
+              remote_source=remote_ref(lab["contributor"], "refs/heads/machine/testlab"))
 
 
 def test_e2e_refactor_while_transport_continues(core, lab, tmp_path, monkeypatch):
-    """A real refactor worktree integrates as an exact-tip merge while producer C
+    """A real refactor worktree integrates as an exact-tip merge while contributor C
     keeps committing and pushing transport work that is never swept."""
-    producer = lab["producer"]
+    contributor = lab["contributor"]
     m0 = lab["base"]
 
     # A real refactor worktree from M, on its own refactor branch.
     refactor_wt = tmp_path / "refactor-worktree"
-    g(producer, "worktree", "add", "-q", "-b", "refactor/skill-sync",
+    g(contributor, "worktree", "add", "-q", "-b", "refactor/skill-sync",
       str(refactor_wt), m0)
     (refactor_wt / "skills/demo/SKILL.md").write_text(REFACTOR_TEXT, encoding="utf-8")
     g(refactor_wt, "add", "--", "skills/demo/SKILL.md")
@@ -4693,113 +4693,113 @@ def test_e2e_refactor_while_transport_continues(core, lab, tmp_path, monkeypatch
     r0 = g(refactor_wt, "rev-parse", "HEAD")
     g(refactor_wt, "push", "-q", "origin", "refactor/skill-sync")
 
-    # Producer C is an independent transport clone; it keeps working throughout.
-    producer_c = tmp_path / "producer-c"
+    # Contributor C is an independent transport clone; it keeps working throughout.
+    contributor_c = tmp_path / "contributor-c"
     subprocess.run(["git", "clone", "-q", "-b", "machine/testlab", str(lab["remote"]),
-                    str(producer_c)], check=True)
-    for key, value in (("user.name", "Producer C"), ("user.email", "c@example.invalid")):
-        g(producer_c, "config", key, value)
+                    str(contributor_c)], check=True)
+    for key, value in (("user.name", "Contributor C"), ("user.email", "c@example.invalid")):
+        g(contributor_c, "config", key, value)
     tc1 = e2e_transport_commit(
-        producer_c, {"skills/demo/normal.md": "Normal transport contribution.\n"},
-        "producer C normal contribution")
+        contributor_c, {"skills/demo/normal.md": "Normal transport contribution.\n"},
+        "contributor C normal contribution")
 
     # main advances through the ordinary reviewed path.
-    c1 = core.capture(lab["publisher"], lab["store"], lab["source"])
+    c1 = core.capture(lab["maintainer"], lab["store"], lab["source"])
     assert c1["main_sha"] == m0 and c1["source_sha"] == tc1
-    c1 = core.prepare(lab["publisher"], lab["store"], c1)
-    review_c1 = e2e_review(c1, "Accept producer C's normal contribution", [
+    c1 = core.prepare(lab["maintainer"], lab["store"], c1)
+    review_c1 = e2e_review(c1, "Accept contributor C's normal contribution", [
         e2e_file("skills/demo/normal.md", "addition", "accept", tc1,
                  "Normal transport contribution.", "A normal generic transport note"),
     ])
-    r1 = e2e_publish_candidate(core, lab, c1, review_c1)
+    r1 = e2e_integrate_candidate(core, lab, c1, review_c1)
     p1 = r1["result_sha"]
-    assert e2e_parents(lab["publisher"], p1) == [m0, tc1]
-    assert e2e_main(producer_c) == p1
+    assert e2e_parents(lab["maintainer"], p1) == [m0, tc1]
+    assert e2e_main(contributor_c) == p1
 
     # The developer merges main into the refactor branch (never rebases) and
-    # pushes the exact merged tip; producer C keeps pushing meanwhile.
+    # pushes the exact merged tip; contributor C keeps pushing meanwhile.
     g(refactor_wt, "fetch", "-q", "origin")
     g(refactor_wt, "merge", "-q", "--no-ff", "--no-edit", "-m",
       "merge origin/main into the refactor branch", "origin/main")
     tr = g(refactor_wt, "rev-parse", "HEAD")
     g(refactor_wt, "push", "-q", "origin", "refactor/skill-sync")
-    g(lab["publisher"], "fetch", "-q", "origin")
-    assert core.is_ancestor(lab["publisher"], p1, tr)
+    g(lab["maintainer"], "fetch", "-q", "origin")
+    assert core.is_ancestor(lab["maintainer"], p1, tr)
     tc2 = e2e_transport_commit(
-        producer_c, {"skills/demo/later.md": "A later transport contribution.\n"},
-        "producer C work while the refactor is reviewed")
+        contributor_c, {"skills/demo/later.md": "A later transport contribution.\n"},
+        "contributor C work while the refactor is reviewed")
 
     # No sweep stages the refactor branch: transport capture refuses it outright
     # and the monitor lists only the unacknowledged transport tip.
     refactor_cid = core.candidate_id("owned-skills", REFACTOR_REF, p1, tr,
                                      "skill-review-v1", "refactor")
-    lines = core.pending_lines(lab["publisher"], lab["store"])
+    lines = core.pending_lines(lab["maintainer"], lab["store"])
     transport_cid = core.candidate_id("owned-skills", "refs/heads/machine/testlab",
                                       p1, tc2, "skill-review-v1", "transport")
     assert lines == sorted([f"pending {transport_cid}", f"recover {c1['id']}"])
     assert refactor_cid not in "\n".join(lines)
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.capture(lab["publisher"], lab["store"], {"ref": REFACTOR_REF}, kind="transport")
+        core.capture(lab["maintainer"], lab["store"], {"ref": REFACTOR_REF}, kind="transport")
     assert "not registered" in str(excinfo.value)
     assert not (lab["store"] / "candidates" / refactor_cid).exists()
 
     # Explicit exact-tip submission, capture, native merge, review, true merge.
-    submission = core.submit_refactor(lab["publisher"], lab["store"], REFACTOR_REF, tr,
+    submission = core.submit_refactor(lab["maintainer"], lab["store"], REFACTOR_REF, tr,
                                       refactor_brief())
     assert submission["id"] == refactor_cid and submission["tip"] == tr
-    cand = core.capture(lab["publisher"], lab["store"], {"ref": REFACTOR_REF}, kind="refactor")
+    cand = core.capture(lab["maintainer"], lab["store"], {"ref": REFACTOR_REF}, kind="refactor")
     assert cand["main_sha"] == p1 and cand["source_sha"] == tr
-    cand = core.prepare(lab["publisher"], lab["store"], cand)
+    cand = core.prepare(lab["maintainer"], lab["store"], cand)
     assert cand["input_paths"] == ["skills/demo/SKILL.md"]
     cand = record_full_review(core, lab, cand, refactor_review(cand))
 
-    # Producer C advances once more during the final review/promotion window.
+    # Contributor C advances once more during the final review/promotion window.
     tc3 = e2e_transport_commit(
-        producer_c, {"skills/demo/even-later.md": "Yet another transport contribution.\n"},
-        "producer C work during the refactor promotion")
+        contributor_c, {"skills/demo/even-later.md": "Yet another transport contribution.\n"},
+        "contributor C work during the refactor promotion")
     calls = record_git_calls(core, monkeypatch)
-    p2 = core.publish(lab["publisher"], lab["store"], cand["id"], lab["vault"])["result_sha"]
+    p2 = core.integrate(lab["maintainer"], lab["store"], cand["id"], lab["vault"])["result_sha"]
     assert_no_history_rewrite(calls)
 
     # P has ordered parents [M,T] and tree(P) == tree(submitted T).
-    assert e2e_parents(lab["publisher"], p2) == [p1, tr]
-    assert e2e_tree(lab["publisher"], p2) == e2e_tree(lab["publisher"], tr)
-    assert cand["reviewed_tree"] == e2e_tree(lab["publisher"], tr)
-    assert e2e_main(producer_c) == p2
+    assert e2e_parents(lab["maintainer"], p2) == [p1, tr]
+    assert e2e_tree(lab["maintainer"], p2) == e2e_tree(lab["maintainer"], tr)
+    assert cand["reviewed_tree"] == e2e_tree(lab["maintainer"], tr)
+    assert e2e_main(contributor_c) == p2
 
     # The refactor source ref and worktree are untouched (no reset/rebase/force).
-    assert remote_ref(producer, REFACTOR_REF) == tr
+    assert remote_ref(contributor, REFACTOR_REF) == tr
     assert g(refactor_wt, "rev-parse", "HEAD") == tr
     assert g(refactor_wt, "branch", "--show-current") == "refactor/skill-sync"
     assert g(refactor_wt, "status", "--porcelain") == ""
 
-    # Producer C's last work is still pending; it was not swept into the refactor.
-    g(producer_c, "fetch", "-q", "origin")
+    # Contributor C's last work is still pending; it was not swept into the refactor.
+    g(contributor_c, "fetch", "-q", "origin")
     assert "Yet another transport contribution." in g(
-        producer_c, "show", f"{tc3}:skills/demo/even-later.md")
-    assert "even-later.md" not in g(producer_c, "ls-tree", "-r", "--name-only", p2).split()
-    pending_after = core.pending_lines(lab["publisher"], lab["store"])
+        contributor_c, "show", f"{tc3}:skills/demo/even-later.md")
+    assert "even-later.md" not in g(contributor_c, "ls-tree", "-r", "--name-only", p2).split()
+    pending_after = core.pending_lines(lab["maintainer"], lab["store"])
     transport_cid_after = core.candidate_id(
         "owned-skills", "refs/heads/machine/testlab", p2, tc3,
         "skill-review-v1", "transport")
     assert pending_after == sorted([
         f"pending {transport_cid_after}", f"recover {c1['id']}", f"recover {cand['id']}"])
-    assert core.source_status(lab["publisher"], p2, tr) == "consumed"
-    assert core.source_status(lab["publisher"], p2, tc1) == "consumed"
+    assert core.source_status(lab["maintainer"], p2, tr) == "consumed"
+    assert core.source_status(lab["maintainer"], p2, tc1) == "consumed"
 
     e2e_print("refactor_while_transport_continues", M0=m0, R0=r0, M1=p1, T=tr, P=p2,
-              TC1=tc1, TC2=tc2, TC3=tc3, tree_P=e2e_tree(lab["publisher"], p2))
+              TC1=tc1, TC2=tc2, TC3=tc3, tree_P=e2e_tree(lab["maintainer"], p2))
 
 
 def test_e2e_report_failure_then_retry(core, lab, monkeypatch):
-    """A missing report blocks publication before any push; the same candidate
-    publishes exactly once after the fixture report is written and verified."""
+    """A missing report blocks integration before any push; the same candidate
+    integrates exactly once after the fixture report is written and verified."""
     t = offer(lab)
-    c = core.capture(lab["publisher"], lab["store"], lab["source"])
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.capture(lab["maintainer"], lab["store"], lab["source"])
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     worktree = Path(c["worktree"])
     review = review_for(c)
-    core.validate_review(c, review, lab["publisher"], worktree)
+    core.validate_review(c, review, lab["maintainer"], worktree)
     checks = core.run_checks(c, worktree)
     validation = core.validate_tree(c, worktree, review)
     core.record_review(lab["store"], c["id"], review, checks, validation)
@@ -4811,46 +4811,46 @@ def test_e2e_report_failure_then_retry(core, lab, monkeypatch):
 
     calls = record_git_calls(core, monkeypatch)
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert "report-verified" in str(excinfo.value)
     with pytest.raises(core.WorkflowError) as excinfo:
         core.verify_report(c, expected_text, lab["vault"])
     assert "missing" in str(excinfo.value)
     assert not any(args and args[0] in ("push", "commit-tree") for args in calls)
-    assert remote_ref(lab["producer"], "refs/heads/main") == lab["base"]
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t
+    assert remote_ref(lab["contributor"], "refs/heads/main") == lab["base"]
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t
     assert core.load_candidate(lab["store"], c["id"])["status"] == "reviewed"
 
-    # The fixture report is written later; exact bytes verify, same candidate publishes.
+    # The fixture report is written later; exact bytes verify, same candidate integrates.
     note.parent.mkdir(parents=True, exist_ok=True)
     note.write_text(expected_text, encoding="utf-8")
     verified = core.verify_report(c, expected_text, lab["vault"])
     assert verified["status"] == "report-verified"
 
     calls = record_git_calls(core, monkeypatch)
-    p = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])["result_sha"]
+    p = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])["result_sha"]
     assert len([args for args in calls if args and args[0] == "push"]) == 1
-    assert e2e_parents(lab["publisher"], p) == [lab["base"], t]
-    assert e2e_tree(lab["publisher"], p) == validation["tree"]
-    assert e2e_main(lab["producer"]) == p
-    assert remote_ref(lab["producer"], "refs/heads/machine/testlab") == t
-    count = int(g(lab["publisher"], "rev-list", "--count", p))
+    assert e2e_parents(lab["maintainer"], p) == [lab["base"], t]
+    assert e2e_tree(lab["maintainer"], p) == validation["tree"]
+    assert e2e_main(lab["contributor"]) == p
+    assert remote_ref(lab["contributor"], "refs/heads/machine/testlab") == t
+    count = int(g(lab["maintainer"], "rev-list", "--count", p))
     assert count == 3
 
     # A repeat call reuses the saved P and adds no integration commit or push.
     calls = record_git_calls(core, monkeypatch)
-    again = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
+    again = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
     assert again["result_sha"] == p
     assert not any(args and args[0] in ("push", "commit-tree") for args in calls)
-    assert int(g(lab["publisher"], "rev-list", "--count", p)) == count
-    assert e2e_main(lab["producer"]) == p
-    assert core.source_status(lab["publisher"], p, t) == "consumed"
+    assert int(g(lab["maintainer"], "rev-list", "--count", p)) == count
+    assert e2e_main(lab["contributor"]) == p
+    assert core.source_status(lab["maintainer"], p, t) == "consumed"
 
     e2e_print("report_failure_then_retry", M=lab["base"], T=t, P=p, count=count)
 
 
-def test_e2e_crash_after_publish_then_reconcile(core, lab, monkeypatch):
-    """The push succeeds, the published-status write raises, and reconcile repairs
+def test_e2e_crash_after_integration_then_reconcile(core, lab, monkeypatch):
+    """The push succeeds, the integrated-status write raises, and reconcile repairs
     the journal from saved P without a second merge; the receipt is idempotent."""
     t = offer(lab)
     c = reviewed(core, lab)
@@ -4858,36 +4858,36 @@ def test_e2e_crash_after_publish_then_reconcile(core, lab, monkeypatch):
     crashed = {"raised": False}
 
     def dying_write(store, cid, state):
-        if state.get("status") == "published" and not crashed["raised"]:
+        if state.get("status") == "integrated" and not crashed["raised"]:
             crashed["raised"] = True
-            raise OSError("simulated disk failure writing the published status")
+            raise OSError("simulated disk failure writing the integrated status")
         return real_write(store, cid, state)
 
     monkeypatch.setattr(core, "_write_candidate_state", dying_write)
     with pytest.raises(OSError) as excinfo:
-        core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])
-    assert "published status" in str(excinfo.value)
+        core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])
+    assert "integrated status" in str(excinfo.value)
     monkeypatch.setattr(core, "_write_candidate_state", real_write)
 
     interrupted = core.load_candidate(lab["store"], c["id"])
     p = interrupted["result_sha"]
-    assert interrupted["status"] == "publish-intent"
-    assert interrupted["published_main"] == ""
-    assert e2e_main(lab["producer"]) == p            # the real push did land
-    assert e2e_parents(lab["publisher"], p) == [lab["base"], t]
-    count = int(g(lab["publisher"], "rev-list", "--count", p))
+    assert interrupted["status"] == "integrate-intent"
+    assert interrupted["integrated_main"] == ""
+    assert e2e_main(lab["contributor"]) == p            # the real push did land
+    assert e2e_parents(lab["maintainer"], p) == [lab["base"], t]
+    count = int(g(lab["maintainer"], "rev-list", "--count", p))
     assert count == 3
-    # The publisher lock was released by the crash path and can be reacquired.
-    token = core.acquire_publisher_lock(lab["store"])
-    core.release_publisher_lock(lab["store"], token)
+    # The maintainer lock was released by the crash path and can be reacquired.
+    token = core.acquire_maintainer_lock(lab["store"])
+    core.release_maintainer_lock(lab["store"], token)
 
     calls = record_git_calls(core, monkeypatch)
-    reconciled = core.reconcile(lab["publisher"], lab["store"], c["id"])
+    reconciled = core.reconcile(lab["maintainer"], lab["store"], c["id"])
     no_publication_writes(calls)
-    assert reconciled["status"] in ("published", "receipt-pending")
-    assert reconciled["result_sha"] == p and reconciled["published_main"] == p
-    assert e2e_main(lab["producer"]) == p
-    assert int(g(lab["publisher"], "rev-list", "--count", p)) == count
+    assert reconciled["status"] in ("integrated", "receipt-pending")
+    assert reconciled["result_sha"] == p and reconciled["integrated_main"] == p
+    assert e2e_main(lab["contributor"]) == p
+    assert int(g(lab["maintainer"], "rev-list", "--count", p)) == count
 
     # Receipt delivery and its repeat are pure state/read work.
     payload = store_result_text(lab, c["id"])
@@ -4904,38 +4904,38 @@ def test_e2e_crash_after_publish_then_reconcile(core, lab, monkeypatch):
     assert store_result_text(lab, c["id"]) == payload
     no_publication_writes(calls)
 
-    repeated = core.reconcile(lab["publisher"], lab["store"], c["id"])
+    repeated = core.reconcile(lab["maintainer"], lab["store"], c["id"])
     assert repeated["status"] == "complete" and repeated["result_sha"] == p
-    assert int(g(lab["publisher"], "rev-list", "--count", p)) == count
-    assert e2e_main(lab["producer"]) == p
+    assert int(g(lab["maintainer"], "rev-list", "--count", p)) == count
+    assert e2e_main(lab["contributor"]) == p
     assert receipt_path(lab, c["id"]).read_text(encoding="utf-8") == payload
 
-    e2e_print("crash_after_publish_then_reconcile", M=lab["base"], T=t, P=p,
+    e2e_print("crash_after_integration_then_reconcile", M=lab["base"], T=t, P=p,
               count=count, receipt_sha=first["receipt_sha256"])
 
 
 def test_e2e_invalid_scope_does_not_leak_report(core, lab):
     """Unregistered and mixed-trust captures are refused before content is
     rendered; the diagnostic names only a non-sensitive source identifier."""
-    producer = lab["producer"]
+    contributor = lab["contributor"]
     marker = "PRIVATE_VAULT_MARKER_7c41e2_SHOULD_NOT_LEAK"
-    (producer / "private/notes.md").parent.mkdir(parents=True, exist_ok=True)
-    (producer / "private/notes.md").write_text(marker + "\n", encoding="utf-8")
-    g(producer, "add", "--", "private/notes.md")
-    g(producer, "commit", "-q", "-m", "private mixed-trust content")
-    tip = g(producer, "rev-parse", "HEAD")
-    g(producer, "push", "-q", "origin", "machine/testlab")
-    g(producer, "push", "-q", "origin", "HEAD:refs/heads/machine/private-lab")
+    (contributor / "private/notes.md").parent.mkdir(parents=True, exist_ok=True)
+    (contributor / "private/notes.md").write_text(marker + "\n", encoding="utf-8")
+    g(contributor, "add", "--", "private/notes.md")
+    g(contributor, "commit", "-q", "-m", "private mixed-trust content")
+    tip = g(contributor, "rev-parse", "HEAD")
+    g(contributor, "push", "-q", "origin", "machine/testlab")
+    g(contributor, "push", "-q", "origin", "HEAD:refs/heads/machine/private-lab")
     private_tip = tip
 
     vault_before = sorted(path.relative_to(lab["vault"]).as_posix()
                           for path in lab["vault"].rglob("*") if path.is_file())
     assert vault_before == []
-    main_before = remote_ref(producer, "refs/heads/main")
+    main_before = remote_ref(contributor, "refs/heads/main")
 
-    # 1. A ref that is not registered for this publisher.
+    # 1. A ref that is not registered for this maintainer.
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.capture(lab["publisher"], lab["store"],
+        core.capture(lab["maintainer"], lab["store"],
                      {"ref": "refs/heads/machine/unregistered"})
     message = str(excinfo.value)
     assert "not registered" in message
@@ -4944,23 +4944,23 @@ def test_e2e_invalid_scope_does_not_leak_report(core, lab):
 
     # 2. A caller trying to override the registry's mixed-trust identity.
     with pytest.raises(core.WorkflowError) as excinfo:
-        core.capture(lab["publisher"], lab["store"], {
+        core.capture(lab["maintainer"], lab["store"], {
             "ref": "refs/heads/machine/testlab",
             "machine": "private-machine",
             "profile": "private-profile",
             "scope": "profile-private",
         })
     message = str(excinfo.value)
-    assert "does not match the publisher registry" in message
+    assert "does not match the maintainer registry" in message
     assert "refs/heads/machine/testlab" in message
     assert marker not in message
 
     # Nothing was fetched, rendered, journaled or reported: no leak anywhere.
     assert not (lab["store"] / "candidates").exists()
     assert not (lab["store"] / "worktrees").exists()
-    assert g(lab["publisher"], "for-each-ref", "--format=%(refname)", "refs/hermes-sync") == ""
+    assert g(lab["maintainer"], "for-each-ref", "--format=%(refname)", "refs/hermes-sync") == ""
     absent = subprocess.run(
-        ["git", "-C", str(lab["publisher"]), "rev-parse", "--verify", "--quiet",
+        ["git", "-C", str(lab["maintainer"]), "rev-parse", "--verify", "--quiet",
          "refs/remotes/origin/machine/unregistered"],
         capture_output=True, text=True, env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))
     assert absent.returncode != 0
@@ -4969,9 +4969,9 @@ def test_e2e_invalid_scope_does_not_leak_report(core, lab):
     for path in lab["store"].rglob("*"):
         if path.is_file():
             assert marker not in path.read_text(encoding="utf-8", errors="replace")
-    assert remote_ref(producer, "refs/heads/main") == main_before
-    assert remote_ref(producer, "refs/heads/machine/testlab") == private_tip
-    assert remote_ref(producer, "refs/heads/machine/private-lab") == private_tip
+    assert remote_ref(contributor, "refs/heads/main") == main_before
+    assert remote_ref(contributor, "refs/heads/machine/testlab") == private_tip
+    assert remote_ref(contributor, "refs/heads/machine/private-lab") == private_tip
 
     e2e_print("invalid_scope_does_not_leak_report", tip=private_tip,
               main=main_before, vault_files=len(vault_before),
@@ -4981,42 +4981,42 @@ def test_e2e_invalid_scope_does_not_leak_report(core, lab):
 def test_e2e_optional_feedback_corrects_current_state(core, lab):
     """Report-specific feedback prepares a correction against the LATEST main,
     keeps unrelated later changes, and never rewrites the original report."""
-    producer = lab["producer"]
+    contributor = lab["contributor"]
 
     # P1: the reviewed rule that will later be corrected.
     t1 = e2e_transport_commit(
-        producer,
+        contributor,
         {"skills/demo/SKILL.md": BASE_TEXT + "Always use tabs for indentation.\n"},
         "add the indentation rule")
-    c1 = core.capture(lab["publisher"], lab["store"], lab["source"])
-    c1 = core.prepare(lab["publisher"], lab["store"], c1)
+    c1 = core.capture(lab["maintainer"], lab["store"], lab["source"])
+    c1 = core.prepare(lab["maintainer"], lab["store"], c1)
     r1 = e2e_review(c1, "Accept the indentation rule", [
         e2e_file("skills/demo/SKILL.md", "addition", "accept", t1,
                  "Always use tabs for indentation.", "A generic indentation rule"),
     ])
-    r1 = e2e_publish_candidate(core, lab, c1, r1)
+    r1 = e2e_integrate_candidate(core, lab, c1, r1)
     p1 = r1["result_sha"]
-    assert e2e_parents(lab["publisher"], p1) == [lab["base"], t1]
+    assert e2e_parents(lab["maintainer"], p1) == [lab["base"], t1]
 
     # P2: another contribution edits the same skill and removes unrelated old bytes.
-    g(producer, "fetch", "-q", "origin")
-    g(producer, "merge", "-q", "--ff-only", "origin/main")
+    g(contributor, "fetch", "-q", "origin")
+    g(contributor, "merge", "-q", "--ff-only", "origin/main")
     t2 = e2e_transport_commit(
-        producer,
+        contributor,
         {"skills/demo/SKILL.md": "# Demo\n\nAlways use tabs for indentation.\n"
                                   "Document every command with one example.\n"},
         "later contribution on the same skill")
-    c2 = core.capture(lab["publisher"], lab["store"], lab["source"])
+    c2 = core.capture(lab["maintainer"], lab["store"], lab["source"])
     assert c2["main_sha"] == p1 and c2["source_sha"] == t2
-    c2 = core.prepare(lab["publisher"], lab["store"], c2)
+    c2 = core.prepare(lab["maintainer"], lab["store"], c2)
     r2 = e2e_review(c2, "Accept the later contribution that removes an obsolete line", [
         e2e_file("skills/demo/SKILL.md", "correction", "accept", t2,
                  "Document every command with one example.",
                  "Later contribution reviewed against the current skill"),
     ])
-    r2 = e2e_publish_candidate(core, lab, c2, r2)
+    r2 = e2e_integrate_candidate(core, lab, c2, r2)
     p2 = r2["result_sha"]
-    assert e2e_parents(lab["publisher"], p2) == [p1, t2]
+    assert e2e_parents(lab["maintainer"], p2) == [p1, t2]
 
     # The original report stays exactly as reviewed, including the bad rule.
     original_note = e2e_note(lab, r1)
@@ -5026,17 +5026,17 @@ def test_e2e_optional_feedback_corrects_current_state(core, lab):
     assert "Always use tabs for indentation." in original_bytes.decode("utf-8")
 
     # User feedback on that report corrects the rule on top of the LATEST main.
-    g(producer, "fetch", "-q", "origin")
-    g(producer, "merge", "-q", "--ff-only", "origin/main")
+    g(contributor, "fetch", "-q", "origin")
+    g(contributor, "merge", "-q", "--ff-only", "origin/main")
     t3 = e2e_transport_commit(
-        producer,
+        contributor,
         {"skills/demo/SKILL.md": "# Demo\n\nPrefer spaces and follow repository style.\n"
                                   "Document every command with one example.\n"},
         "apply report-specific feedback")
-    c3 = core.capture(lab["publisher"], lab["store"], lab["source"])
+    c3 = core.capture(lab["maintainer"], lab["store"], lab["source"])
     assert c3["main_sha"] == p2 and c3["source_sha"] == t3
     assert c3["main_sha"] != c1["main_sha"]
-    c3 = core.prepare(lab["publisher"], lab["store"], c3)
+    c3 = core.prepare(lab["maintainer"], lab["store"], c3)
     review3 = e2e_review(
         c3, "Apply report-specific feedback to the current skill state", [
             e2e_file("skills/demo/SKILL.md", "correction", "accept", t3,
@@ -5047,13 +5047,13 @@ def test_e2e_optional_feedback_corrects_current_state(core, lab):
                                       "Prefer spaces and follow repository style.",
                                       "The reviewed tabs rule is replaced per user feedback")]),
         ])
-    r3 = e2e_publish_candidate(core, lab, c3, review3)
+    r3 = e2e_integrate_candidate(core, lab, c3, review3)
     p3 = r3["result_sha"]
-    assert e2e_parents(lab["publisher"], p3) == [p2, t3]
-    assert e2e_tree(lab["publisher"], p3) == r3["reviewed_tree"]
+    assert e2e_parents(lab["maintainer"], p3) == [p2, t3]
+    assert e2e_tree(lab["maintainer"], p3) == r3["reviewed_tree"]
 
-    g(producer, "fetch", "-q", "origin")
-    final_text = g(producer, "show", f"{p3}:skills/demo/SKILL.md")
+    g(contributor, "fetch", "-q", "origin")
+    final_text = g(contributor, "show", f"{p3}:skills/demo/SKILL.md")
     assert final_text.count("Prefer spaces and follow repository style.") == 1
     assert "Always use tabs for indentation." not in final_text
     assert "Document every command with one example." in final_text
@@ -5067,8 +5067,8 @@ def test_e2e_optional_feedback_corrects_current_state(core, lab):
     assert "Always use tabs for indentation." in correction_note
     assert "Prefer spaces and follow repository style." in correction_note
     assert "per user feedback" in correction_note
-    assert remote_ref(producer, "refs/heads/machine/testlab") == t3
-    assert e2e_main(producer) == p3
+    assert remote_ref(contributor, "refs/heads/machine/testlab") == t3
+    assert e2e_main(contributor) == p3
 
     e2e_print("optional_feedback_corrects_current_state", P1=p1, P2=p2, P3=p3,
               latest_M=c3["main_sha"], T3=t3,
@@ -5076,22 +5076,22 @@ def test_e2e_optional_feedback_corrects_current_state(core, lab):
 
 
 def test_e2e_no_change_monitor_is_quiet(core, lab, tmp_path):
-    """A same-tree tip gets one reported merge acknowledgment; the producer FF
+    """A same-tree tip gets one reported merge acknowledgment; the contributor FF
     refresh adds no commit and the monitor then stays quiet."""
-    producer = lab["producer"]
-    g(producer, "commit", "-q", "--allow-empty", "-m", "empty acknowledgment tip")
-    t = g(producer, "rev-parse", "HEAD")
-    g(producer, "push", "-q", "origin", "machine/testlab")
-    assert e2e_tree(producer, t) == e2e_tree(producer, lab["base"])
-    assert not core.is_ancestor(producer, t, lab["base"])
+    contributor = lab["contributor"]
+    g(contributor, "commit", "-q", "--allow-empty", "-m", "empty acknowledgment tip")
+    t = g(contributor, "rev-parse", "HEAD")
+    g(contributor, "push", "-q", "origin", "machine/testlab")
+    assert e2e_tree(contributor, t) == e2e_tree(contributor, lab["base"])
+    assert not core.is_ancestor(contributor, t, lab["base"])
 
     cid = core.candidate_id("owned-skills", "refs/heads/machine/testlab",
                             lab["base"], t, "skill-review-v1", "transport")
     assert pending_now(core, lab) == [f"pending {cid}"]
 
-    c = core.capture(lab["publisher"], lab["store"], lab["source"])
+    c = core.capture(lab["maintainer"], lab["store"], lab["source"])
     assert c["main_sha"] == lab["base"] and c["source_sha"] == t
-    c = core.prepare(lab["publisher"], lab["store"], c)
+    c = core.prepare(lab["maintainer"], lab["store"], c)
     assert c["input_paths"] == [] and c["conflict_paths"] == []
     review = {
         "schema": 1, "candidate_id": c["id"], "main_sha": c["main_sha"],
@@ -5101,44 +5101,44 @@ def test_e2e_no_change_monitor_is_quiet(core, lab, tmp_path):
         "files": [],
     }
     c = record_full_review(core, lab, c, review)
-    p = core.publish(lab["publisher"], lab["store"], c["id"], lab["vault"])["result_sha"]
-    assert e2e_parents(lab["publisher"], p) == [lab["base"], t]
-    assert e2e_tree(lab["publisher"], p) == e2e_tree(lab["publisher"], lab["base"])
-    assert e2e_main(producer) == p
-    assert core.source_status(lab["publisher"], p, t) == "consumed"
+    p = core.integrate(lab["maintainer"], lab["store"], c["id"], lab["vault"])["result_sha"]
+    assert e2e_parents(lab["maintainer"], p) == [lab["base"], t]
+    assert e2e_tree(lab["maintainer"], p) == e2e_tree(lab["maintainer"], lab["base"])
+    assert e2e_main(contributor) == p
+    assert core.source_status(lab["maintainer"], p, t) == "consumed"
     report = (lab["vault"] / c["report_relative_path"]).read_text(encoding="utf-8")
     assert "empty" in report.lower() and "acknowledges an empty-net candidate" in report
     assert pending_now(core, lab) == [f"recover {c['id']}"]
     # Consumed input is not completion: only exact receipt delivery makes it quiet.
-    published = core.load_candidate(lab["store"], c["id"])
-    receipt_path(lab, c["id"]).write_text(core.render_result(published), encoding="utf-8")
+    integrated = core.load_candidate(lab["store"], c["id"])
+    receipt_path(lab, c["id"]).write_text(core.render_result(integrated), encoding="utf-8")
     assert core.verify_result(lab["store"], c["id"], lab["vault"])["status"] == "complete"
     assert pending_now(core, lab) == []
 
-    # The producer's session-start refresh fast-forwards consumed work only.
-    home = tmp_path / "producer-home"
+    # The contributor's session-start refresh fast-forwards consumed work only.
+    home = tmp_path / "contributor-home"
     home.mkdir()
     (home / "skill-repo-sync.json").write_text(json.dumps({
         "version": "2.0.0",
         "machine": "testlab",
         "ledger_cursor": 0,
-        "repos": [{"name": producer.name, "path": str(producer), "remote": "origin"}],
+        "repos": [{"name": contributor.name, "path": str(contributor), "remote": "origin"}],
     }), encoding="utf-8")
-    commits_before = int(g(lab["publisher"], "rev-list", "--count", p))
-    head_before = g(producer, "rev-parse", "HEAD")
+    commits_before = int(g(lab["maintainer"], "rev-list", "--count", p))
+    head_before = g(contributor, "rev-parse", "HEAD")
     assert head_before == t
     env = dict(os.environ, HERMES_HOME=str(home), GIT_TERMINAL_PROMPT="0")
     result = subprocess.run([sys.executable, str(ENGINE), "--sync-from-main", "--verbose"],
                             env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "fast-forwarded" in (result.stdout + result.stderr).lower()
-    assert g(producer, "rev-parse", "HEAD") == p
-    assert g(producer, "branch", "--show-current") == "machine/testlab"
-    assert g(producer, "status", "--porcelain") == ""
-    assert int(g(producer, "rev-list", "--count", p)) == commits_before
-    assert "Fast-forward" in g(producer, "reflog", "-1", "--format=%gs")
-    assert remote_ref(producer, "refs/heads/machine/testlab") == t
-    assert e2e_main(producer) == p
+    assert g(contributor, "rev-parse", "HEAD") == p
+    assert g(contributor, "branch", "--show-current") == "machine/testlab"
+    assert g(contributor, "status", "--porcelain") == ""
+    assert int(g(contributor, "rev-list", "--count", p)) == commits_before
+    assert "Fast-forward" in g(contributor, "reflog", "-1", "--format=%gs")
+    assert remote_ref(contributor, "refs/heads/machine/testlab") == t
+    assert e2e_main(contributor) == p
     assert pending_now(core, lab) == []
 
     # A second refresh and monitor pass create nothing and report nothing.
@@ -5146,10 +5146,10 @@ def test_e2e_no_change_monitor_is_quiet(core, lab, tmp_path):
                            env=env, capture_output=True, text=True)
     assert again.returncode == 0, again.stdout + again.stderr
     assert "already at origin/main" in (again.stdout + again.stderr).lower()
-    assert g(producer, "rev-parse", "HEAD") == p
-    assert int(g(producer, "rev-list", "--count", p)) == commits_before
+    assert g(contributor, "rev-parse", "HEAD") == p
+    assert int(g(contributor, "rev-list", "--count", p)) == commits_before
     assert pending_now(core, lab) == []
     assert pending_now(core, lab) == []
 
     e2e_print("no_change_monitor_is_quiet", M=lab["base"], T=t, P=p,
-              tree=e2e_tree(lab["publisher"], p), commits=commits_before)
+              tree=e2e_tree(lab["maintainer"], p), commits=commits_before)

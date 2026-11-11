@@ -19,7 +19,7 @@ SKILL_ROOT = REPO_ROOT / "skills" / "skill-library-maintenance"
 ENGINE = SKILL_ROOT / "scripts" / "skill-repo-sync.py"
 CORE = SKILL_ROOT / "scripts" / "skill_repo_workflow.py"
 INSTALLER = SKILL_ROOT / "scripts" / "install-skill-repo-sync.py"
-CONSOLIDATE = SKILL_ROOT / "scripts" / "skill-repo-consolidate.py"
+CONSOLIDATE = SKILL_ROOT / "scripts" / "skill-repo-maintain.py"
 AUDITOR = SKILL_ROOT / "scripts" / "audit-skill-library.py"
 
 MACHINE = "testlab"
@@ -105,7 +105,7 @@ def invoke_engine(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def invoke_consolidate(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def invoke_integrate(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env["HERMES_HOME"] = str(home)
     env["GIT_TERMINAL_PROMPT"] = "0"
@@ -436,10 +436,10 @@ def test_stage_cursor_ignores_concurrent_ledger_append(tmp_path: Path) -> None:
 
 
 def test_stage_never_pushes(tmp_path: Path) -> None:
-    """Push-gate: stage secures work locally; the pre-consolidation run owns the push."""
+    """Push-gate: stage secures work locally; the pre-integration run owns the push."""
     repo, _, target, home = setup_repo(tmp_path)
     original = target.read_text(encoding="utf-8")
-    target.write_text("name: demo\n\nReviewed hold-for-pre-consolidation change.\n", encoding="utf-8")
+    target.write_text("name: demo\n\nReviewed hold-for-pre-integration change.\n", encoding="utf-8")
     write_state(home, [repo])
     write_ledger(home, [entry_for(target, original, target.read_text(encoding="utf-8"), entry_id="entry-1")])
     remote_before = remote_head(repo, f"machine/{MACHINE}")
@@ -467,7 +467,7 @@ def test_stage_never_pushes(tmp_path: Path) -> None:
 
 
 def load_core():
-    spec = importlib.util.spec_from_file_location("producer_test_workflow", CORE)
+    spec = importlib.util.spec_from_file_location("contributor_test_workflow", CORE)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -475,45 +475,45 @@ def load_core():
     return module
 
 
-def publish_merge(repo: Path, remote: Path, tmp_path: Path, *, quote: str) -> str:
-    """Create a real v3 publisher merge P (parents M,T) through the shared core.
+def integrate_merge(repo: Path, remote: Path, tmp_path: Path, *, quote: str) -> str:
+    """Create a real v3 maintainer merge P (parents M,T) through the shared core.
 
-    The producer test files deliberately do not hand-build the integration merge:
-    refresh has to work against the exact artifact the publisher produces.
+    The contributor test files deliberately do not hand-build the integration merge:
+    refresh has to work against the exact artifact the maintainer produces.
     """
     core = load_core()
-    publisher = tmp_path / "producer publisher clone"
-    subprocess.run(["git", "clone", "-q", "-b", "main", str(remote), str(publisher)], check=True)
-    run_git(publisher, "config", "user.name", "Publisher")
-    run_git(publisher, "config", "user.email", "publisher@example.invalid")
-    store = tmp_path / "producer publisher store"
-    vault = tmp_path / "producer report vault"
+    maintainer = tmp_path / "contributor maintainer clone"
+    subprocess.run(["git", "clone", "-q", "-b", "main", str(remote), str(maintainer)], check=True)
+    run_git(maintainer, "config", "user.name", "Maintainer")
+    run_git(maintainer, "config", "user.email", "maintainer@example.invalid")
+    store = tmp_path / "contributor maintainer store"
+    vault = tmp_path / "contributor report vault"
     store.mkdir()
     vault.mkdir()
     config = {
         "schema": 3,
-        "repo_id": "producer-refresh-fixture",
+        "repo_id": "contributor-refresh-fixture",
         "remote": "origin",
-        "publisher_repo": str(publisher),
+        "maintainer_repo": str(maintainer),
         "runtime_roots": [str(repo)],
         "policy": "skill-review-v1",
-        "publisher_identity": {"machine": "publisher-test", "profile": "default",
+        "maintainer_identity": {"machine": "maintainer-test", "profile": "default",
                                "scope": "shared-generic"},
         "sources": [{"ref": f"refs/heads/machine/{MACHINE}", "machine": MACHINE,
                      "profile": "default", "scope": "shared-generic", "enabled": True}],
         "report": {"vault": "fixture", "vault_root": str(vault),
                    "directory": "projects/hermes-agent/reports"},
     }
-    (store / "publisher.json").write_text(json.dumps(config), encoding="utf-8")
-    candidate = core.capture(publisher, store, config["sources"][0])
-    candidate = core.prepare(publisher, store, candidate)
+    (store / "maintainer.json").write_text(json.dumps(config), encoding="utf-8")
+    candidate = core.capture(maintainer, store, config["sources"][0])
+    candidate = core.prepare(maintainer, store, candidate)
     worktree = Path(candidate["worktree"])
     review = {
         "schema": 1,
         "candidate_id": candidate["id"],
         "main_sha": candidate["main_sha"],
         "source_sha": candidate["source_sha"],
-        "summary": "Accept the producer's generic lesson",
+        "summary": "Accept the contributor's generic lesson",
         "files": [{
             "path": "skills/demo/SKILL.md",
             "change_type": "addition",
@@ -524,7 +524,7 @@ def publish_merge(repo: Path, remote: Path, tmp_path: Path, *, quote: str) -> st
             "replacements": [],
         }],
     }
-    core.validate_review(candidate, review, publisher, worktree)
+    core.validate_review(candidate, review, maintainer, worktree)
     checks = core.run_checks(candidate, worktree)
     validation = core.validate_tree(candidate, worktree, review)
     core.record_review(store, candidate["id"], review, checks, validation)
@@ -534,8 +534,8 @@ def publish_merge(repo: Path, remote: Path, tmp_path: Path, *, quote: str) -> st
     note.parent.mkdir(parents=True, exist_ok=True)
     note.write_text(text, encoding="utf-8")
     core.verify_report(current, text, vault)
-    result = core.publish(publisher, store, candidate["id"], vault)
-    assert result["status"] == "published"
+    result = core.integrate(maintainer, store, candidate["id"], vault)
+    assert result["status"] == "integrated"
     return result["result_sha"]
 
 
@@ -559,38 +559,38 @@ def read_state(home: Path) -> dict:
     return json.loads((home / "skill-repo-sync.json").read_text(encoding="utf-8"))
 
 
-def test_refresh_refuses_held_producer_lock_without_writes(tmp_path: Path) -> None:
-    """A held producer lock blocks an otherwise eligible FF before even fetching."""
+def test_refresh_refuses_held_contributor_lock_without_writes(tmp_path: Path) -> None:
+    """A held contributor lock blocks an otherwise eligible FF before even fetching."""
     repo, remote, _, home = setup_repo(tmp_path)
     write_state(home, [repo])
-    publisher = tmp_path / "refresh publisher"
-    run_git(tmp_path, "clone", "-q", "-b", "main", str(remote), str(publisher))
-    run_git(publisher, "config", "user.name", "Publisher")
-    run_git(publisher, "config", "user.email", "publisher@example.invalid")
-    (publisher / "published.md").write_text("new published main content\n", encoding="utf-8")
-    run_git(publisher, "add", "--", "published.md")
-    run_git(publisher, "commit", "-m", "advance published main")
-    run_git(publisher, "push", "origin", "main")
-    published = run_git(publisher, "rev-parse", "HEAD").stdout.strip()
+    maintainer = tmp_path / "refresh maintainer"
+    run_git(tmp_path, "clone", "-q", "-b", "main", str(remote), str(maintainer))
+    run_git(maintainer, "config", "user.name", "Maintainer")
+    run_git(maintainer, "config", "user.email", "maintainer@example.invalid")
+    (maintainer / "integrated.md").write_text("new integrated main content\n", encoding="utf-8")
+    run_git(maintainer, "add", "--", "integrated.md")
+    run_git(maintainer, "commit", "-m", "advance integrated main")
+    run_git(maintainer, "push", "origin", "main")
+    integrated = run_git(maintainer, "rev-parse", "HEAD").stdout.strip()
     core = load_core()
-    token = core.acquire_producer_lock(repo)
-    lock_file = core.producer_lock_path(repo)
+    token = core.acquire_contributor_lock(repo)
+    lock_file = core.contributor_lock_path(repo)
     before = (_repo_snapshot(repo), _file_inventory(home))
     try:
         result = invoke_engine(home, "--sync-from-main", "--hook")
 
         assert result.returncode == 12, result.stdout + result.stderr
-        assert "producer lock is held" in result.stderr
+        assert "contributor lock is held" in result.stderr
         assert str(lock_file) in result.stderr
         assert result.stdout == ""
         assert (_repo_snapshot(repo), _file_inventory(home)) == before
     finally:
-        core.release_producer_lock(repo, token)
+        core.release_contributor_lock(repo, token)
 
     retry = invoke_engine(home, "--sync-from-main")
     assert retry.returncode == 0, retry.stdout + retry.stderr
-    assert run_git(repo, "rev-parse", "HEAD").stdout.strip() == published
-    assert (repo / "published.md").read_text(encoding="utf-8") == "new published main content\n"
+    assert run_git(repo, "rev-parse", "HEAD").stdout.strip() == integrated
+    assert (repo / "integrated.md").read_text(encoding="utf-8") == "new integrated main content\n"
     assert not lock_file.exists()
 
 
@@ -621,7 +621,7 @@ def test_refresh_refuses_any_main_checkout_as_branch_policy(
 
 
 def test_refresh_fast_forwards_consumed_source(tmp_path: Path) -> None:
-    """A v3 publisher merge makes the producer tip consumed; refresh fast-forwards.
+    """A v3 maintainer merge makes the contributor tip consumed; refresh fast-forwards.
 
     No reset, rebase or autostash: the reflog of the refresh must say
     "Fast-forward" and the transport branch name stays exactly as it was.
@@ -635,9 +635,9 @@ def test_refresh_fast_forwards_consumed_source(tmp_path: Path) -> None:
     tip = run_git(repo, "rev-parse", "HEAD").stdout.strip()
     run_git(repo, "push", "origin", f"HEAD:refs/heads/machine/{MACHINE}")
 
-    published = publish_merge(repo, remote, tmp_path, quote="Consumed update.")
+    integrated = integrate_merge(repo, remote, tmp_path, quote="Consumed update.")
     run_git(repo, "fetch", "origin")
-    parents = run_git(repo, "show", "-s", "--format=%P", published).stdout.split()
+    parents = run_git(repo, "show", "-s", "--format=%P", integrated).stdout.split()
     assert parents == [run_git(repo, "rev-parse", "origin/main^1").stdout.strip(), tip]
 
     result = invoke_engine(home, "--sync-from-main", "--verbose")
@@ -646,7 +646,7 @@ def test_refresh_fast_forwards_consumed_source(tmp_path: Path) -> None:
     output = result.stdout + result.stderr
     assert "fast-forward" in output.lower()
     head = run_git(repo, "rev-parse", "HEAD").stdout.strip()
-    assert head == published
+    assert head == integrated
     assert head == run_git(repo, "rev-parse", "origin/main").stdout.strip()
     assert run_git(repo, "branch", "--show-current").stdout.strip() == f"machine/{MACHINE}"
     assert run_git(repo, "status", "--porcelain").stdout == ""
@@ -658,7 +658,7 @@ def test_refresh_fast_forwards_consumed_source(tmp_path: Path) -> None:
 def test_refresh_diverged_work_is_preserved(tmp_path: Path) -> None:
     """Divergence keeps the local commit, index and dirty bytes; the hook reports it.
 
-    The deliberate pre-consolidation merge is a real Git merge of P into C and
+    The deliberate pre-integration merge is a real Git merge of P into C and
     both sides' content survives — never an ours/theirs default.
     """
     repo, remote, target, home = setup_repo(tmp_path)
@@ -669,9 +669,9 @@ def test_refresh_diverged_work_is_preserved(tmp_path: Path) -> None:
                                   entry_id="entry-1")])
     assert invoke_engine(home, "--stage").returncode == 0
     run_git(repo, "push", "origin", f"HEAD:refs/heads/machine/{MACHINE}")
-    published = publish_merge(repo, remote, tmp_path, quote="Consumed update.")
+    integrated = integrate_merge(repo, remote, tmp_path, quote="Consumed update.")
 
-    # Local work C is a sibling of P (both children of the published T).
+    # Local work C is a sibling of P (both children of the integrated T).
     lesson = repo / "skills" / "demo" / "lesson-c.md"
     lesson.write_text("Local lesson C.\n", encoding="utf-8")
     target.write_text("name: demo\n\nConsumed update.\nLocal lesson C in SKILL.\n",
@@ -685,16 +685,16 @@ def test_refresh_diverged_work_is_preserved(tmp_path: Path) -> None:
     result = invoke_engine(home, "--sync-from-main", "--hook")
 
     assert result.returncode == 12
-    assert "pre-consolidation merge required" in (result.stdout + result.stderr)
+    assert "pre-integration merge required" in (result.stdout + result.stderr)
     assert run_git(repo, "rev-parse", "HEAD").stdout.strip() == local
     assert run_git(repo, "diff", "--cached", "--name-only").stdout == ""
     assert dirty.read_bytes() == b"uncommitted local bytes that must survive\n"
-    assert run_git(repo, "rev-parse", "origin/main").stdout.strip() == published
+    assert run_git(repo, "rev-parse", "origin/main").stdout.strip() == integrated
 
-    # Deliberate pre-consolidation merge: both C and the curated P survive.
-    run_git(repo, "merge", "--no-ff", "-m", "pre-consolidation merge", "origin/main")
+    # Deliberate pre-integration merge: both C and the curated P survive.
+    run_git(repo, "merge", "--no-ff", "-m", "pre-integration merge", "origin/main")
     merge = run_git(repo, "rev-parse", "HEAD").stdout.strip()
-    assert run_git(repo, "show", "-s", "--format=%P", merge).stdout.split() == [local, published]
+    assert run_git(repo, "show", "-s", "--format=%P", merge).stdout.split() == [local, integrated]
     assert lesson.read_text(encoding="utf-8") == "Local lesson C.\n"
     assert "Consumed update." in target.read_text(encoding="utf-8")
     assert dirty.read_bytes() == b"uncommitted local bytes that must survive\n"
@@ -713,7 +713,7 @@ def test_refresh_noop_does_not_create_echo_commit(tmp_path: Path) -> None:
     assert "already at origin/main" in equal.stdout + equal.stderr
     assert run_git(repo, "rev-parse", "HEAD").stdout.strip() == head_before
 
-    # Local work ahead of a published main: main is already an ancestor, so the
+    # Local work ahead of a integrated main: main is already an ancestor, so the
     # refresh integrates nothing and must not create an empty echo merge.
     target.write_text("name: demo\n\nLocal pending work.\n", encoding="utf-8")
     run_git(repo, "add", "--", "skills/demo/SKILL.md")
@@ -747,17 +747,17 @@ def test_refresh_fetch_failure_is_nonzero_and_leaves_head(tmp_path: Path) -> Non
 
 
 def test_refresh_on_dirty_worktree_is_noop(tmp_path: Path) -> None:
-    """A dirty worktree is never integrated, even when published main is ahead."""
+    """A dirty worktree is never integrated, even when integrated main is ahead."""
     repo, remote, target, home = setup_repo(tmp_path)
     write_state(home, [repo])
-    # Advance published main through an independent clone.
+    # Advance integrated main through an independent clone.
     other = tmp_path / "main-only clone"
     run_git(tmp_path, "clone", "-q", "-b", "main", str(remote), str(other))
     run_git(other, "config", "user.name", "Other")
     run_git(other, "config", "user.email", "other@example.invalid")
-    (other / "main-only.md").write_text("published main work\n", encoding="utf-8")
+    (other / "main-only.md").write_text("integrated main work\n", encoding="utf-8")
     run_git(other, "add", "--", "main-only.md")
-    run_git(other, "commit", "-m", "published main work")
+    run_git(other, "commit", "-m", "integrated main work")
     run_git(other, "push", "origin", "main")
     target.write_text("name: demo\n\nDirty local edit.\n", encoding="utf-8")
     head_before = run_git(repo, "rev-parse", "HEAD").stdout.strip()
@@ -789,13 +789,13 @@ def test_refresh_refuses_an_in_progress_merge(tmp_path: Path) -> None:
     assert "Git operation already in progress" in (result.stdout + result.stderr)
 
 
-# --- producer lock (staging vs pre-consolidation) ---------------------------------------------------
+# --- contributor lock (staging vs pre-integration) ---------------------------------------------------
 
 
-def test_stage_refuses_preconsolidation_lock(tmp_path: Path) -> None:
-    """A held pre-consolidation lock blocks staging without touching files or index.
+def test_stage_refuses_preintegration_lock(tmp_path: Path) -> None:
+    """A held pre-integration lock blocks staging without touching files or index.
 
-    The lock is one owner-token file at the producer repo's Git common dir, so
+    The lock is one owner-token file at the contributor repo's Git common dir, so
     the same refusal applies in both directions (staging vs push) — there is no
     second lock to accidentally bypass.
     """
@@ -809,7 +809,7 @@ def test_stage_refuses_preconsolidation_lock(tmp_path: Path) -> None:
     locked = invoke_engine(home, "--lock")
     assert locked.returncode == 0, locked.stdout + locked.stderr
     common = run_git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
-    lock_file = Path(common) / "hermes-sync" / "producer.lock"
+    lock_file = Path(common) / "hermes-sync" / "contributor.lock"
     assert lock_file.is_file()
 
     head_before = run_git(repo, "rev-parse", "HEAD").stdout.strip()
@@ -820,17 +820,17 @@ def test_stage_refuses_preconsolidation_lock(tmp_path: Path) -> None:
     refused = invoke_engine(home, "--stage")
 
     assert refused.returncode == 12
-    assert "producer lock is held" in refused.stdout + refused.stderr
+    assert "contributor lock is held" in refused.stdout + refused.stderr
     assert run_git(repo, "rev-parse", "HEAD").stdout.strip() == head_before
     assert run_git(repo, "status", "--porcelain").stdout == status_before
     assert run_git(repo, "diff", "--cached", "--name-only").stdout == index_before
     assert state_path.read_bytes() == state_before
     assert remote_head(repo, f"machine/{MACHINE}") == remote_before
 
-    # Reciprocal: the pre-consolidation push refuses while the same lock is held.
+    # Reciprocal: the pre-integration push refuses while the same lock is held.
     push = invoke_engine(home, "--push-reviewed", head_before)
     assert push.returncode == 12
-    assert "producer lock is held" in push.stdout + push.stderr
+    assert "contributor lock is held" in push.stdout + push.stderr
     assert remote_head(repo, f"machine/{MACHINE}") == remote_before
 
     unlocked = invoke_engine(home, "--unlock")
@@ -845,7 +845,7 @@ def test_stage_refuses_preconsolidation_lock(tmp_path: Path) -> None:
 # --- push the exact reviewed tip -------------------------------------------------------------------
 
 
-def test_push_publishes_reviewed_tip_not_advanced_head(tmp_path: Path) -> None:
+def test_push_reviewed_tip_not_advanced_head(tmp_path: Path) -> None:
     """Publish T only; a later local T2 stays local and unpublished."""
     repo, remote, target, home = setup_repo(tmp_path)
     original = target.read_text(encoding="utf-8")
@@ -915,7 +915,7 @@ def test_push_reviewed_refuses_commit_outside_transport_history(tmp_path: Path) 
 
 
 def test_source_history_removed_exposure_still_blocks_push(tmp_path: Path) -> None:
-    """A clean final tree does not make the removed exposure publishable.
+    """A clean final tree does not make the removed exposure integrable.
 
     The fixture value is synthetic and must never appear in output or state.
     """
@@ -962,7 +962,7 @@ def test_source_history_removed_exposure_still_blocks_push(tmp_path: Path) -> No
 
 
 def state_values_containing(home: Path) -> str:
-    """Serialize producer state and the stage report for a no-echo assertion."""
+    """Serialize contributor state and the stage report for a no-echo assertion."""
     parts = []
     for name in ("skill-repo-sync.json", "stage-report.json"):
         path = home / name
@@ -971,7 +971,7 @@ def state_values_containing(home: Path) -> str:
     return "\n".join(parts)
 
 
-# --- selfcheck & consolidate helpers --------------------------------------------------------------
+# --- selfcheck & integrate helpers --------------------------------------------------------------
 
 
 def test_selfcheck_reports_machine_and_policy(tmp_path: Path) -> None:
@@ -997,8 +997,8 @@ def test_selfcheck_missing_machine_is_explicit(tmp_path: Path) -> None:
     assert "machine" in (result.stdout + result.stderr).lower()
 
 
-def test_consolidate_legacy_modes_are_retired_and_reset_never_writes(tmp_path: Path) -> None:
-    """The v2 collection/preflight/merge modes cannot be used as a publication
+def test_maintain_legacy_modes_are_retired_and_reset_never_writes(tmp_path: Path) -> None:
+    """The v2 collection/preflight/merge modes cannot be used as a integration
     bypass: they refuse before any fetch or write, and --reset-branch stays a
     no-write policy refusal."""
     repo, remote, target, home = setup_repo(tmp_path)
@@ -1008,13 +1008,13 @@ def test_consolidate_legacy_modes_are_retired_and_reset_never_writes(tmp_path: P
     run_git(repo, "push")
     staged_tip = run_git(repo, "rev-parse", "HEAD").stdout.strip()
 
-    consolidator = tmp_path / "consolidator clone"
-    run_git(tmp_path, "clone", str(remote), str(consolidator))
-    run_git(consolidator, "config", "user.name", "Consolidator")
-    run_git(consolidator, "config", "user.email", "consolidator@example.invalid")
+    maintainer = tmp_path / "maintainer clone"
+    run_git(tmp_path, "clone", str(remote), str(maintainer))
+    run_git(maintainer, "config", "user.name", "Maintainer")
+    run_git(maintainer, "config", "user.email", "maintainer@example.invalid")
     outdir = tmp_path / "collect out"
 
-    before = remote_head(consolidator, f"machine/{MACHINE}")
+    before = remote_head(maintainer, f"machine/{MACHINE}")
     for mode, args in (
         ("--collect", ["--collect", "--outdir", str(outdir)]),
         ("--preflight", ["--preflight", "--outdir", str(outdir)]),
@@ -1022,42 +1022,42 @@ def test_consolidate_legacy_modes_are_retired_and_reset_never_writes(tmp_path: P
         ("--apply-decisions", ["--apply-decisions", str(tmp_path / "d.json"),
                                "--outdir", str(outdir)]),
     ):
-        result = invoke_consolidate(home, *args, "--repo", str(consolidator))
+        result = invoke_integrate(home, *args, "--repo", str(maintainer))
         assert result.returncode == 12, (mode, result.stderr)
         assert "retired:" in result.stderr and mode in result.stderr
         assert result.stdout == ""
     assert not outdir.exists()
-    assert remote_head(consolidator, f"machine/{MACHINE}") == before == staged_tip
+    assert remote_head(maintainer, f"machine/{MACHINE}") == before == staged_tip
 
     # --reset-branch is retired: no force push, the branch keeps its content.
-    reset = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(consolidator),
+    reset = invoke_integrate(home, "--reset-branch", MACHINE, "--repo", str(maintainer),
                                "--confirm-consumed")
     assert reset.returncode == 12
     assert "retired:" in reset.stderr and "--reset-branch" in reset.stderr
-    assert remote_head(consolidator, f"machine/{MACHINE}") == staged_tip
+    assert remote_head(maintainer, f"machine/{MACHINE}") == staged_tip
 
 
-def test_consolidate_retired_reset_refuses_without_confirmation(tmp_path: Path) -> None:
+def test_maintain_retired_reset_refuses_without_confirmation(tmp_path: Path) -> None:
     """The old confirmation gate is moot: the mode is retired and never writes a remote."""
     repo, remote, target, home = setup_repo(tmp_path)
-    target.write_text("name: demo\n\nNot yet consolidated.\n", encoding="utf-8")
+    target.write_text("name: demo\n\nNot yet integrated.\n", encoding="utf-8")
     run_git(repo, "add", "--", "skills/demo/SKILL.md")
     run_git(repo, "commit", "-m", "stage: unique pending work")
     run_git(repo, "push")
 
-    consolidator = tmp_path / "consolidator clone"
-    run_git(tmp_path, "clone", str(remote), str(consolidator))
-    run_git(consolidator, "config", "user.name", "Consolidator")
-    run_git(consolidator, "config", "user.email", "consolidator@example.invalid")
-    branch_before = remote_head(consolidator, f"machine/{MACHINE}")
-    main_before = remote_head(consolidator, "main")
+    maintainer = tmp_path / "maintainer clone"
+    run_git(tmp_path, "clone", str(remote), str(maintainer))
+    run_git(maintainer, "config", "user.name", "Maintainer")
+    run_git(maintainer, "config", "user.email", "maintainer@example.invalid")
+    branch_before = remote_head(maintainer, f"machine/{MACHINE}")
+    main_before = remote_head(maintainer, "main")
 
-    result = invoke_consolidate(home, "--reset-branch", MACHINE, "--repo", str(consolidator))
+    result = invoke_integrate(home, "--reset-branch", MACHINE, "--repo", str(maintainer))
 
     assert result.returncode == 12
     assert "retired:" in result.stderr
-    assert remote_head(consolidator, f"machine/{MACHINE}") == branch_before
-    assert remote_head(consolidator, "main") == main_before
+    assert remote_head(maintainer, f"machine/{MACHINE}") == branch_before
+    assert remote_head(maintainer, "main") == main_before
 
 
 # --- installer ------------------------------------------------------------------------------------
@@ -1195,7 +1195,7 @@ def test_installer_installs_on_machine_branch_without_global_consent(tmp_path: P
 
     assert result.returncode == 0, result.stderr or result.stdout
     state = json.loads((home / "skill-repo-sync.json").read_text(encoding="utf-8"))
-    assert state["machine"] == MACHINE and state["sync_model"] == "stage-consolidate-v2"
+    assert state["machine"] == MACHINE and state["sync_model"] == "stage-integrate-v2"
     assert state["ledger_cursor"] == 0
     wrapper_text = (home / "bin" / "skill-repo-sync").read_text(encoding="utf-8")
     installed_engine = home / "bin" / ENGINE.name
@@ -1406,7 +1406,7 @@ def test_installer_appends_session_hook_and_preserves_unrelated_hooks(tmp_path: 
     (home / "skills").mkdir(parents=True)
     unrelated = {"command": "/opt/team/session-hook.sh", "timeout": 45, "matcher": "*"}
     telemetry = {"command": "~/.hermes/agent-hooks/telemetry.sh", "event": "on_session_start"}
-    lifecycle = [{"command": "/opt/team/v1-publisher.sh", "timeout": 30}]
+    lifecycle = [{"command": "/opt/team/v1-maintainer.sh", "timeout": 30}]
     env, calls_log, config_file = installer_env(tmp_path, home, {
         "hooks.on_session_start": [dict(unrelated), dict(telemetry)],
         "hooks.on_skill_lifecycle": [dict(item) for item in lifecycle],

@@ -1,15 +1,15 @@
-# Shared skill repo: stage and consolidate (cross-installation sync)
+# Shared skill repo: stage and integrate (cross-installation sync)
 
 Applies when the same skill repository is mounted on more than one Hermes installation
-(`skills.external_dirs`). The design is **Stage & Consolidate**: no machine session ever writes `main`;
+(`skills.external_dirs`). The design is **Stage & Integrate**: no machine session ever writes `main`;
 each installation stages its work onto a transport branch `machine/<hostname>`, and one monitor-gated
-consolidator consumes the transport branches one per pass, one `main` commit per consumed branch.
+maintainer consumes the transport branches one per pass, one `main` commit per consumed branch.
 
 ## The problem this solves
 
 The background review writes lessons into skills through `skill_manage` — including skills in a
 shared, git-versioned repository — and every installation accumulates manual edits beside them.
-Left alone, those writes collide across machines. The previous design (a per-mutation publisher
+Left alone, those writes collide across machines. The previous design (a per-mutation maintainer
 committing to `main` seconds after each `skill_manage` edit, gated by a ledger hash chain) failed in
 two ways, both observed:
 
@@ -28,25 +28,25 @@ are also recorded as `actor: curator`.
 
 | Piece | Rule |
 |---|---|
-| `main` | exactly one writer: the consolidator. Machine sessions, hooks and sweeps never touch it |
-| Transport branch | `machine/<hostname>` per installation — a landing strip for commits, not a feature branch. **Never reset or force-pushed**: consumption is an ancestry fact (`T` ancestor of `main`) and the acknowledgment is a merge commit on `main`; the branch tip stays exactly as published |
-| Staging trigger | hourly script-only cron → `--stage`: bundles the pending ledger paths **and** the dirty worktree into ONE LOCAL commit on the transport branch — the push belongs to the pre-consolidation run (what lands on a transport branch is always pre-consolidated). Only `machine/<name>` is a sweep target: a `refactor/*` branch is excluded untouched and `main` is refused with exit 12 even when clean. A stale ledger path (missing, never tracked) is recorded as skipped in `stage-report.json`; a whitespace or commit failure undoes only that run's index entries, so correcting the cause and rerunning succeeds. The cursor advances only through the entries read at the start of the attempt — a row another writer appends during the commit stays pending |
-| Instance pre-consolidation | daily agent run per installation before the consolidator: reviews that installation's own pending additions, moves instance-shaped lessons out of canonical edits into the *writing* profile's adaptation, leaves generic content for the consolidator — then screens the whole unpublished history, records its profile-scope review and publishes exactly the reviewed tip with `--push-reviewed`: it is the only pusher |
-| Refresh trigger | `on_session_start` shell hook (`--sync-from-main`): fetch; fast-forward the transport branch when `HEAD` is an ancestor of `origin/main` (published main is newer); divergent or dirty work is preserved for a deliberate pre-consolidation merge — never reset, rebase or autostash |
-| Monitor gate | `--monitor-script` gate: a cheap shim prints the stable pending report (`--pending --store … --repo …`) each tick; the exact-bytes hash suppresses unchanged output entirely — wake-on-change, the agent never runs idle. `blocked <cid>` is stable (no retry churn); unfinished publication journals emit `recover <cid>`, incidents emit `incident <cid>` even after consumption; `error: monitor-unhealthy` is the observable technical-failure signal |
-| Consolidation trigger | monitor-gated (e.g. every 30 min) consolidator cron on the consolidator host (agent run, model-pinned; the monitor gate suppresses the run while nothing is pending): candidates are processed one at a time through capture → prepare → record-review → render/verify-report → publish → render/verify-result; consumption is ancestry (`T ancestor main`), never a branch reset |
+| `main` | exactly one writer: the maintainer. Machine sessions, hooks and sweeps never touch it |
+| Transport branch | `machine/<hostname>` per installation — a landing strip for commits, not a feature branch. **Never reset or force-pushed**: consumption is an ancestry fact (`T` ancestor of `main`) and the acknowledgment is a merge commit on `main`; the branch tip stays exactly as integrated |
+| Staging trigger | hourly script-only cron → `--stage`: bundles the pending ledger paths **and** the dirty worktree into ONE LOCAL commit on the transport branch — the push belongs to the pre-integration run (what lands on a transport branch is always pre-integrated). Only `machine/<name>` is a sweep target: a `refactor/*` branch is excluded untouched and `main` is refused with exit 12 even when clean. A stale ledger path (missing, never tracked) is recorded as skipped in `stage-report.json`; a whitespace or commit failure undoes only that run's index entries, so correcting the cause and rerunning succeeds. The cursor advances only through the entries read at the start of the attempt — a row another writer appends during the commit stays pending |
+| Instance pre-integration | daily agent run per installation before the maintainer: reviews that installation's own pending additions, moves instance-shaped lessons out of canonical edits into the *writing* profile's adaptation, leaves generic content for the maintainer — then screens the whole unpublished history, records its profile-scope review and integrates exactly the reviewed tip with `--push-reviewed`: it is the only pusher |
+| Refresh trigger | `on_session_start` shell hook (`--sync-from-main`): fetch; fast-forward the transport branch when `HEAD` is an ancestor of `origin/main` (integrated main is newer); divergent or dirty work is preserved for a deliberate pre-integration merge — never reset, rebase or autostash |
+| Monitor gate | `--monitor-script` gate: a cheap shim prints the stable pending report (`--pending --store … --repo …`) each tick; the exact-bytes hash suppresses unchanged output entirely — wake-on-change, the agent never runs idle. `blocked <cid>` is stable (no retry churn); unfinished integration journals emit `recover <cid>`, incidents emit `incident <cid>` even after consumption; `error: monitor-unhealthy` is the observable technical-failure signal |
+| Integration trigger | monitor-gated (e.g. every 30 min) maintainer cron on the maintainer host (agent run, model-pinned; the monitor gate suppresses the run while nothing is pending): candidates are processed one at a time through capture → prepare → record-review → render/verify-report → integrate → render/verify-result; consumption is ancestry (`T ancestor main`), never a branch reset |
 | Candidate worktree | the complete native merge index in an isolated worktree, with `MERGE_HEAD=T`; clean files and genuine conflicts are both in the artifact — the agent edits only that worktree and never a whole diff |
-| Commit granularity | one staging commit per sweep (the ledger holds hashes, not intermediate contents — per-run commits are unreconstructable, so the sweep commits the current content per path, once); one publication merge commit `P` per consumed candidate, with ordered parents `M,T` and the reviewed tree |
+| Commit granularity | one staging commit per sweep (the ledger holds hashes, not intermediate contents — per-run commits are unreconstructable, so the sweep commits the current content per path, once); one integration merge commit `P` per consumed candidate, with ordered parents `M,T` and the reviewed tree |
 | Commit message | names the skills whose files actually changed; ledger entry IDs ride in the trailers for attribution and recovery; the integration commit carries the candidate/source/review trailers |
 | Overlap | one home per rule when two candidates touch the same file; conflicts are resolved explicitly in the candidate worktree, never `-X ours`/`-X theirs`, never a force-push of `main` |
-| Review pass | the review covers every input and additionally modified path with exact source anchors and reasons; the reviewed tree is the publication gate (contracts §2.3/D4), not a scan of the original incoming diff |
+| Review pass | the review covers every input and additionally modified path with exact source anchors and reasons; the reviewed tree is the integration gate (contracts §2.3/D4), not a scan of the original incoming diff |
 | Gate before `main` | `validate_review` + `run_checks` + `validate_tree` + exact report read-back: complete path coverage, real quotes, fixed checks, staged-tree equality, reviewed tree; nothing reaches `main` unreviewed |
 | Long sessions | the skill *index* is a start-of-session snapshot (prompt-cache invariant); skill *bodies* load from disk, so `/skill-name` always yields current content. Never pull mid-session to "fix" an index |
 
 Two design facts the failure modes establish, worth keeping when this is next redesigned:
 
 - Provenance must hold without old ledger entries matching current `HEAD` — the chain is evidence
-  for the consolidator, never a hold on transport. The ledger selects and attributes paths; it cannot
+  for the maintainer, never a hold on transport. The ledger selects and attributes paths; it cannot
   certify content against a moving `HEAD`.
 - Semantic review gates canonical writes even when git reports no conflict: duplication, scope leaks
   and contradictory rules arrive conflict-free. Hash integrity proves provenance, not quality —
@@ -64,26 +64,26 @@ exact-tip refactor submission. Nothing is stubbed as successful.
 
 - State lives outside tracked repository files. The store is always an **absolute** path passed by
   the caller; the core never defaults a scratch directory inside a checkout, and `capture` refuses
-  a store inside the publisher working tree.
-- `<store>/publisher.json` is validated strictly before any candidate journal is trusted:
-  `schema` 3, `repo_id`, `remote`, absolute `publisher_repo`, absolute `runtime_roots`, `policy`,
-  `publisher_identity` (`machine`/`profile`/`scope`), report settings, and a source registry of
+  a store inside the maintainer working tree.
+- `<store>/maintainer.json` is validated strictly before any candidate journal is trusted:
+  `schema` 3, `repo_id`, `remote`, absolute `maintainer_repo`, absolute `runtime_roots`, `policy`,
+  `maintainer_identity` (`machine`/`profile`/`scope`), report settings, and a source registry of
   `refs/heads/...` entries with explicit `enabled` booleans and no duplicate refs.
-- `capture` verifies that `publisher_repo` is the actual checkout and refuses unknown, disabled or
+- `capture` verifies that `maintainer_repo` is the actual checkout and refuses unknown, disabled or
   identity-mismatched source entries. A candidate journal can never override its registry entry.
-- `report.allowed_scopes` in `<store>/publisher.json` is the destination's admission allowlist;
+- `report.allowed_scopes` in `<store>/maintainer.json` is the destination's admission allowlist;
   omitted means `["shared-generic"]`, and `[]` denies every scope. Every entry must be nonempty
   text, without duplicates. For example, `"report": {"vault": "…", "vault_root": "/…",
   "directory": "projects/hermes-agent/reports", "allowed_scopes": ["shared-generic"]}`.
   The registry's declared source `scope` must occur in that list **before capture fetches or
   renders content**. A refusal names only the ref and declared scope. Submitted refactors use
-  the configured publisher identity's scope. Preparation, report rendering and every publication
+  the configured maintainer identity's scope. Preparation, report rendering and every integration
   authorization recheck the current destination policy, including existing candidates. These are
   operator declarations, not proof of data isolation or authority to admit mixed-trust content.
 - Candidate journals are `<store>/candidates/<id>/state.json`, written atomically through a unique
   sibling temp file and `os.replace`. `_store` is attached in memory only and never persisted;
   loaders reject persisted private fields and impossible status/evidence combinations (for example
-  `published` without a result commit). A transport journal that already has a saved P remains
+  `integrated` without a result commit). A transport journal that already has a saved P remains
   readable for recovery after registry removal or identity revocation: loading it is diagnostic,
   never push authorization. Capture/preparation still require the registry, and every absent-P
   retry uses the current registry and refuses revocation with a preserved stale/incident journal.
@@ -101,7 +101,7 @@ reject tampered or path-traversing ids.
 `capture()` fetches **once** (`+refs/heads/*:refs/remotes/<remote>/*`), resolves M and T from the
 fetched refs only, and pins both with `git update-ref` under
 `refs/hermes-sync/candidates/<id>/main` and `/source`. Remote branch names are never used as
-immutable inputs. The operation is idempotent for identical inputs and does not touch the publisher
+immutable inputs. The operation is idempotent for identical inputs and does not touch the maintainer
 clone's HEAD, index or worktree. It refuses a `refactor/*` ref as transport kind: a refactoring
 candidate is captured only from its own explicit submission record (see below), and that record —
 not the transport registry — is what authorises the journal.
@@ -110,7 +110,7 @@ Before creating/reusing a candidate or pinning its inputs, capture calls the exi
 `screen_source_history(repo, T, M)` exposure screen over **every commit in `T ^ M`** (transport
 and submitted refactor alike). Prohibited paths or credential-pattern hits block with an exposure
 incident diagnostic containing paths/categories only, never matched values. An empty final diff
-and `files: []` cannot erase exposed history. Publication and absent-P retries run the same screen
+and `files: []` cannot erase exposed history. Integration and absent-P retries run the same screen
 again before creating/pushing P; findings preserve a blocked incident journal. This mechanical
 history gate is distinct from advisory instance-pointer review and does not rescan rejected
 ordinary lessons as a semantic veto. It detects known patterns, not every possible secret; exposure
@@ -121,10 +121,10 @@ already in shared transport history requires incident handling, not a latest-tre
 `prepare()` turns a captured journal into a real, uncommitted candidate:
 
 - `git worktree add --detach <store>/worktrees/<id> M`. The directory must not exist. An existing
-  directory is accepted only when it is already a publisher worktree at HEAD=`M` with
+  directory is accepted only when it is already a maintainer worktree at HEAD=`M` with
   MERGE_HEAD=`T`; anything else is refused for deliberate inspection, and preparation never
   deletes, prunes or force-recreates it. The resolved path is refused if it is equal to or below a
-  configured `runtime_roots` entry, the report vault root, or the publisher checkout.
+  configured `runtime_roots` entry, the report vault root, or the maintainer checkout.
 - Before any merge, changed modes and blob ids are read from `merge-base(M,T)` to both `M` and `T`.
   Regular text `100644`/`100755` and deletions are supported. Symlink `120000`, gitlink `160000`,
   NUL/binary blobs and non-UTF-8 paths block **before** a worktree exists. Every `.gitattributes`
@@ -142,7 +142,7 @@ already in shared transport history requires incident handling, not a latest-tre
 - Repository-local isolation only: `core.hooksPath` is pointed at a never-created directory under
   `<store>/hooks-disabled/<id>`, `rerere.enabled=false`, and the merge runs with
   `GIT_MERGE_AUTOEDIT=no` and `GIT_ATTR_NOSYSTEM=1` (no system attributes). These settings live in
-  the publisher clone/process, not in the producer checkout or the user's global config.
+  the maintainer clone/process, not in the contributor checkout or the user's global config.
 - One native `git merge --no-ff --no-commit T`; HEAD stays `M`, `MERGE_HEAD` is exactly `T`. Exit 1
   is accepted only when `git ls-files -u -z` really lists unmerged entries: those paths become
   `conflict_paths` and the journal records `prepared` — a conflict is a review input, not a
@@ -161,18 +161,18 @@ already in shared transport history requires incident handling, not a latest-tre
 The candidate worktree is the only mutable artifact of a candidate, and it is detached from every
 branch. The resolving agent may edit files inside it, resolve conflicts explicitly and `git add`
 the resolved paths (Git already staged the clean ones). It must not commit, amend, rebase, reset,
-push, create or switch branches, or modify the publisher `main`, the transport checkout, the source
+push, create or switch branches, or modify the maintainer `main`, the transport checkout, the source
 branch or any state outside the candidate journal. It must also not run the candidate's own
 unreviewed scripts or commands. The single exception is the changed package's own pytest suite,
 run by the fixed validation adapter with a scrubbed environment and timeout (see Checks).
 All workflow/tool code, including this core, CLI adapters, library audit, skills-ref validator and
-helper imports/scripts, runs from the **configured trusted `publisher_repo` working tree**, never
+helper imports/scripts, runs from the **configured trusted `maintainer_repo` working tree**, never
 from a candidate or `runtime_roots` checkout. A fixed command name is not trust in its candidate
 implementation.
 
 ### Consumption
 
-`source_status()` is ancestry only: `T` is `consumed` exactly when it is an ancestor of published
+`source_status()` is ancestry only: `T` is `consumed` exactly when it is an ancestor of integrated
 `main`; otherwise it is `pending`. A same-tree but unacknowledged tip stays pending — there is no
 diff-size or empty-diff shortcut. The acknowledgment is the integration merge, not text equality.
 
@@ -181,7 +181,7 @@ diff-size or empty-diff shortcut. The acknowledgment is the integration merge, n
 `validate_source_history()` runs for transport candidates and refuses:
 
 - a merge in the unpublished `T ^ M` set whose non-first parent is not already an ancestor of
-  captured `M` — a transport branch may import only history already published on main;
+  captured `M` — a transport branch may import only history already integrated on main;
 - a transport tip that shares unpublished history with a known remote `refactor/*` branch,
   including a direct fast-forward to an unsubmitted refactor tip.
 
@@ -233,21 +233,21 @@ manifest; agent-added staged packages count too:
   `sys.executable -I -B -m pytest -p no:cacheprovider -c <check-config>/pytest.ini
   --rootdir=skills/<package> --confcutdir=skills/<package> skills/<package>/tests -q`
   when tests exist (`<check-config>` is a plan-owned temporary directory, not candidate content)
-- `package-validator:skills/<package>`: the trusted publisher's resolved
+- `package-validator:skills/<package>`: the trusted maintainer's resolved
   `skills/skill-builder/scripts/skills-ref.sh validate <absolute candidate package path>`
-- `library-audit`: `sys.executable <absolute trusted publisher audit-skill-library.py>
+- `library-audit`: `sys.executable <absolute trusted maintainer audit-skill-library.py>
   <absolute candidate skills directory> --json`
 
 The maintenance package uses the same fixed test adapter and unchanged/not-applicable rows.
 Every other changed package gets explicit test and validator rows, including honest
 `not-applicable` when no runner was ever configured. A suite that exists must run; a missing,
-dropped or downgraded required row blocks recording/publication. A previously required runner
+dropped or downgraded required row blocks recording/integration. A previously required runner
 that disappears is an error. The skills-ref adapter is the configured repository-wide package
 validator; no candidate-declared CLI/command fields are discovered or executed. If a tool exists
-only in the candidate but not the trusted publisher, its row is **required/failed** (exit 127),
+only in the candidate but not the trusted maintainer, its row is **required/failed** (exit 127),
 not omitted or executed from the candidate; CLI recording retains the hard-check exit 10.
 
-Tool commands use absolute resolved publisher scripts **and cwd=`publisher_repo`**, so sibling
+Tool commands use absolute resolved maintainer scripts **and cwd=`maintainer_repo`**, so sibling
 imports and relative helpers stay on the trusted side; only their input paths point at the
 clean bound-tree materialization. Package tests use that materialization as cwd, never the mutable
 candidate worktree. It is created under TMPDIR with `TemporaryDirectory` from the bound tree SHA
@@ -255,9 +255,9 @@ using `git ls-tree` and raw `git cat-file blob` bytes, without checkout filters 
 `export-ignore`/`export-subst` transformations. Only regular/executable blobs are supported;
 files/directories are read-only (executable bits retained), and no `.git` link is installed.
 A full path/byte/mode fingerprint rejects changes to the copy. Cleanup unlocks its directories
-and removes it on success, failure or timeout. Trusted tooling paths/cwd remain the publisher
+and removes it on success, failure or timeout. Trusted tooling paths/cwd remain the maintainer
 baseline; validator/audit inputs also point at the clean copy. Index visibility flags are refused
-before and after checks and the final tree gate, including recording/publication revalidation.
+before and after checks and the final tree gate, including recording/integration revalidation.
 Evidence uses a stable `<bound-tree>` plan token plus `git-tree-blobs-readonly-v1`, not an
 ephemeral directory; older working-tree check plans require a fresh run.
 Each subprocess has a fresh temporary HOME, HERMES_HOME, XDG config/cache roots and TMPDIR;
@@ -279,7 +279,7 @@ ignores `PYTHONDONTWRITEBYTECODE`; that environment setting remains for other Py
 Together with `-p no:cacheprovider` this keeps the copy bytecode/cache-free, and a fingerprint
 change after the run invalidates the whole result. Checks never run review fields, report text or
 a package's unreviewed CLI. Regress runner shadowing with a genuinely failing suite: require a
-failed check, no shadow output, refused recording/publication and unchanged remote main; a separate
+failed check, no shadow output, refused recording/integration and unchanged remote main; a separate
 clean-candidate control must show real pytest's passed count and preserve candidate imports.
 
 `--confcutdir=skills/<package>` excludes repository-root and other ancestor `conftest.py`
@@ -293,11 +293,11 @@ and removed on success, failure or timeout. Candidate-root **and package-owned**
 plugin declarations and other pytest settings cannot alter the required gate. This deliberately
 breaks suites dependent on automatic package configuration; they fail closed, rather than
 silently skipping tests. Package-owned conftest fixtures remain supported and must have a real
-passed-count/publication control. Shared/root hooks or extra configuration need an explicit
+passed-count/integration control. Shared/root hooks or extra configuration need an explicit
 trusted-tool policy change; do not restore candidate autodiscovery to fix a compatibility error.
 Regress root command-main takeover, session-exit rewriting, ignored/deselected failures and each
 candidate config format with a genuinely failing test plus a passing control: the required row
-must retain the real failure, recording/publication must refuse, and remote main must not move.
+must retain the real failure, recording/integration must refuse, and remote main must not move.
 A marker-only command-main response is not a test report; `1 failed` must never become a green row.
 Do not substitute stdout grepping for this discovery/configuration boundary.
 
@@ -362,7 +362,7 @@ binding form above for both `pytest_*` and the reserved module attribute hooks, 
 reserved-name `global` declarations in class/function/nested scopes, each of the seven refused
 calls, and `sys.modules`/`__builtins__` references with
 genuinely failing artifacts, zero check-process calls before refusal, no check evidence,
-publication-negative controls and remote-main read-back. Keep separate successful publication
+integration-negative controls and remote-main read-back. Keep separate successful integration
 controls for fixture-only conftests, nested function-local dunder names, class-local `__getattr__`
 methods without `global`, ordinary globals outside the reserved names and clean candidate imports.
 
@@ -391,16 +391,16 @@ cache-provider option, `-c <check-config>/pytest.ini`, package rootdir/confcutdi
 The plan binds the literal minimal config bytes in `pytest_config` and the versioned AST preflight
 identity `conftest_policy: "ast-no-module-pytest-bindings-v4"` in every package-test row. Bump that
 identity whenever this policy changes; v3 (and earlier) evidence is invalid for v4 recording and
-publication. `<check-config>` is a stable evidence token for the
+integration. `<check-config>` is a stable evidence token for the
 separately generated file, just as `<bound-tree>` stands for materialization. Changing any of
 those controls changes the plan/digest; old evidence with a missing or different conftest policy
-requires fresh checks, even for the same tree. Recording and publication compare the saved plan
+requires fresh checks, even for the same tree. Recording and integration compare the saved plan
 against the current policy, not just its internally consistent digest.
 A new run invalidates the previous run file before executing. Recording
 requires the caller's rows to equal that authoritative run, its tree to equal the current final
 index and its plan to equal the currently selected fixed plan; recomputing `validate_tree` alone
 cannot re-authorize stale green checks. Recording copies that exact binding to `checks.json` and
-pins its digest in the journal's `checks_digest`. Publication and absent-P retries verify the
+pins its digest in the journal's `checks_digest`. Integration and absent-P retries verify the
 binding again against `reviewed_tree`, the journal digest and the current candidate; no old green
 flag or caller-supplied rows bypass it. Older unpublished journals without bindings need new checks
 and review/report evidence, not a fabricated migration digest. Candidate journals remain trusted
@@ -420,7 +420,7 @@ recording the SHA-256 of the approved bytes. The template is
 
 ### Report folder, note metadata and feedback
 
-The report destination is deployment data: `report.directory` in the publisher config, with
+The report destination is deployment data: `report.directory` in the maintainer config, with
 `report.vault_root` the registered vault root. Before the first report is delivered, create the
 local hub `<report.directory>/+reports.md` — `reports/+reports.md` inside that destination —
 **through TurboVault** with that first report listed, and link the hub once from the project MoC
@@ -432,7 +432,7 @@ Every per-candidate note is a normal vault note: `type: zettel`, a one-sentence 
 `+reports` hub **and** the mirrored `Topics:` footer. The rendered payload carries those fields;
 the created/updated timestamps come from the captured/observed clock values in the candidate, never
 from a later re-render, so exact re-delivery stays byte-identical. The review note is immutable
-evidence of M, T, decisions, checks and tree. Publication outcome goes only to the separate result
+evidence of M, T, decisions, checks and tree. Integration outcome goes only to the separate result
 note (`skill-sync-<cid>-result.md`); never edit the review to add an outcome and never backfill a
 receipt into it.
 
@@ -444,9 +444,9 @@ usual capture/prepare/review flow, preserving every unrelated later change. Neve
 `git revert` of an older merge: later work sits on top of it, and a revert would delete that work.
 There is no approve CLI and no human backlog requirement; silence is not approval.
 
-### Publication
+### Integration
 
-`publish(repo, store, cid, report_root)` acquires the publisher lock **once** for the whole public
+`integrate(repo, store, cid, report_root)` acquires the maintainer lock **once** for the whole public
 call and releases it with its owner token in `finally`; shared internals never re-acquire it. It
 then re-reads the journal, stored review, checks and report and revalidates all of them: review
 digest, exact check rows, the staged tree (HEAD must still be `M`, `MERGE_HEAD` exactly `T`, index
@@ -456,34 +456,34 @@ bypass, and the source must still be registered and enabled.
 Remote `main` must still be the captured `M`. A source that advanced to a descendant `T2` is fine —
 the candidate still integrates `T` only, and `T2` stays untouched and pending. A source that was
 rewritten so `T` is no longer an ancestor of the remote tip blocks the candidate: recapture instead
-of publishing replaced history. A main that moved marks the candidate `stale` before anything is
+of integrating replaced history. A main that moved marks the candidate `stale` before anything is
 created or pushed; this path contains no force, reset or rebase.
 
 The integration commit is formed once with `git commit-tree <reviewed_tree> -p M -p T`: ordered
 parents, no second merge, no hooks, and an author/committer identity supplied through
 `GIT_AUTHOR_*`/`GIT_COMMITTER_*` in the process environment (Git config is never written). The
-message is `consolidator: …` plus the trailers `Skill-Sync-Candidate`, `Source-Ref`, `Source-Tip`,
+message is `maintainer: …` plus the trailers `Skill-Sync-Candidate`, `Source-Ref`, `Source-Tip`,
 `Review-Digest` and `Reviewed-Tree`; parents, tree and trailers are verified immediately. `P` is
-pinned at `refs/hermes-sync/candidates/<cid>/result`, then the journal writes `publish-intent` with
+pinned at `refs/hermes-sync/candidates/<cid>/result`, then the journal writes `integrate-intent` with
 `result_sha`, `result_parents`, `result_tree` and the report hash **before** the push.
 
 `git push --no-verify origin <P>:refs/heads/main` has no force. Success is never inferred from the
 command: the exact `refs/heads/main` is read with `git ls-remote --refs`, and only that observation
-(or a fetched later main that contains `P`) may write `published` plus `published_main`. A rejected
-push whose remote main is still `M` keeps `publish-intent` for reconcile; a rejected push whose
+(or a fetched later main that contains `P`) may write `integrated` plus `integrated_main`. A rejected
+push whose remote main is still `M` keeps `integrate-intent` for reconcile; a rejected push whose
 remote main moved marks the candidate `stale` and keeps the racing commit and `P` as evidence.
-Transport refs are never reset, so `T2` remains exactly where the producer left it.
+Transport refs are never reset, so `T2` remains exactly where the contributor left it.
 
-Reject-only reviews publish a real merge whose tree equals `M`'s tree with parents `M,T`; an
+Reject-only reviews integrate a real merge whose tree equals `M`'s tree with parents `M,T`; an
 empty-diff acknowledgment works the same way. Both make the source tip `consumed` by ancestry,
 never by a diff-size shortcut, and their report keeps the reason and the quoted source text.
 
 `render_result(candidate)` re-reads the journal, verifies the saved `P` (parents, tree, trailers)
 and writes a deterministic `result.md` under the candidate store; it refuses to render before
-publication was observed. The payload's timestamp is the journal's `result_observed_at`, fixed the
-first time publication was observed, and it states the publication outcome only — never its own
+integration was observed. The payload's timestamp is the journal's `result_observed_at`, fixed the
+first time integration was observed, and it states the integration outcome only — never its own
 delivery status — so re-rendering after a clock change is byte-identical and a receipt delivered
-once still matches after the receipt moves from `published` to `receipt-pending` to `complete`.
+once still matches after the receipt moves from `integrated` to `receipt-pending` to `complete`.
 
 `verify_result(store, cid, report_root)` is the separate receipt step. It reloads the journal and
 config, refuses a `report_root` that is not the configured `report.vault_root`, re-verifies the
@@ -494,42 +494,42 @@ and then compares
 changed, symlinked or escaping receipts are refused and stay `receipt-pending`; an exact match
 records `complete` with `receipt_sha256` (the SHA-256 of the delivered bytes) and
 `receipt_verified_at`. `complete` without a recorded receipt digest is rejected by the journal
-loader, and only an observed publication (`published`/`receipt-pending`/`complete`) has a receipt
+loader, and only an observed integration (`integrated`/`receipt-pending`/`complete`) has a receipt
 to verify at all. A missing, changed, symlinked or relocated review, or an altered stored review
 payload, persists a sticky `incident`, refuses completion and leaves `receipt-pending` with cleared
 receipt verification fields. Restoring bytes alone never clears an incident. Python never writes the live receipt note: it
 renders the payload and the agent delivers it, exactly like the review note it must never modify.
 
-### Producer lock, history review and exact-tip publication (packet 09)
+### Contributor lock, history review and exact-tip integration (packet 09)
 
-The producer engine (`scripts/skill-repo-sync.py`) owns short, serialised operations. They
-share one lock at the **producer repository's Git common dir** —
-`<producer git-common-dir>/hermes-sync/producer.lock` — which is a different file from the
-publisher lock even when both repos live on the same host. It is an owner-token
+The contributor engine (`scripts/skill-repo-sync.py`) owns short, serialised operations. They
+share one lock at the **contributor repository's Git common dir** —
+`<contributor git-common-dir>/hermes-sync/contributor.lock` — which is a different file from the
+maintainer lock even when both repos live on the same host. It is an owner-token
 `O_CREAT|O_EXCL` record with pid/host/acquisition time, no TTL and no age heuristic. Every linked
 worktree of that checkout contends on it. It is held only for a staging commit, a session-start
-refresh, a pre-consolidation review/push, or an explicit `--lock`/`--unlock` pair around a deliberate
+refresh, a pre-integration review/push, or an explicit `--lock`/`--unlock` pair around a deliberate
 merge — never for a whole chat session.
 
-- `--stage` acquires it around the index/commit/state writes. A pre-consolidation merge or push
+- `--stage` acquires it around the index/commit/state writes. A pre-integration merge or push
   holding the lock refuses staging with exit 12 **before** any index, worktree or state byte
   changes, and the same holds in reverse for `--push-reviewed`.
-- `--sync-from-main` takes the same producer lock before preflight/fetch/merge; a held lock
+- `--sync-from-main` takes the same contributor lock before preflight/fetch/merge; a held lock
   refuses with exit 12 and names the lock path, without changing HEAD, files, index or fetch state.
   Every `main` checkout refuses with a branch-policy diagnostic (exit 12, clean or dirty), just
   like `--stage`. Dry-run is read-only and creates no lock. Clean transport checkout:
-  fast-forward when `HEAD` is an ancestor of `origin/main` (published main is newer); no-op when
+  fast-forward when `HEAD` is an ancestor of `origin/main` (integrated main is newer); no-op when
   main is an ancestor of `HEAD`; on divergence it prints
-  `pre-consolidation merge required` and changes no file or index (exit 12 so the session hook
+  `pre-integration merge required` and changes no file or index (exit 12 so the session hook
   reports it). Dirty worktrees are never integrated, an in-progress merge/rebase is refused, and
   there is no reset, rebase or autostash path left. There is also no automatic resume-triggered
-  LLM: the daily schedule or an explicit pre-consolidation run is the only follow-up.
+  LLM: the daily schedule or an explicit pre-integration run is the only follow-up.
 - Before a source snapshot is shared, `screen_source_history()` walks the **entire** unpublished
   range `git rev-list <T> ^<last verified remote source tip>` and inspects every commit's changed
   paths and added lines. Diagnostics are path + category only (`forbidden-path` with a reason such
   as `environment file`; `credential-pattern`); the matched value, line or blob is never printed or
   persisted. This deliberately catches content an intermediate commit added and a later commit
-  deleted — a clean final tree is not permission to publish that history. Already-pushed exposure
+  deleted — a clean final tree is not permission to integrate that history. Already-pushed exposure
   is a separate incident and is never repaired by force or by redacting the latest tree.
 - Semantic profile-scope review remains agent work. `--record-history-review <T> --history-review
   <file>` validates the agent's JSON against the exact tip and the exact commit set, then persists
@@ -546,30 +546,30 @@ merge — never for a whole chat session.
 
   The digest binds the review to T and its commit rows; timestamps and the mechanical findings are
   not part of it, so a re-run after a clock change stays stable.
-- `--push-reviewed <T>` takes the producer lock, re-runs the mechanical screen, requires the
+- `--push-reviewed <T>` takes the contributor lock, re-runs the mechanical screen, requires the
   matching, untampered history review (and coverage of the current unpublished range), requires T
   to be `HEAD` or an ancestor of `HEAD`, pushes `T:refs/heads/machine/<name>` — **not** the branch
   name — and then reads the exact source ref back with a checked `ls-remote`. Only that observation
   records `last_pushed_tip`/`last_pushed_ref`/`last_pushed_at`; the field is metadata and never
   authorises a reset or a shortened review. A sweep commit made after the review (T2) is not
-  published by pushing T, and `--push-reviewed T2` refuses until T2 has its own review. The remote
+  integrated by pushing T, and `--push-reviewed T2` refuses until T2 has its own review. The remote
   ref must fast-forward from its observed tip; a rewritten remote is refused, never forced.
 
 
-`reconcile(repo, store, cid)` — and a repeat `publish` on `publish-intent`, `published`,
+`reconcile(repo, store, cid)` — and a repeat `integrate` on `integrate-intent`, `integrated`,
 `receipt-pending` or `complete` — performs only reconciliation: verify the saved `P`, fetch, and
-record publication when the remote main contains it. If remote main is still `M`, the **same**
-saved `P` may be retried under the lock **only after the same pre-push authorization as publish**:
+record integration when the remote main contains it. If remote main is still `M`, the **same**
+saved `P` may be retried under the lock **only after the same pre-push authorization as integrate**:
 current enabled source authorization (or exact refactor submission), stored review digest, bound
 check evidence, clean reviewed tree, immutable report bytes at the configured destination and
 fresh remote M/T ancestry. Any mismatch refuses the push and preserves P in a stale/incident
 journal; repairing a report alone does not silently re-approve it. When fetched main already
-contains P, reconciliation repairs publication/receipt state only and never pushes, even if the
+contains P, reconciliation repairs integration/receipt state only and never pushes, even if the
 source has since been disabled or the review note was altered (the latter remains an incident).
-A previously observed publication missing from remote main is an incident, never republished.
+A previously observed integration missing from remote main is an incident, never reintegrated.
 No path creates a second integration commit, so a crash after a successful push repairs state instead of re-merging.
 
-### Publication outcomes and diagnostics
+### Integration outcomes and diagnostics
 
 Every outcome is a journal field, not an inference from a command's exit text. A caller never has
 to guess which case it is in: the persisted `last_error` (or `incident`) carries the same
@@ -577,18 +577,18 @@ diagnostic the raised `WorkflowError` reports.
 
 | Observed situation | `status` | Observable evidence | Recovery |
 |---|---|---|---|
-| Push rejected or transport broken, remote `main` still `M` | `publish-intent` | `result_sha`/`result_parents`/`result_tree` saved, `published_main` empty, pin `refs/hermes-sync/candidates/<cid>/result` = `P`, `last_error` ends `publish-intent retained for reconcile` | `reconcile` re-authorizes all evidence before retrying the **same** `P` under the lock |
-| Push returned, `git ls-remote` unreadable | `publish-intent` | `last_error` = `saved result <P> could not be confirmed on <remote>: …; publish-intent retained for reconcile`; the ref may already be `P` | `reconcile` reads the remote again and proves `P` by ancestry |
-| `P` is on `main` (possibly with a later main containing it) | `published` | `published_main` = exact observed SHA, `result_observed_at` fixed, `last_error` empty | deliver the receipt |
+| Push rejected or transport broken, remote `main` still `M` | `integrate-intent` | `result_sha`/`result_parents`/`result_tree` saved, `integrated_main` empty, pin `refs/hermes-sync/candidates/<cid>/result` = `P`, `last_error` ends `integrate-intent retained for reconcile` | `reconcile` re-authorizes all evidence before retrying the **same** `P` under the lock |
+| Push returned, `git ls-remote` unreadable | `integrate-intent` | `last_error` = `saved result <P> could not be confirmed on <remote>: …; integrate-intent retained for reconcile`; the ref may already be `P` | `reconcile` reads the remote again and proves `P` by ancestry |
+| `P` is on `main` (possibly with a later main containing it) | `integrated` | `integrated_main` = exact observed SHA, `result_observed_at` fixed, `last_error` empty | deliver the receipt |
 | Receipt missing, changed, symlinked or outside the configured root | `receipt-pending` | `receipt_attempts` incremented, `last_error` names the file and the observed SHA-256 | re-deliver the exact bytes from `<store>/candidates/<cid>/result.md` |
 | Receipt matches exactly | `complete` | `receipt_sha256` = SHA-256 of the delivered bytes, `receipt_verified_at` set | none |
-| Review note altered or missing after `P` reached `main` | `published`/`receipt-pending` + `incident` | `incident` names the note and both digests, `last_error` repeats it; sticky once recorded | resolve the discrepancy deliberately; publication is never undone, never republished and the note is never rewritten |
+| Review note altered or missing after `P` reached `main` | `integrated`/`receipt-pending` + `incident` | `incident` names the note and both digests, `last_error` repeats it; sticky once recorded | resolve the discrepancy deliberately; integration is never undone, never reintegrated and the note is never rewritten |
 | Remote `main` moved and does not contain `P` | `stale` | `last_error` names the captured and observed main | capture and review against the new `main` |
-| Source ref rewritten or deleted | `blocked` | `last_error` names the captured tip and the remote tip | recapture instead of publishing replaced history |
+| Source ref rewritten or deleted | `blocked` | `last_error` names the captured tip and the remote tip | recapture instead of integrating replaced history |
 
-"Already published" is not an error path: a repeat `publish`/`reconcile` on `published`,
+"Already integrated" is not an error path: a repeat `integrate`/`reconcile` on `integrated`,
 `receipt-pending` or `complete` returns the saved `P` and performs no `commit-tree`, `push` or
-`update-ref`. `verify_result` on a `publish-intent` candidate is refused — an uncertain outcome has
+`update-ref`. `verify_result` on a `integrate-intent` candidate is refused — an uncertain outcome has
 nothing to receipt. An incident recorded in the journal blocks `complete`, so a receipt can never
 claim a clean delivery over a tampered report.
 
@@ -605,7 +605,7 @@ git(repo: Path, *args, check=False, input_text=None, timeout=120, extra_env=None
 git_bytes(repo: Path, *args, timeout=120, extra_env=None) -> CompletedProcess   # bytes
 is_ancestor(repo: Path, older: str, newer: str) -> bool
 source_status(repo: Path, main: str, tip: str) -> str           # consumed | pending
-load_publisher_config(store: Path) -> dict
+load_maintainer_config(store: Path) -> dict
 load_candidate(store: Path, cid: str) -> dict                   # in-memory `_store`
 capture(repo: Path, store: Path, source: dict, kind="transport") -> dict
 prepare(repo: Path, store: Path, candidate: dict) -> dict       # worktree + staged merge
@@ -616,17 +616,17 @@ run_checks(candidate, worktree) -> list[dict]                   # no success fla
 record_review(store, cid, review, checks, validation) -> dict   # status reviewed
 render_review(candidate, review, checks, tree) -> str           # store payload only
 verify_report(candidate, expected_text, report_root) -> dict    # status report-verified
-publish(repo, store, cid, report_root) -> dict    # exact merge P, non-force push, observed main
+integrate(repo, store, cid, report_root) -> dict    # exact merge P, non-force push, observed main
 reconcile(repo, store, cid) -> dict               # saved P only; never a second integration
 render_result(candidate) -> str                   # deterministic result.md under the store
 verify_result(store, cid, report_root) -> dict    # exact receipt read-back -> complete
 git_common_dir(repo) -> Path                      # lock scope, linked worktrees included
-producer_lock_path(repo) -> Path                  # <producer common dir>/hermes-sync/producer.lock
-read_producer_lock(repo) -> dict | None
-acquire_producer_lock(repo) -> str                # owner token; no TTL, no age break
-release_producer_lock(repo, token) -> None
+contributor_lock_path(repo) -> Path                  # <contributor common dir>/hermes-sync/contributor.lock
+read_contributor_lock(repo) -> dict | None
+acquire_contributor_lock(repo) -> str                # owner token; no TTL, no age break
+release_contributor_lock(repo, token) -> None
 submit_refactor(repo, store, ref, tip, brief) -> dict   # exact-tip authorisation, pinned T
-refactor_submissions(store) -> list[dict]         # validated records for this publisher
+refactor_submissions(store) -> list[dict]         # validated records for this maintainer
 validate_refactor_brief(brief) -> dict            # {summary, intended_replacements, validation_notes}
 pending_lines(repo, store, sources=None, *, fetch=True) -> list[str]  # stable monitor protocol
 retry_candidate(store, cid) -> dict               # one explicit blocked -> captured step
@@ -638,13 +638,13 @@ next_skill(skills: Iterable[str], last: str | None) -> str | None  # periodic re
 `submit_refactor` accepts only `refs/heads/refactor/<slug>`, a full SHA that is exactly the fetched
 remote tip, and a brief whose only keys are `summary`, `intended_replacements`
 (`path`, `old_quote`, `new_instruction`, `reason`) and `validation_notes`; there is no command
-field. Identity and scope come from `publisher_identity`, never from the caller, and the tip is
+field. Identity and scope come from `maintainer_identity`, never from the caller, and the tip is
 pinned immediately. Captured main must be an ancestor of the tip. The submission record lives at
 `<store>/refactor-submissions/<cid>.json`; a refactor journal is loadable only while that record
 matches its ref, main, tip, policy and identity. Transport candidates still require the configured
 source registry — a submission record never authorises transport.
 
-`publish`/`reconcile` render the receipt payload but never claim it was delivered; only
+`integrate`/`reconcile` render the receipt payload but never claim it was delivered; only
 `verify_result` may record `complete`.
 
 ## Platforms
@@ -672,14 +672,14 @@ Written for Linux and macOS alike — an installation may be either, and the two
 
 | Path | Role |
 |---|---|
-| `scripts/skill-repo-sync.py` | the producer engine (staging, ancestry refresh, history screen, exact reviewed-tip push, producer lock); `SCRIPT_VERSION` in the header |
+| `scripts/skill-repo-sync.py` | the contributor engine (staging, ancestry refresh, history screen, exact reviewed-tip push, contributor lock); `SCRIPT_VERSION` in the header |
 | `scripts/install-skill-repo-sync.py` | installer; copies the engine + shared core + report template into `<hermes home>/bin`, then writes the wrapper/state; `INSTALLER_VERSION` must match the engine |
-| `scripts/skill-repo-consolidate.py` | the publisher helper: `--capture-source`, `--prepare`, `--record-review`, `--render-report`, `--verify-report`, `--publish`, `--reconcile`, `--render-result`, `--verify-result`, `--pending`, `--retry`, `--selfcheck`, `--lock`/`--unlock`, `--note-pushed` (metadata only); retired (exit 12, `retired:` diagnostic): `--collect`, `--preflight`, `--merge-map`, `--apply-decisions`, `--refresh-strip`, `--reset-branch`, `--init-last-pushed` |
-| `scripts/skill_repo_workflow.py` | shared v3 core (a library, not a CLI): candidate identity, strict publisher state, fetched capture with local pins, ancestry-only consumption, cooperative transport provenance guard, the whole-unpublished-history exposure screen, review/tree/checks/report gates, exact merge publication/reconcile, the stable pending protocol and the two owner-token locks (publisher at the clone's Git common dir, producer at the producer repo's Git common dir; atomic `O_CREAT`/`O_EXCL`, no TTL); imported by the adapters above |
+| `scripts/skill-repo-maintain.py` | the maintainer helper: `--capture-source`, `--prepare`, `--record-review`, `--render-report`, `--verify-report`, `--integrate`, `--reconcile`, `--render-result`, `--verify-result`, `--pending`, `--retry`, `--selfcheck`, `--lock`/`--unlock`, `--note-pushed` (metadata only); retired (exit 12, `retired:` diagnostic): `--collect`, `--preflight`, `--merge-map`, `--apply-decisions`, `--refresh-strip`, `--reset-branch`, `--init-last-pushed` |
+| `scripts/skill_repo_workflow.py` | shared v3 core (a library, not a CLI): candidate identity, strict maintainer state, fetched capture with local pins, ancestry-only consumption, cooperative transport provenance guard, the whole-unpublished-history exposure screen, review/tree/checks/report gates, exact merge integration/reconcile, the stable pending protocol and the two owner-token locks (maintainer at the clone's Git common dir, contributor at the contributor repo's Git common dir; atomic `O_CREAT`/`O_EXCL`, no TTL); imported by the adapters above |
 | `<hermes home>/bin/skill-repo-sync` | stable wrapper the hooks/crons call; execs the installed engine pair |
 | `<hermes home>/bin/skill-repo-sync.py` + `skill_repo_workflow.py` | installed engine + core (identical versions; the installer refuses a partial pair) |
 | `<hermes home>/scripts/skill-repo-sync-stage.sh` | generated staging shim for the hourly `no_agent` job, rendered from `../assets/stage-sweep-script.sh.example` |
-| `<hermes home>/scripts/skill-repo-consolidate-monitor.sh` | generated monitor shim for the consolidator job's `--monitor-script` gate (prints `--pending --store … --repo …`), rendered from `../assets/consolidate-monitor-script.sh.example` |
+| `<hermes home>/scripts/skill-repo-maintain-monitor.sh` | generated monitor shim for the maintainer job's `--monitor-script` gate (prints `--pending --store … --repo …`), rendered from `../assets/maintain-monitor-script.sh.example` |
 | `<hermes home>/skill-repo-sync.json` | state: repos, wrapper, engine path, ledger cursor, versions |
 | `<hermes home>/skills/.curator_ledger.jsonl` | mutation ledger (written by Hermes, read here) |
 
@@ -698,8 +698,8 @@ every prior target, and restores the old bytes and modes if any replacement rais
 interruption. Fresh-install rollback removes the new targets; the report template participates
 in the same rollback. This is exception rollback, not crash-atomic replacement of multiple files.
 If restoration itself fails, the diagnostic names retained recovery files; do not discard them.
-The publisher helper is called directly
-from the repository tree (`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py …`);
+The maintainer helper is called directly
+from the repository tree (`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-maintain.py …`);
 it imports the engine beside itself (`_engine_candidates`) and the shared core beside both, so
 there is no `SKILL_REPO_SYNC_ENGINE` export.
 
@@ -708,29 +708,29 @@ there is no `SKILL_REPO_SYNC_ENGINE` export.
 ```bash
 python3 scripts/install-skill-repo-sync.py --version  # installer version, no installation context or writes
 python3 scripts/skill-repo-sync.py --version          # engine version
-python3 scripts/skill-repo-sync.py --selfcheck        # install state, repos, engine/core/installer versions, branch policy, publisher config/report root, producer lock, ledger cursor
-python3 scripts/skill-repo-sync.py --stage            # hourly sweep: ledger paths + dirty worktree → one LOCAL commit on machine/<name> (push = pre-consolidation); refactor/* excluded, main refused (exit 12); holds the producer lock
-python3 scripts/skill-repo-sync.py --sync-from-main   # on_session_start: fetch; fast-forward when HEAD is an ancestor of origin/main (published main is newer), no-op when main is an ancestor of HEAD, "pre-consolidation merge required" on divergence (never reset/rebase)
+python3 scripts/skill-repo-sync.py --selfcheck        # install state, repos, engine/core/installer versions, branch policy, maintainer config/report root, contributor lock, ledger cursor
+python3 scripts/skill-repo-sync.py --stage            # hourly sweep: ledger paths + dirty worktree → one LOCAL commit on machine/<name> (push = pre-integration); refactor/* excluded, main refused (exit 12); holds the contributor lock
+python3 scripts/skill-repo-sync.py --sync-from-main   # on_session_start: fetch; fast-forward when HEAD is an ancestor of origin/main (integrated main is newer), no-op when main is an ancestor of HEAD, "pre-integration merge required" on divergence (never reset/rebase)
 python3 scripts/skill-repo-sync.py --screen-history <SHA>   # mechanical screen of the whole unpublished range (path/category only, exit 10 on findings)
 python3 scripts/skill-repo-sync.py --record-history-review <SHA> --history-review <file>  # persist the agent's profile-scope review bound to exactly SHA
-python3 scripts/skill-repo-sync.py --push-reviewed <SHA>    # publish exactly that reviewed commit to machine/<name>, verify ls-remote, record last_pushed_tip
-python3 scripts/skill-repo-sync.py --lock / --unlock  # hold/release the producer lock across a deliberate pre-consolidation merge
+python3 scripts/skill-repo-sync.py --push-reviewed <SHA>    # integrate exactly that reviewed commit to machine/<name>, verify ls-remote, record last_pushed_tip
+python3 scripts/skill-repo-sync.py --lock / --unlock  # hold/release the contributor lock across a deliberate pre-integration merge
 
-HELPER="python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py"
-$HELPER --capture-source refs/heads/machine/<host> --store {store} --repo {publisher_repo}
-$HELPER --prepare <cid> --store {store} --repo {publisher_repo}
-$HELPER --record-review <cid> --review-file <path> --store {store} --repo {publisher_repo}
-$HELPER --render-report <cid> --store {store} --repo {publisher_repo}
-$HELPER --verify-report <cid> --store {store} --repo {publisher_repo}
-$HELPER --publish <cid> --store {store} --repo {publisher_repo}
-$HELPER --reconcile <cid> --store {store} --repo {publisher_repo}
-$HELPER --render-result <cid> --store {store} --repo {publisher_repo}
-$HELPER --verify-result <cid> --store {store} --repo {publisher_repo}
-$HELPER --pending --store {store} --repo {publisher_repo}   # monitor: sorted `pending <cid>` / `blocked <cid>` plus `recover <cid>` / `incident <cid>` journal lines; technical failure = stdout `error: monitor-unhealthy` + stderr diagnostic
-$HELPER --retry <cid> --store {store} --repo {publisher_repo}  # one explicit retry generation (blocked only)
-$HELPER --selfcheck --store {store} --repo {publisher_repo}    # observed versions/config/report/lock facts only
-$HELPER --lock / --unlock --store {store} --repo {publisher_repo}
-$HELPER --note-pushed --repo {publisher_repo}   # legacy metadata: records HEAD only when the remote transport tip equals HEAD
+HELPER="python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-maintain.py"
+$HELPER --capture-source refs/heads/machine/<host> --store {store} --repo {maintainer_repo}
+$HELPER --prepare <cid> --store {store} --repo {maintainer_repo}
+$HELPER --record-review <cid> --review-file <path> --store {store} --repo {maintainer_repo}
+$HELPER --render-report <cid> --store {store} --repo {maintainer_repo}
+$HELPER --verify-report <cid> --store {store} --repo {maintainer_repo}
+$HELPER --integrate <cid> --store {store} --repo {maintainer_repo}
+$HELPER --reconcile <cid> --store {store} --repo {maintainer_repo}
+$HELPER --render-result <cid> --store {store} --repo {maintainer_repo}
+$HELPER --verify-result <cid> --store {store} --repo {maintainer_repo}
+$HELPER --pending --store {store} --repo {maintainer_repo}   # monitor: sorted `pending <cid>` / `blocked <cid>` plus `recover <cid>` / `incident <cid>` journal lines; technical failure = stdout `error: monitor-unhealthy` + stderr diagnostic
+$HELPER --retry <cid> --store {store} --repo {maintainer_repo}  # one explicit retry generation (blocked only)
+$HELPER --selfcheck --store {store} --repo {maintainer_repo}    # observed versions/config/report/lock facts only
+$HELPER --lock / --unlock --store {store} --repo {maintainer_repo}
+$HELPER --note-pushed --repo {maintainer_repo}   # legacy metadata: records HEAD only when the remote transport tip equals HEAD
 $HELPER --collect | --preflight | --merge-map | --apply-decisions  # RETIRED: exit 12 with `retired:` — v3 uses capture/prepare/review/report
 $HELPER --refresh-strip | --reset-branch | --init-last-pushed      # RETIRED: exit 12 with `retired:`
 ```
@@ -739,9 +739,9 @@ Both scripts accept `--dry-run` (no state, index, commit, fetch, push or lock-fi
 `--verbose`. Every action mode prints machine-readable JSON on stdout and diagnostics on stderr;
 `--pending` uses only the stable line protocol. Exit codes pinned by tests: `0` ok/no-op,
 `10` required checks failed, `12` policy refusal or error (wrong branch incl. clean `main`, dirty
-index, whitespace/commit failure, divergence needing a pre-consolidation merge, held producer
+index, whitespace/commit failure, divergence needing a pre-integration merge, held contributor
 lock, missing history review, repo/store disagreement, a retired mode — `--dry-run` does not
-soften a refusal), `13` not installed or missing publisher config, `2` argparse usage. Retired
+soften a refusal), `13` not installed or missing maintainer config, `2` argparse usage. Retired
 modes fail closed: they exit `12` before any Git call and print a `retired:` line naming the
 replacement, so an old cron prompt fails visibly instead of writing.
 
@@ -809,12 +809,12 @@ interpreter with `--python`).
    `<hermes home>/scripts/`, whatever the job's workdir is. It execs the stable wrapper's
    `--stage` and stays silent on a no-op.
 
-2. **Consolidator** — the consolidator host only, an agent run on a monitor-gated schedule
+2. **Maintainer** — the maintainer host only, an agent run on a monitor-gated schedule
    (e.g. every 30 min — the monitor script's byte-stable pending report wakes the agent only
    when it changes):
 
    ```text
-   every 30 min · monitor-script: skill-repo-consolidate-monitor.sh · skills: [skill-library-maintenance] · workdir: <repo> ·
+   every 30 min · monitor-script: skill-repo-maintain-monitor.sh · skills: [skill-library-maintenance] · workdir: <repo> ·
    pinned --provider/--model · deliver: telegram · failure-deliver: telegram
    ```
 
@@ -824,17 +824,17 @@ interpreter with `--python`).
    scheduler, not one job. Back `jobs.json` up before removing a job: its prompt often embeds
    procedure that exists nowhere else.
 
-3. **Daily instance pre-consolidation** — every installation with a shared checkout, an agent run:
+3. **Daily instance pre-integration** — every installation with a shared checkout, an agent run:
 
    ```text
-   daily, before the consolidator · skills: [skill-governance, skill-library-maintenance] ·
+   daily, before the maintainer · skills: [skill-governance, skill-library-maintenance] ·
    workdir: <repo> · pinned --provider/--model · deliver: telegram
    ```
 
    On a machine with several profiles this job runs **per profile** — each reviews only its own
    sessions' writes (attribution via `evidence.session_id`) and routes into its own adaptation.
 
-## Consolidator run book (v3 — candidate → review → report → publish)
+## Maintainer run book (v3 — candidate → review → report → integrate)
 
 Budget and context: a normal candidate targets **at most 35 assistant turns**, and that turn
 target is **not** a token cap. Start from the prepared manifest — `input_paths` (including
@@ -843,12 +843,12 @@ plan or three full file versions. Focused context is at most one `read_file` win
 (`offset`/`limit`) around the affected heading. Usage counters are reported as `measured`,
 `estimated` or `unavailable`; an unsupported provider counter is `unavailable`, never guessed. If
 the review cannot finish within its context/turn budget, record an **incomplete review** — keep the
-candidate and decisions, do not publish truncated work, and do not restart an unlimited full-file
+candidate and decisions, do not integrate truncated work, and do not restart an unlimited full-file
 loop.
 
 All helper calls below mean the script invoked **directly from the repository tree** with explicit
-`--store {store} --repo {publisher_repo}`:
-`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py <mode> --store {store} --repo {publisher_repo}`
+`--store {store} --repo {maintainer_repo}`:
+`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-maintain.py <mode> --store {store} --repo {maintainer_repo}`
 — never a copy under `<hermes home>/scripts/` and never a `SKILL_REPO_SYNC_ENGINE` export: the
 helper imports the engine and the shared core beside itself.
 
@@ -885,7 +885,7 @@ helper imports the engine and the shared core beside itself.
 6. Resolve and stage **only** in that candidate worktree: resolve genuine conflicts explicitly and
    stage every clean addition, deletion and empty file too (`git add -- <path>`). Never commit,
    amend, rebase, reset, push or switch branches there; never `-X ours`/`-X theirs`; never execute
-   a candidate's own scripts. Tool code runs from the trusted publisher baseline.
+   a candidate's own scripts. Tool code runs from the trusted maintainer baseline.
 7. Write the review JSON (contracts §2.3: exact paths, source anchors, reasons, old→new
    replacements) and run `--record-review <cid> --review-file <path>`. It runs the fixed real
    checks (whitespace, staged syntax, package tests, validator, library audit) and persists the
@@ -897,8 +897,8 @@ helper imports the engine and the shared core beside itself.
    verified-existing report) or stop on a mismatch — never blind-overwrite. Read the note back
    exactly.
 9. `--verify-report <cid>` — exact-byte comparison at the registered report root; a missing,
-   altered or symlinked note blocks publication and keeps the candidate.
-10. `--publish <cid>` — exactly one merge commit with ordered parents M,T and the reviewed tree,
+   altered or symlinked note blocks integration and keeps the candidate.
+10. `--integrate <cid>` — exactly one merge commit with ordered parents M,T and the reviewed tree,
     non-force push, remote confirmation. A moved main is `stale`, never force-pushed.
 11. Crash or uncertain push: `--reconcile <cid>` from the saved P. It never creates a second
     integration commit; receipt delivery is repaired separately.
@@ -923,9 +923,9 @@ before running anything — these are the future execution shape, not a claim th
 exists.
 
 ```bash
-# Resolve/approve before use: SOURCE_REPO is the publisher clone, REFACTOR_WORKTREE must be
-# outside runtime roots, the vault and the publisher checkout, and BRIEF is the JSON below.
-export SOURCE_REPO=/path/to/publisher-clone
+# Resolve/approve before use: SOURCE_REPO is the maintainer clone, REFACTOR_WORKTREE must be
+# outside runtime roots, the vault and the maintainer checkout, and BRIEF is the JSON below.
+export SOURCE_REPO=/path/to/maintainer-clone
 export REFACTOR_WORKTREE=/path/to/refactor-skill-sync
 export STORE=/path/to/skill-repo-sync-v3
 export SLUG=skill-sync
@@ -933,7 +933,7 @@ export SLUG=skill-sync
 git -C "$SOURCE_REPO" fetch origin
 git -C "$SOURCE_REPO" worktree add -b "refactor/$SLUG" "$REFACTOR_WORKTREE" origin/main
 
-# Keep the branch current by merging published main. Never rebase published history.
+# Keep the branch current by merging integrated main. Never rebase integrated history.
 git -C "$REFACTOR_WORKTREE" fetch origin
 git -C "$REFACTOR_WORKTREE" merge origin/main
 
@@ -960,41 +960,41 @@ The brief is the only review scope for readiness, and it has no command field:
 }
 ```
 
-Submit and capture on the publisher side (exact full tip, never a branch name):
+Submit and capture on the maintainer side (exact full tip, never a branch name):
 
 ```bash
 TIP=$(git -C "$REFACTOR_WORKTREE" rev-parse HEAD)
-python3 "$SOURCE_REPO/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py" \
+python3 "$SOURCE_REPO/skills/skill-library-maintenance/scripts/skill-repo-maintain.py" \
   --submit-refactor "refs/heads/refactor/$SLUG" --tip "$TIP" --brief "$BRIEF" \
   --store "$STORE" --repo "$SOURCE_REPO"
-python3 .../skill-repo-consolidate.py --capture-source "refs/heads/refactor/$SLUG" --store "$STORE" --repo "$SOURCE_REPO"
-python3 .../skill-repo-consolidate.py --pending --store "$STORE" --repo "$SOURCE_REPO"
+python3 .../skill-repo-maintain.py --capture-source "refs/heads/refactor/$SLUG" --store "$STORE" --repo "$SOURCE_REPO"
+python3 .../skill-repo-maintain.py --pending --store "$STORE" --repo "$SOURCE_REPO"
 ```
 
 Rules:
 
-- **No rebase.** Merge `origin/main` into the branch; published history is never rewritten. If
+- **No rebase.** Merge `origin/main` into the branch; integrated history is never rewritten. If
   `--submit-refactor` refuses because main advanced, merge main, review the merged result and submit
   the new tip — no other recovery path is valid.
 - **Backup is not readiness.** `--submit-refactor` is the only operation that creates a refactoring
   candidate; the monitor ignores every unsubmitted `refactor/*` branch and every stale submission
-  (its captured main is no longer published main).
+  (its captured main is no longer integrated main).
 - **Final edits need a new submission.** Commit on the branch, push the new tip, submit again. The
   integration commit is parents `[M,T]` with `tree(P) == tree(T)` exactly, so an agent edit staged
   in the candidate worktree is refused (unlike transport's semantic curation) — it belongs on the
   branch and in a new exact tip.
 - **Not a discovery root.** The refactor worktree must not be a runtime skills root, a report root
-  or a live project directory; sweeps never stage or publish it, and `prepare` refuses candidate
+  or a live project directory; sweeps never stage or integrate it, and `prepare` refuses candidate
   worktrees inside those roots.
-- **Trusted tool baseline.** Candidate workflow tool code runs from the trusted publisher baseline,
-  never from the refactor worktree's unreviewed new scripts. If the publisher logic itself changes,
+- **Trusted tool baseline.** Candidate workflow tool code runs from the trusted maintainer baseline,
+  never from the refactor worktree's unreviewed new scripts. If the maintainer logic itself changes,
   finish the run and restart from verified `main`; never swap tool code midway through promotion.
-- **Freeze is short and narrow.** Only the final promotion takes the existing publisher lock.
+- **Freeze is short and narrow.** Only the final promotion takes the existing maintainer lock.
   Preparation and a long review release it and re-check freshness later. While the lock is held a
-  second publisher action refuses, but producers keep committing and pushing transport work; that
+  second maintainer action refuses, but contributors keep committing and pushing transport work; that
   new work remains pending after the refactor integration.
 - **No implicit cleanup.** Nothing deletes the worktree, the `refactor/*` branch or its remote ref.
-  Removal is a deliberate operator action after the integration is published.
+  Removal is a deliberate operator action after the integration is integrated.
 
 ## Periodic whole-skill review (bounded, one skill per run)
 
@@ -1004,7 +1004,7 @@ accepted mistakes that no current candidate touches.
 
 - **One skill per run, deterministic order.** Enumerate the owned packages in the configured
   repository (for example `skills/*/SKILL.md`), sort the directory names, and read the cursor from
-  local publisher state — `<store>/skill-review-cursor.json`, schema 1, `{"last": "<skill>"}` —
+  local maintainer state — `<store>/skill-review-cursor.json`, schema 1, `{"last": "<skill>"}` —
   never from memory or a skill body. The pure helper `next_skill(skills, last)` in the shared core
   returns the next name (sorted, de-duplicated; a deleted cursor resumes at its successor; after
   the last name it wraps). An empty inventory returns `None`; do not invent a package.
@@ -1014,44 +1014,44 @@ accepted mistakes that no current candidate touches.
   per-candidate-style note under the configured reports hub with the finding, path/section, reason
   and proposed disposition.
 - **Disposition.** A small, justified correction enters the normal source workflow (transport
-  candidate, review, report, publish). An architectural rewrite uses the explicit
+  candidate, review, report, integrate). An architectural rewrite uses the explicit
   `refactor/<slug>` branch and exact-tip submission, never a giant automatic rewrite of `main`.
 - **Schedule proposal, not a live job.** Weekly (`0 4 * * 0`, configurable at deployment) is the
   proposed cadence; installing or changing this job is a separate deployment action. The prompt is
   `assets/skill-review-cron-prompt.md.example`; the cursor file is read and updated by the agent,
   so no scheduler implementation exists in this skill.
 
-## Instance pre-consolidation (the instance's own review run)
+## Instance pre-integration (the instance's own review run)
 
-The consolidator cannot judge what is instance-specific — it lacks the context, and dropping such a
+The maintainer cannot judge what is instance-specific — it lacks the context, and dropping such a
 lesson loses it. A daily agent run on each installation — scheduled before its content should reach the
-consolidator, because this run owns the push — cleans that installation's own pending transport
+maintainer, because this run owns the push — cleans that installation's own pending transport
 content:
 
 0. Refresh by ancestry: `python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-sync.py --sync-from-main --verbose`.
-   It fast-forwards the transport branch when `HEAD` is an ancestor of `origin/main` (published main
+   It fast-forwards the transport branch when `HEAD` is an ancestor of `origin/main` (integrated main
    is newer), does nothing when main is already an ancestor of `HEAD`, and otherwise keeps
    divergent or dirty work for this run to merge deliberately. Never reset, rebase or autostash
-   producer work. If it reports `pre-consolidation merge required`, take the producer lock for the
+   contributor work. If it reports `pre-integration merge required`, take the contributor lock for the
    short merge only:
    `skill-repo-sync.py --lock`, `git fetch origin`, `git merge --no-ff --no-commit origin/main`,
    resolve and review, `git commit`, then `skill-repo-sync.py --unlock` immediately — never hold the
    lock for the rest of the session. There is no implicit resume catch-up: this run or an explicit
    user trigger is the only start; a missed schedule waits for the next run.
-1. Fetch; review the pending additions (`origin/main...HEAD` plus the `needs-pre-consolidation` markers in
+1. Fetch; review the pending additions (`origin/main...HEAD` plus the `needs-pre-integration` markers in
    recent stage commits / `stage-report.json`) against `skill-governance`'s routing rule.
 2. Instance-shaped (vault paths, host names, quotas, machine tables, session narration): remove the
    line from the canonical skill edit; when the lesson is worth keeping for this setup, write it
    into the *writing* profile's adaptation instead (profile-scoped — never another profile's). A
    generic core worth keeping survives as generic text.
-3. Generic and durable: leave it — value and dedupe are the consolidator's judgement.
+3. Generic and durable: leave it — value and dedupe are the maintainer's judgement.
 4. Screen the **whole unpublished history**, not just the final tree:
    `skill-repo-sync.py --screen-history HEAD` (exit 10 means forbidden paths or suspected credential
    patterns in an intermediate commit — diagnostics are path/category only and the matched value is
    never echoed). Record the agent's profile-scope classification for every unpublished commit in a
    JSON file and persist it bound to the exact tip:
    `skill-repo-sync.py --record-history-review <tip> --history-review <file>`.
-5. Exactly one `pre-consolidation:` commit on the transport branch (explicit paths), then publish
+5. Exactly one `pre-integration:` commit on the transport branch (explicit paths), then integrate
    **exactly the reviewed commit**, never the branch name:
    `skill-repo-sync.py --push-reviewed <tip>`. It re-runs the screen, refuses a missing or
    mismatched history review, pushes `<tip>:refs/heads/machine/<name>`, verifies the remote ref with
@@ -1059,17 +1059,17 @@ content:
    local until it is reviewed itself. Empty run: one line, no new commit — but push whatever
    reviewed commits already exist. Never touch `main`.
 
-A laptop that wakes after the consolidator's run is always stale by design — the refresh
-fast-forwards it when `HEAD` is an ancestor of `origin/main` (published main is newer), so that
+A laptop that wakes after the maintainer's run is always stale by design — the refresh
+fast-forwards it when `HEAD` is an ancestor of `origin/main` (integrated main is newer), so that
 is a non-event; when the branch has diverged the refresh preserves it and this run merges
 deliberately. Never force.
 
 The layering is deliberate: write-time routing rule (`skill-governance`) → this review run
-(semantic, per profile) → staging scan (mechanical marker) → consolidator review pass (final
+(semantic, per profile) → staging scan (mechanical marker) → maintainer review pass (final
 judge). The run exists because a routing rule alone is followed unreliably — leftovers otherwise
-reach the consolidator, which can only drop them and lose the lesson.
+reach the maintainer, which can only drop them and lose the lesson.
 
-## Manual integration (fallback: consolidator blocked, or a hotfix now)
+## Manual integration (fallback: maintainer blocked, or a hotfix now)
 
 Keep automated conflict handling abort-only; this sequence is the deliberate exception.
 
@@ -1096,7 +1096,7 @@ cleaned up by hand — so it stays an option, not the default.
 ## Cross-machine deployment audit
 
 When asked whether a machine is prepared for the sync stack, or whether every installation is on
-the same version and has published its work, run this read-only checklist over SSH on each machine
+the same version and has integrated its work, run this read-only checklist over SSH on each machine
 and compare the results:
 
 1. **Versions** — `SCRIPT_VERSION` in `scripts/skill-repo-sync.py`, `INSTALLER_VERSION` in
@@ -1111,8 +1111,8 @@ and compare the results:
    wrapper's `--sync-from-main --hook`); a v1 `on_skill_lifecycle` entry should be empty, not
    deleted silently. `hermes hooks list` and `hermes hooks doctor` confirm activation —
    configured is not activated.
-5. **Cron** — `hermes cron list` shows the hourly staging sweep and, on the consolidator host, the
-   monitor-gated consolidator job.
+5. **Cron** — `hermes cron list` shows the hourly staging sweep and, on the maintainer host, the
+   monitor-gated maintainer job.
 6. **Ledger** — `<hermes home>/skills/.curator_ledger.jsonl` exists and is non-empty.
 7. **Git state** — `git status --short --branch` (ahead/behind, uncommitted files),
    `git log --oneline origin/machine/<name>..HEAD` (unpushed commits and which paths they touch),
@@ -1123,17 +1123,17 @@ and compare the results:
 
 Diagnosis:
 
-- **Local stage commits growing while `origin/machine/<name>` is stale** → the pre-consolidation
+- **Local stage commits growing while `origin/machine/<name>` is stale** → the pre-integration
   run has not pushed yet (normal overnight and between its runs) or its push failed; it retries at
   the next run without duplicating commits. Content findings do not block transport — the staging
   scan records them in `stage-report.json` and the candidate review (`validate_review`) surfaces
-  instance-scope findings; final path/check/tree gates block publication. Suspect the missing
-  pre-consolidation push first when `ahead N` grows, before credentials or connectivity.
+  instance-scope findings; final path/check/tree gates block integration. Suspect the missing
+  pre-integration push first when `ahead N` grows, before credentials or connectivity.
 - **Uncommitted changes no human made** → background-review sediment; attribute from the ledger
   before touching them (see the symptom note above).
 - **A machine holds unpushed commits touching a file another machine has edited** → land the
   backlogged machine's transport branch first, then the other one's. The semantic reconciliation of
-  the overlap belongs to the next consolidator pass, not to an ad-hoc merge on a machine.
+  the overlap belongs to the next maintainer pass, not to an ad-hoc merge on a machine.
 - **A deployment note disagrees with the live checkout** → the checkout wins. Notes describing
   versions, paths, or install state are claims to verify against the scripts on disk, never state
   to trust; report the note as stale rather than adopting its numbers.
@@ -1160,9 +1160,9 @@ cursor date marks where the failure actually began.
    cursor date, not since the last visible error. A cursor behind the ledger with staging green is
    the opposite case — it self-heals on the next sweep.
 2. `git log --format='%ci %s'` on the transport branch and on `main` separately. Stage commits
-   growing locally while `origin/machine/<name>` is stale means the pre-consolidation run has not
+   growing locally while `origin/machine/<name>` is stale means the pre-integration run has not
    pushed yet (or its push failed), not staging failures.
-   `main` unchanged while transport branches accumulate means the consolidation is failing — the
+   `main` unchanged while transport branches accumulate means the integration is failing — the
    branches stay consumable and nothing is lost.
 3. Localize a chain break from staging-scan findings (`stage-report.json`): hash every pending
    entry's before/after values against the path's blob history (`git log --format=%h -- <path>`,
@@ -1173,28 +1173,28 @@ Pitfalls:
 
 - **A before/after hash chain assumes a single writer per branch.** Any commit made outside the
   ledger — audit, manual fix, merge — inserts a blob state the chain does not know. Under Stage &
-  Consolidate this surfaces as staging-scan findings and provenance gaps, not a transport stall — but
+  Integrate this surfaces as staging-scan findings and provenance gaps, not a transport stall — but
   the chain can no longer prove who changed a line across the break, so attribute such a change
   from the commit and the worktree, not from ledger entries alone.
 - **The sweep refuses `main` even when clean, and excludes `refactor/*`.** A `main` checkout is
   never a staging target (exit 12, branch policy); a `refactor/*` branch is skipped untouched with
-  a diagnostic. So a host that sits on `main` between consolidation runs must not be a registered
+  a diagnostic. So a host that sits on `main` between integration runs must not be a registered
   sweep repo, and refactor worktrees are neither transport nor automatically ready. Do not "fix"
   either refusal by checking out a transport branch, which would silently assign main work to the
   machine branch; feature work on `main` gets checked out explicitly, once.
 - **The sweep transports everything dirty.** It cannot tell an experiment from a finished edit:
   worktree debris rides into the next transport commit, and scratch directories inside the repo
-  (`.consolidate-scratch/`, pytest caches) belong in `.gitignore` or they are committed too. Keep
+  (`.integrate-scratch/`, pytest caches) belong in `.gitignore` or they are committed too. Keep
   the worktree free of debris; commit or stash work-in-progress deliberately.
 - **A transport branch is not a place to keep work.** It is never reset, so commits not yet
   consumed stay visible and pending; land unfinished work as a `WIP` commit on the transport
-  branch so the sweep and the consolidator see it, never as a side branch nobody watches.
+  branch so the sweep and the maintainer see it, never as a side branch nobody watches.
 - **`hermes cron run` is synchronous and its claimed execution outlives the CLI.** Killing the CLI
   does not stop the run — a re-fire starts a second copy of the job in the same working copy. Fire
   agent jobs in the background, or verify the execution has finished, before re-firing; the
   single-flight lock refuses the overlap only once the first run reached `--lock`.
-- **Age and cron rows are not liveness evidence for the publisher lock.** The lock lives at
-  `<publisher clone git-common-dir>/hermes-sync/publisher.lock`, so it covers linked worktrees and
+- **Age and cron rows are not liveness evidence for the maintainer lock.** The lock lives at
+  `<maintainer clone git-common-dir>/hermes-sync/maintainer.lock`, so it covers linked worktrees and
   alternate state stores; it has no TTL and never reads `executions.db`. A crashed run leaves the
   file visible with its owner token, pid, host and acquisition time. Recover with `--unlock` (the
   owner token recorded by `--lock`) from the same store; `--force-lock` refuses and names the
@@ -1208,7 +1208,7 @@ cp <hermes home>/cron/jobs.json "<backup dir>/cron-jobs-$(date +%Y%m%d-%H%M%S).j
 hermes hooks revoke <hermes home>/bin/skill-repo-sync
 hermes config set hooks.on_session_start '[]'
 hermes config set hooks.on_skill_lifecycle '[]'    # only if a v1 install left an entry
-hermes cron remove <staging sweep job> [<consolidator job>]
+hermes cron remove <staging sweep job> [<maintainer job>]
 rm <hermes home>/bin/skill-repo-sync <hermes home>/skill-repo-sync.json
 ```
 

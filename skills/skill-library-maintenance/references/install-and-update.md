@@ -1,6 +1,6 @@
 # Install & Update
 
-Bring an installation of the Stage & Consolidate sync into being — a new machine or a new
+Bring an installation of the Stage & Integrate sync into being — a new machine or a new
 profile on an existing one — and move an existing installation between versions. Mechanics, run
 books and diagnosis live in `shared-repo-sync.md`; the renderable prompts and blocks in
 `../assets/`. Roles do not come from this file: the installation's own identity (`SOUL.md` or its
@@ -13,24 +13,24 @@ reported as an active job, hook or report.
 
 ## Roles
 
-**What lands on a transport branch is always pre-consolidated: the staging sweep commits locally,
-the pre-consolidation run owns the push, the consolidator only ever sees cleaned content.**
+**What lands on a transport branch is always pre-integrated: the staging sweep commits locally,
+the pre-integration run owns the push, the maintainer only ever sees cleaned content.**
 
 Exactly two, and they differ in one job only:
 
 | Role | Who | Writes `main`? | Jobs |
 |---|---|---|---|
-| **Consolidator** | exactly one machine in the whole setup | yes — the only writer | staging sweep · pre-consolidation · consolidation (monitor-gated) |
-| **Contributor** | every other installation | never | staging sweep · pre-consolidation |
+| **Maintainer** | exactly one machine in the whole setup | yes — the only writer | staging sweep · pre-integration · integration (monitor-gated) |
+| **Contributor** | every other installation | never | staging sweep · pre-integration |
 
 Both run the hourly staging sweep (bundles pending work into one transport commit on
-`machine/<host>`, locally — no push) and the daily pre-consolidation (the instance
+`machine/<host>`, locally — no push) and the daily pre-integration (the instance
 cleans its own pending net: instance-shaped lessons out of canonical skills, valuable ones into
-the profile's adaptation; then it pushes). Only the Consolidator additionally runs the
-monitor-gated consolidation (a 30 min tick — the agent wakes only when a transport branch has
+the profile's adaptation; then it pushes). Only the Maintainer additionally runs the
+monitor-gated integration (a 30 min tick — the agent wakes only when a transport branch has
 new content) — it
 consumes the transport branches and lands them on `main`, one commit per consumed branch
-(*Consolidator run book* in `shared-repo-sync.md`).
+(*Maintainer run book* in `shared-repo-sync.md`).
 
 ## Installation (new)
 
@@ -41,8 +41,8 @@ Five, and the agent already knows where to find them:
 - `{machine}` — the logical name from the machine table in `hermes-projects` (verify with `hostname`)
 - `{skills_repo}` — the shared checkout's entry in `hermes config get skills.external_dirs`
 - `{hermes_home}` — `$HERMES_HOME`
-- `{store}` — `{hermes_home}/skill-repo-sync-v3` (the v3 publisher store; explicit `--store` target)
-- `{publisher_repo}` — the publisher clone recorded as `publisher_repo` in `{store}/publisher.json` (explicit `--repo` target; the helper refuses any other checkout)
+- `{store}` — `{hermes_home}/skill-repo-sync-v3` (the v3 maintainer store; explicit `--store` target)
+- `{maintainer_repo}` — the maintainer clone recorded as `maintainer_repo` in `{store}/maintainer.json` (explicit `--repo` target; the helper refuses any other checkout)
 
 ### Templates to render
 
@@ -52,9 +52,9 @@ list is the template contract):
 | Template | Renders to |
 |---|---|
 | `../assets/stage-sweep-script.sh.example` | `{hermes_home}/scripts/skill-repo-sync-stage.sh` (`chmod 755`) |
-| `../assets/consolidate-monitor-script.sh.example` | `{hermes_home}/scripts/skill-repo-consolidate-monitor.sh` (`chmod 755`) |
-| `../assets/pre-consolidation-cron-prompt.md.example` | the pre-consolidation job prompt |
-| `../assets/consolidator-cron-prompt.md.example` | the consolidation job prompt (Consolidator only) |
+| `../assets/maintain-monitor-script.sh.example` | `{hermes_home}/scripts/skill-repo-maintain-monitor.sh` (`chmod 755`) |
+| `../assets/pre-integration-cron-prompt.md.example` | the pre-integration job prompt |
+| `../assets/maintainer-cron-prompt.md.example` | the integration job prompt (Maintainer only) |
 | `../assets/skill-review-cron-prompt.md.example` | the proposed periodic whole-skill review prompt (one skill per run; not created by this checklist) |
 | `../assets/soul-instance-block.md.example` | the identity block in `{hermes_home}/SOUL.md` (or the profile skill) |
 
@@ -67,10 +67,10 @@ list is the template contract):
 | Installed engine pair | `{hermes_home}/bin/skill-repo-sync.py` + `{hermes_home}/bin/skill_repo_workflow.py` (+ the report template) — copied together by the installer; identical versions or the install is refused | both |
 | State | `{hermes_home}/skill-repo-sync.json` | both |
 | Shim | `{hermes_home}/scripts/skill-repo-sync-stage.sh` — generated (see table above) | both |
-| Monitor shim | `{hermes_home}/scripts/skill-repo-consolidate-monitor.sh` — generated (see table above); prints the stable pending report (`--pending --store {store} --repo {publisher_repo}`) for the consolidator job's monitor gate | Consolidator only |
+| Monitor shim | `{hermes_home}/scripts/skill-repo-maintain-monitor.sh` — generated (see table above); prints the stable pending report (`--pending --store {store} --repo {maintainer_repo}`) for the maintainer job's monitor gate | Maintainer only |
 | Staging sweep | hourly `:07` — bundles locally (no push); `no_agent`, shim, deliver telegram | both |
-| Pre-consolidation | `30 3 * * *` — cleans and pushes; agent, skills `skill-governance` + `skill-library-maintenance` | both (per profile on a multi-profile machine) |
-| Consolidation | monitor-gated (30 min tick; the agent wakes only when the pending report changes — no idle LLM runs); a fixed nightly slot is not required. Agent, skill `skill-library-maintenance` | Consolidator only |
+| Pre-integration | `30 3 * * *` — cleans and pushes; agent, skills `skill-governance` + `skill-library-maintenance` | both (per profile on a multi-profile machine) |
+| Integration | monitor-gated (30 min tick; the agent wakes only when the pending report changes — no idle LLM runs); a fixed nightly slot is not required. Agent, skill `skill-library-maintenance` | Maintainer only |
 
 Proposed but **not created by this checklist**: a weekly periodic whole-skill review (`0 4 * * 0`,
 configurable) that reads one skill per run and advances the cursor in
@@ -93,7 +93,7 @@ hardcoded in the repository. Before the first report:
    correction is ambiguous, records its interpretation in a new feedback note or a result-linked
    correction report, and creates a normal corrective candidate. Never a blind `git revert` of the
    older merge; later work would be discarded.
-5. No approve CLI and no human review queue exist. Technical failures block publication; ordinary
+5. No approve CLI and no human review queue exist. Technical failures block integration; ordinary
    semantic decisions are recorded in the report.
 
 ### Steps
@@ -105,18 +105,18 @@ hardcoded in the repository. Before the first report:
    ```bash
    hermes cron create '7 * * * *' --no-agent --script skill-repo-sync-stage.sh \
      --name "skill-repo staging sweep (hourly)" --deliver telegram --workdir {skills_repo}
-   # pre-consolidation: schedule at the end of the machine's typical usage window
+   # pre-integration: schedule at the end of the machine's typical usage window
    # (a missed run waits for the next schedule; there is no implicit resume catch-up)
-   hermes cron create '30 3 * * *' "$(cat rendered-pre-consolidation-prompt.txt)" \
-     --name "skill-repo pre-consolidation (instance review)" \
+   hermes cron create '30 3 * * *' "$(cat rendered-pre-integration-prompt.txt)" \
+     --name "skill-repo pre-integration (instance review)" \
      --skill skill-governance --skill skill-library-maintenance \
      --provider <P> --model <M> --pin --deliver telegram --workdir {skills_repo}
-   # Consolidator only — monitor-gated: the shim's byte-stable --pending report wakes the agent
+   # Maintainer only — monitor-gated: the shim's byte-stable --pending report wakes the agent
    # only on change. --monitor-script takes the rendered shim's NAME under {hermes_home}/scripts/.
-   hermes cron create '30m' "$(cat rendered-consolidator-prompt.txt)" \
-     --name "skill-repo consolidator (monitor-gated)" \
+   hermes cron create '30m' "$(cat rendered-maintainer-prompt.txt)" \
+     --name "skill-repo maintainer (monitor-gated)" \
      --skill skill-library-maintenance \
-     --monitor-script skill-repo-consolidate-monitor.sh \
+     --monitor-script skill-repo-maintain-monitor.sh \
      --provider <P> --model <M> --pin --deliver telegram --failure-deliver telegram \
      --workdir {skills_repo}
    ```
@@ -132,7 +132,7 @@ hardcoded in the repository. Before the first report:
    `--apply-config` reads `hooks.on_session_start` with `hermes config get … --json` and appends
    the wrapper's entry, leaving every other hook entry as it was; a hook that already runs the
    wrapper is left alone (no duplicate). It never writes `hooks.on_skill_lifecycle` — an old v1
-   publisher hook is retired deliberately (see *From 1.x* step 2), never blanket-cleared — and it
+   maintainer hook is retired deliberately (see *From 1.x* step 2), never blanket-cleared — and it
    never enables global auto-accept. An unreadable or non-list hook answer is a refusal, not a
    rewrite. Approve the resulting `(event, command)` pair through the normal consent flow.
    The installer copies the engine **and** its shared core (plus the report template) into
@@ -154,13 +154,13 @@ hardcoded in the repository. Before the first report:
 - `{hermes_home}/bin/skill-repo-sync --selfcheck --verbose` (the wrapper) or
   `python3 {hermes_home}/bin/skill-repo-sync.py --selfcheck --verbose` (the installed engine) —
   installed state, engine/core/installer versions (drift is a finding, see the deployment audit
-  in `shared-repo-sync.md`), branch policy, publisher config/report-root presence and lock state.
+  in `shared-repo-sync.md`), branch policy, maintainer config/report-root presence and lock state.
   Hook health is reported separately: `--selfcheck` deliberately makes no hook-health claim.
 - `hermes hooks list && hermes hooks doctor` — the `(event, command)` pair allowlisted and healthy;
   configured is not activated. The list still carries every hook entry it had before installation:
   the installer appends its own entry, never replaces the list and never clears
   `on_skill_lifecycle`.
-- `hermes cron list` — the expected jobs (two, plus consolidation on the Consolidator) with the
+- `hermes cron list` — the expected jobs (two, plus integration on the Maintainer) with the
   intended schedules, skills and pins.
 - Wrapper `--stage --dry-run --verbose` — what the next sweep would bundle into the transport
   commit; no state change.
@@ -182,13 +182,13 @@ The one-time rescue left contributors in a minimal state: a rescue commit pushed
 an installation to 2.1 with this checklist:
 
 1. **Checkout current.** `git -C {skills_repo} fetch origin --prune`, then `git checkout
-   machine/<name>` (the consolidated tip). If the local branch still carries consumed commits,
+   machine/<name>` (the integrated tip). If the local branch still carries consumed commits,
    fast-forward it to `origin/machine/<name>` (`git merge --ff-only`); if it cannot fast-forward,
    keep the old tip with a `backup/` ref and inspect — never reset or discard work silently.
 2. **Retire the v1 jobs and the v1 hook.** `hermes cron list`, then `hermes cron remove <id>` for
    the paused "skill-repo-sync safety" and "skill-library monthly audit" jobs — they invoke
    retired v1 modes (`--safety`, `--audit`) and only produce noise. If `hermes hooks list` still
-   shows the retired `on_skill_lifecycle` publisher hook (v1 fired it per skill write), empty it
+   shows the retired `on_skill_lifecycle` maintainer hook (v1 fired it per skill write), empty it
    (`hermes config set hooks.on_skill_lifecycle '[]'`) and revoke its stale consent pair
    (`hermes hooks revoke <wrapper path>`, then let the installer's pair re-consent in the next
    step) — only `on_session_start` survives, and keeping the dead pair approved is just confusion
@@ -200,33 +200,33 @@ an installation to 2.1 with this checklist:
 ### From 2.1 to 2.2
 
 Push-gate and unpushed-reset-guard: the staging sweep commits locally only, the
-pre-consolidation run owns the push, and the consolidator runs interval-based. On an existing 2.1
+pre-integration run owns the push, and the maintainer runs interval-based. On an existing 2.1
 installation:
 
 1. Engine and helper update themselves — all logic lives in the repository tree; run
    `--selfcheck --verbose` and expect `SCRIPT_VERSION 2.2.0`.
-2. Re-render `../assets/pre-consolidation-cron-prompt.md.example` (later releases replaced the old
+2. Re-render `../assets/pre-integration-cron-prompt.md.example` (later releases replaced the old
    always-push line with the exact reviewed tip via `--push-reviewed`) and
-   `hermes cron edit <pre-consolidation job> --prompt "$(cat …)"`.
-3. Switch the consolidator job to the interval schedule:
-   `hermes cron edit <consolidator job> --schedule '0 */4 * * *'`.
+   `hermes cron edit <pre-integration job> --prompt "$(cat …)"`.
+3. Switch the maintainer job to the interval schedule:
+   `hermes cron edit <maintainer job> --schedule '0 */4 * * *'`.
 4. Nothing else — no hook, consent, shim or state change.
 
 ### From 2.2 to 2.3
 
-Monitor-gated consolidator: the consolidator job wakes on the stable pending report instead of
+Monitor-gated maintainer: the maintainer job wakes on the stable pending report instead of
 burning idle runs. On an existing 2.2 installation:
 
 1. Helper and engine update themselves — all logic lives in the repository tree; run
    `--selfcheck --verbose` and expect helper `SCRIPT_VERSION 2.3.0`.
-2. Render `../assets/consolidate-monitor-script.sh.example` to
-   `{hermes_home}/scripts/skill-repo-consolidate-monitor.sh` (`chmod 755`) and switch the
-   consolidator job to the monitor mode:
-   `hermes cron edit <consolidator job> --schedule '30m' --monitor-script skill-repo-consolidate-monitor.sh`
+2. Render `../assets/maintain-monitor-script.sh.example` to
+   `{hermes_home}/scripts/skill-repo-maintain-monitor.sh` (`chmod 755`) and switch the
+   maintainer job to the monitor mode:
+   `hermes cron edit <maintainer job> --schedule '30m' --monitor-script skill-repo-maintain-monitor.sh`
    (the name is the rendered shim's name under `{hermes_home}/scripts/`). `hermes cron edit`
    knows `--monitor-script`; should a build ever refuse the flag on edit, remove the job and
    re-create it with `hermes cron create … --monitor-script …` instead.
-3. The v3 shim passes explicit `--store {store}` and `--repo {publisher_repo}`; re-render it in
+3. The v3 shim passes explicit `--store {store}` and `--repo {maintainer_repo}`; re-render it in
    the 2.3→3.0 step below, not from the 2.3 template copy.
    There is no reset/replay cursor to bootstrap: refresh is ancestry-only and consumption is
    `T ancestor main`.
@@ -248,14 +248,14 @@ existing 2.3 installation:
 3. Check `hermes hooks list` before and after: every unrelated `on_session_start` entry and any
    `on_skill_lifecycle` entry is still there; the installer adds only
    `<wrapper> --sync-from-main --hook` and leaves an entry that already runs the wrapper alone.
-   A leftover v1 lifecycle publisher is retired deliberately (empty it and revoke its stale
+   A leftover v1 lifecycle maintainer is retired deliberately (empty it and revoke its stale
    consent pair — *From 1.x* step 2); the installer will not clear it for you.
 4. Fresh machines only: `--bootstrap-current-ledger` is now mandatory in the installation command.
    Without it the installer exits `12` before writing the wrapper, state, config or file mode.
 5. Remove retired modes from local runbooks and cron prompts: `--reset-branch`, `--refresh-strip`,
    `--init-last-pushed`, `--collect`, `--preflight`, `--merge-map` and `--apply-decisions` exit
    `12` with a `retired:` line before any Git call; v3 uses capture → prepare → record-review →
-   render/verify-report → publish instead.
+   render/verify-report → integrate instead.
 
 ### Update policy
 
@@ -266,9 +266,9 @@ existing 2.3 installation:
   installer, then verify the installed pair with `--selfcheck`. Replacement errors roll back
   the old pair and report template; the engine refuses mixed core versions rather than running
   a partial upgrade.
-- The publisher helper runs from the repository tree
-  (`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-consolidate.py
-  --store {store} --repo {publisher_repo} …`); the helper imports the engine beside itself
+- The maintainer helper runs from the repository tree
+  (`python3 {skills_repo}/skills/skill-library-maintenance/scripts/skill-repo-maintain.py
+  --store {store} --repo {maintainer_repo} …`); the helper imports the engine beside itself
   (`_engine_candidates`) and the shared core beside both, so no `SKILL_REPO_SYNC_ENGINE` export
   and nothing to refresh under `{hermes_home}/scripts/`.
 - The wrapper, the staging shim and the monitor shim are the **only generated artifacts** — each
@@ -285,6 +285,6 @@ existing 2.3 installation:
   `on_session_start` mappings survive byte-identically and `on_skill_lifecycle` is left alone.
 - Later version transitions get their own `From X to Y` checklist here, one section per step —
   append, never rewrite history.
-- The pre-consolidation run is the only pusher; without its run the work stays local (safe, but
-  invisible to the consolidator) — hence the window-end schedule. There is no implicit
+- The pre-integration run is the only pusher; without its run the work stays local (safe, but
+  invisible to the maintainer) — hence the window-end schedule. There is no implicit
   catch-up-on-resume: a missed run simply waits for the next schedule or an explicit user trigger.

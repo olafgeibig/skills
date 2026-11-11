@@ -1,6 +1,6 @@
-# skills/skill-library-maintenance/tests/test_skill_repo_consolidate.py
-"""Behavioral tests for skill-repo-consolidate.py: the v3 publisher CLI
-(capture → prepare → record-review → render/verify-report → publish →
+# skills/skill-library-maintenance/tests/test_skill_repo_maintain.py
+"""Behavioral tests for skill-repo-maintain.py: the v3 maintainer CLI
+(capture → prepare → record-review → render/verify-report → integrate →
 reconcile → render/verify-result, stable --pending/--retry and write-free
 --dry-run), plus the retained legacy scan helpers. Self-contained: builds
 disposable repos, never touches a live one."""
@@ -28,7 +28,7 @@ def _load(name: str, path: Path):
     return mod
 
 
-consolidate = _load("consolidate_under_test", SCRIPTS / "skill-repo-consolidate.py")
+integrate = _load("maintain_under_test", SCRIPTS / "skill-repo-maintain.py")
 
 
 def git(repo: Path, *args: str) -> str:
@@ -41,7 +41,7 @@ def run_cli(repo: Path, home: Path, *args: str) -> subprocess.CompletedProcess:
     env = dict(os.environ)
     env["HERMES_HOME"] = str(home)
     return subprocess.run(
-        [sys.executable, str(SCRIPTS / "skill-repo-consolidate.py"), *args, "--repo", str(repo)],
+        [sys.executable, str(SCRIPTS / "skill-repo-maintain.py"), *args, "--repo", str(repo)],
         capture_output=True, text=True, env=env)
 
 
@@ -64,25 +64,25 @@ def write_state(home: Path, repo: Path, machine: str) -> Path:
     return p
 
 
-def write_publisher_config(home: Path, publisher: Path, runtime: Path) -> Path:
-    """v3 publisher config under <HERMES_HOME>/skill-repo-sync-v3/publisher.json."""
+def write_maintainer_config(home: Path, maintainer: Path, runtime: Path) -> Path:
+    """v3 maintainer config under <HERMES_HOME>/skill-repo-sync-v3/maintainer.json."""
     store = home / "skill-repo-sync-v3"
     store.mkdir(parents=True, exist_ok=True)
     config = {
         "schema": 3,
         "repo_id": "owned-skills",
         "remote": "origin",
-        "publisher_repo": str(publisher),
+        "maintainer_repo": str(maintainer),
         "runtime_roots": [str(runtime)],
         "policy": "skill-review-v1",
-        "publisher_identity": {"machine": "publisher-test", "profile": "default",
+        "maintainer_identity": {"machine": "maintainer-test", "profile": "default",
                                "scope": "shared-generic"},
         "sources": [{"ref": "refs/heads/machine/testlab", "machine": "testlab",
                      "profile": "default", "scope": "shared-generic", "enabled": True}],
         "report": {"vault": "fixture", "vault_root": str(runtime),
                    "directory": "projects/hermes-agent/reports"},
     }
-    (store / "publisher.json").write_text(json.dumps(config))
+    (store / "maintainer.json").write_text(json.dumps(config))
     return store
 
 
@@ -156,7 +156,7 @@ def test_preflight_resolves_package_root_refs(tmp_path):
     git(repo, "commit", "-q", "-m", "delta work")
     git(repo, "push", "-q", "origin", "machine/delta")
     out = tmp_path / "out"
-    code, notes = consolidate.preflight_scan(repo, out)
+    code, notes = integrate.preflight_scan(repo, out)
     report = json.loads((out / "preflight-findings.json").read_text())
     dangling = [f["detail"] for f in report["findings"]
                 if f["kind"] == "dangling-reference" and f["file"] == "pkg/assets/note.md.example"]
@@ -165,7 +165,7 @@ def test_preflight_resolves_package_root_refs(tmp_path):
 
 def test_merge_map_separates_clean_from_conflict(three_branch_repo, tmp_path):
     out = tmp_path / "out"
-    code, notes = consolidate.merge_map(three_branch_repo, "gamma", out)
+    code, notes = integrate.merge_map(three_branch_repo, "gamma", out)
     assert code == 0, notes
     report = json.loads((out / "merge-map.json").read_text())
     assert report["clean_files"] == ["c.md"]          # new file: auto-mergeable
@@ -195,7 +195,7 @@ def test_merge_map_flags_oversized_packets(three_branch_repo, tmp_path):
     git(three_branch_repo, "checkout", "-q", "main")
 
     out = tmp_path / "out-big"
-    code, notes = consolidate.merge_map(three_branch_repo, "gamma", out)
+    code, notes = integrate.merge_map(three_branch_repo, "gamma", out)
     assert code == 0, notes
     report = json.loads((out / "merge-map.json").read_text())
     assert report["max_packet_lines"] == 80
@@ -207,12 +207,12 @@ def test_merge_map_flags_oversized_packets(three_branch_repo, tmp_path):
 
 def test_apply_decisions_resolves_blocks_in_order(three_branch_repo, tmp_path):
     out = tmp_path / "out"
-    consolidate.merge_map(three_branch_repo, "gamma", out)
+    integrate.merge_map(three_branch_repo, "gamma", out)
     decisions = {"decisions": [
         {"file": "a.md", "block": 0, "action": "synthesize", "text": "ONE-RULE-VERSION\n"}]}
     dpath = tmp_path / "decisions.json"
     dpath.write_text(json.dumps(decisions))
-    code, notes = consolidate.apply_decisions(three_branch_repo, dpath, out)
+    code, notes = integrate.apply_decisions(three_branch_repo, dpath, out)
     assert code == 0, notes
     resolved = (three_branch_repo / "a.md").read_text()
     assert resolved.splitlines()[1] == "ONE-RULE-VERSION"
@@ -235,7 +235,7 @@ def test_apply_decisions_names_missing_block_indices(three_branch_repo, tmp_path
     git(three_branch_repo, "checkout", "-q", "main")
 
     out = tmp_path / "out"
-    code, notes = consolidate.merge_map(three_branch_repo, "gamma", out)
+    code, notes = integrate.merge_map(three_branch_repo, "gamma", out)
     assert code == 0, notes
     packets = json.loads((out / "conflict-packets.json").read_text())
     assert sorted(p["block"] for p in packets if p["file"] == "a.md") == [0, 1]
@@ -244,7 +244,7 @@ def test_apply_decisions_names_missing_block_indices(three_branch_repo, tmp_path
     decisions = {"decisions": [{"file": "a.md", "block": 0, "action": "ours"}]}
     dpath = tmp_path / "decisions.json"
     dpath.write_text(json.dumps(decisions))
-    code, notes = consolidate.apply_decisions(three_branch_repo, dpath, out)
+    code, notes = integrate.apply_decisions(three_branch_repo, dpath, out)
     assert code == 12
     msg = " ".join(notes)
     assert "a.md: missing decisions for conflict block index(es) 1" in msg
@@ -252,7 +252,7 @@ def test_apply_decisions_names_missing_block_indices(three_branch_repo, tmp_path
     # a file the decisions JSON omits entirely is missing just as much (R2)
     empty = tmp_path / "empty-decisions.json"
     empty.write_text(json.dumps({"decisions": []}))
-    code2, notes2 = consolidate.apply_decisions(three_branch_repo, empty, out)
+    code2, notes2 = integrate.apply_decisions(three_branch_repo, empty, out)
     assert code2 == 12
     msg2 = " ".join(notes2)
     assert "a.md: missing decisions for conflict block index(es) 0, 1" in msg2
@@ -261,11 +261,11 @@ def test_apply_decisions_names_missing_block_indices(three_branch_repo, tmp_path
 def test_apply_decisions_drop_removes_the_block(three_branch_repo, tmp_path):
     """action 'drop' deletes the conflicted region entirely (no text required)."""
     out = tmp_path / "out"
-    consolidate.merge_map(three_branch_repo, "gamma", out)
+    integrate.merge_map(three_branch_repo, "gamma", out)
     decisions = {"decisions": [{"file": "a.md", "block": 0, "action": "drop"}]}
     dpath = tmp_path / "decisions.json"
     dpath.write_text(json.dumps(decisions))
-    code, notes = consolidate.apply_decisions(three_branch_repo, dpath, out)
+    code, notes = integrate.apply_decisions(three_branch_repo, dpath, out)
     assert code == 0, notes
     resolved = (three_branch_repo / "a.md").read_text()
     assert "MAIN-EDIT" not in resolved and "GAMMA-EDIT" not in resolved
@@ -273,16 +273,16 @@ def test_apply_decisions_drop_removes_the_block(three_branch_repo, tmp_path):
 
 
 def test_lock_ignores_unrelated_cron_executions(three_branch_repo, tmp_path):
-    """No cron row authorizes refusing or breaking the publisher lock.
+    """No cron row authorizes refusing or breaking the maintainer lock.
 
     The old test asserted that an executions.db claim older than 60 s blocks a run and that a
-    fresh claim is "self" by age. Both infer publisher liveness from a dispatcher-pid cron row,
+    fresh claim is "self" by age. Both infer maintainer liveness from a dispatcher-pid cron row,
     which can refuse a live run; the new policy never reads executions.db at all.
     """
     import sqlite3
 
     home = tmp_path / "home"
-    store = write_publisher_config(home, three_branch_repo, tmp_path / "runtime")
+    store = write_maintainer_config(home, three_branch_repo, tmp_path / "runtime")
     db = home / "cron" / "executions.db"
     db.parent.mkdir(parents=True)
     con = sqlite3.connect(db)
@@ -293,15 +293,15 @@ def test_lock_ignores_unrelated_cron_executions(three_branch_repo, tmp_path):
 
     result = run_cli(three_branch_repo, home, "--lock")
     assert result.returncode == 0, result.stderr + result.stdout
-    assert (store / "publisher-lock.token").is_file()
+    assert (store / "maintainer-lock.token").is_file()
 
-    # No publisher config means exit 13, never a fallback to a repo-path lock.
+    # No maintainer config means exit 13, never a fallback to a repo-path lock.
     bare_home = tmp_path / "bare-home"
     bare_home.mkdir()
     missing = run_cli(three_branch_repo, bare_home, "--lock")
     assert missing.returncode == 13
-    assert "publisher config" in missing.stderr
-    assert not (three_branch_repo / ".git" / "hermes-consolidate.lock").exists()
+    assert "maintainer config" in missing.stderr
+    assert not (three_branch_repo / ".git" / "hermes-integrate.lock").exists()
 
 
 def test_lock_is_owner_token_owned_and_never_age_broken(three_branch_repo, tmp_path):
@@ -312,15 +312,15 @@ def test_lock_is_owner_token_owned_and_never_age_broken(three_branch_repo, tmp_p
     new policy keeps the lock visible until the acquiring owner token releases it.
     """
     home = tmp_path / "home"
-    store = write_publisher_config(home, three_branch_repo, tmp_path / "runtime")
+    store = write_maintainer_config(home, three_branch_repo, tmp_path / "runtime")
     common = Path(git(three_branch_repo, "rev-parse", "--path-format=absolute",
                       "--git-common-dir").strip())
-    lock = common / "hermes-sync" / "publisher.lock"
+    lock = common / "hermes-sync" / "maintainer.lock"
 
     first = run_cli(three_branch_repo, home, "--lock")
     assert first.returncode == 0, first.stderr + first.stdout
     assert lock.is_file()
-    token = (store / "publisher-lock.token").read_text().strip()
+    token = (store / "maintainer-lock.token").read_text().strip()
     record = json.loads(lock.read_text())
     assert record["token"] == token
     assert record["acquired_at"] and record["host"]
@@ -352,21 +352,21 @@ def test_lock_is_owner_token_owned_and_never_age_broken(three_branch_repo, tmp_p
     assert again.returncode == 12
 
 
-def test_pre_consolidation_scan_flags_duplicates_and_pointers(three_branch_repo):
-    engine = consolidate.srs  # the engine module the consolidate script already loads
+def test_pre_integration_scan_flags_duplicates_and_pointers(three_branch_repo):
+    engine = integrate.srs  # the engine module the integrate script already loads
     added = [
         ("a.md", "a totally fresh rule line with enough words to matter here"),
         ("a.md", "line1"),                      # short: never a dup candidate
         ("b.md", "/home" + "/user/something"),  # instance pointer (split literal: scanner flags it at runtime, the diff gate stays clean)
     ]
-    findings = engine.pre_consolidation_scan(three_branch_repo, added)
+    findings = engine.pre_integration_scan(three_branch_repo, added)
     kinds = sorted(f["kind"] for f in findings)
     assert kinds == ["instance-pointer"]
     # duplicate: the exact normalized base line re-added, 8+ words
     (three_branch_repo / "a.md").write_text("wordy base line with more than eight words in it yes\n")
     git(three_branch_repo, "add", ".")
     git(three_branch_repo, "commit", "-m", "w", "-q")
-    findings2 = engine.pre_consolidation_scan(
+    findings2 = engine.pre_integration_scan(
         three_branch_repo, [("a.md", "wordy base line with more than eight words in it yes.")])
     assert [f["kind"] for f in findings2] == ["duplicate-candidate"]
 
@@ -376,19 +376,19 @@ def test_sync_from_main_warns_on_stage_report(three_branch_repo, tmp_path, monke
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
     (home / "stage-report.json").write_text(
-        json.dumps({"at": "2000-01-01T00:00:00+00:00", "needs_pre_consolidation": 2, "findings": []}))
+        json.dumps({"at": "2000-01-01T00:00:00+00:00", "needs_pre_integration": 2, "findings": []}))
     # v3 refresh refuses ANY main checkout (branch policy, exit 12), so this test runs on a
-    # clean transport branch that is already at published main: refresh is a no-op and the
+    # clean transport branch that is already at integrated main: refresh is a no-op and the
     # stage-report warning is the only thing under test here.
     git(three_branch_repo, "checkout", "-q", "-b", "machine/clean", "origin/main")
     git(three_branch_repo, "push", "-q", "-u", "origin", "machine/clean")
-    code, notes = consolidate.srs.sync_from_main(three_branch_repo, "clean", False, False)
+    code, notes = integrate.srs.sync_from_main(three_branch_repo, "clean", False, False)
     assert code == 0, notes
-    assert any("2 addition(s) need pre-consolidation" in n for n in notes)
+    assert any("2 addition(s) need pre-integration" in n for n in notes)
 
 
-def test_stage_scans_and_trails_needs_pre_consolidation(three_branch_repo, tmp_path, monkeypatch):
-    """R3: the staging scan is the safety net — stage-report.json + Needs-pre-consolidation trailer."""
+def test_stage_scans_and_trails_needs_pre_integration(three_branch_repo, tmp_path, monkeypatch):
+    """R3: the staging scan is the safety net — stage-report.json + Needs-pre-integration trailer."""
     home = tmp_path / "home"
     (home / "skills").mkdir(parents=True)
     monkeypatch.setenv("HERMES_HOME", str(home))
@@ -398,19 +398,19 @@ def test_stage_scans_and_trails_needs_pre_consolidation(three_branch_repo, tmp_p
     git(three_branch_repo, "branch", "--set-upstream-to=origin/machine/alpha", "machine/alpha")
     (three_branch_repo / "x.md").write_text("see /home" + "/user/pointer for details\n")
 
-    code, notes = consolidate.srs.stage(three_branch_repo, "alpha", False, False)
+    code, notes = integrate.srs.stage(three_branch_repo, "alpha", False, False)
     assert code == 0, notes
     report = json.loads((home / "stage-report.json").read_text())
-    assert report["needs_pre_consolidation"] == 1
+    assert report["needs_pre_integration"] == 1
     assert report["findings"][0]["kind"] == "instance-pointer"
     body = git(three_branch_repo, "log", "-1", "--format=%B")
-    assert "Needs-pre-consolidation: 1" in body
+    assert "Needs-pre-integration: 1" in body
 
 
 def strip_scenario(repo: Path, root: Path, c_edits_same_line: bool = False) -> dict:
     """Refresh-Strip scenario on machine/gamma: commit A (pushed, --note-pushed records it),
     then a CONSUMPTION simulated in a clone — the curated content lands on main as the
-    consolidator's own commit and the one sanctioned force points the strip at it —
+    maintainer's own commit and the one sanctioned force points the strip at it —
     then commit C on the A chain, never pushed."""
     home = root / "home"
     write_state(home, repo, "gamma")
@@ -426,7 +426,7 @@ def strip_scenario(repo: Path, root: Path, c_edits_same_line: bool = False) -> d
     assert r.returncode == 0, r.stderr
     assert f"strip: last-pushed-tip -> {a_sha[:12]}" in r.stderr
 
-    # the consolidator (in a clone): A's net curated onto main as its OWN commit ...
+    # the maintainer (in a clone): A's net curated onto main as its OWN commit ...
     clone = root / "clone"
     subprocess.run(["git", "clone", "-q", remote_url, str(clone)], check=True)
     git(clone, "config", "user.email", "t@t")
@@ -436,7 +436,7 @@ def strip_scenario(repo: Path, root: Path, c_edits_same_line: bool = False) -> d
     (clone / "fa.md").write_text("A-MARKER\nCURATED\nL3\n")
     (clone / "fb.md").write_text("B-MARKER\n")
     git(clone, "add", "-A")
-    git(clone, "commit", "-q", "-m", "consolidator: curated rewrite of A's net")
+    git(clone, "commit", "-q", "-m", "maintainer: curated rewrite of A's net")
     git(clone, "push", "-q", "origin", "main")
     b_sha = git(clone, "rev-parse", "HEAD").strip()
     # ... and the ONE sanctioned force points the strip at the curated content
@@ -500,16 +500,16 @@ def test_retired_refresh_strip_never_invokes_rebase(three_branch_repo, tmp_path,
     s = strip_scenario(three_branch_repo, tmp_path)   # divergent never-pushed C on machine/gamma
     monkeypatch.setenv("HERMES_HOME", str(s["home"]))
     rebase_calls: list[list[str]] = []
-    real_run = consolidate.subprocess.run
+    real_run = integrate.subprocess.run
 
     def guarded(cmd, *args, **kwargs):
         if isinstance(cmd, (list, tuple)) and "rebase" in cmd:
             rebase_calls.append(list(cmd))
-            raise AssertionError("rebase must not be invoked for producer work")
+            raise AssertionError("rebase must not be invoked for contributor work")
         return real_run(cmd, *args, **kwargs)
 
-    monkeypatch.setattr(consolidate.subprocess, "run", guarded)
-    code, notes = consolidate.refresh_strip(three_branch_repo)
+    monkeypatch.setattr(integrate.subprocess, "run", guarded)
+    code, notes = integrate.refresh_strip(three_branch_repo)
 
     assert code == 12, notes
     assert "retired:" in " ".join(notes)
@@ -550,7 +550,7 @@ def test_note_pushed_updates_state(three_branch_repo, tmp_path):
 
 def test_note_pushed_refuses_a_stale_remote_tip(three_branch_repo, tmp_path):
     """The remote is the authority: a local commit that was never pushed is not
-    recordable as the published transport tip."""
+    recordable as the integrated transport tip."""
     home = tmp_path / "home"
     state_path = write_state(home, three_branch_repo, "gamma")
     before = state_path.read_bytes()
@@ -596,7 +596,7 @@ def test_retired_init_last_pushed_writes_no_state(three_branch_repo, tmp_path):
 # v3 CLI: real subprocess round-trip, stable monitor signal and dry-run proof.
 # ---------------------------------------------------------------------------
 
-V3_HELPER = SCRIPTS / "skill-repo-consolidate.py"
+V3_HELPER = SCRIPTS / "skill-repo-maintain.py"
 V3_ENGINE = SCRIPTS / "skill-repo-sync.py"
 
 
@@ -618,51 +618,51 @@ def v3_commit(repo: Path, text: str, message: str = "change",
 
 @pytest.fixture()
 def v3lab(tmp_path: Path) -> dict:
-    """Disposable v3 publisher lab: bare remote, producer transport branch,
-    publisher clone on main, isolated store/vault/HERMES_HOME."""
+    """Disposable v3 maintainer lab: bare remote, contributor transport branch,
+    maintainer clone on main, isolated store/vault/HERMES_HOME."""
     remote = tmp_path / "v3 origin.git"
-    producer = tmp_path / "v3 producer"
-    publisher = tmp_path / "v3 publisher"
+    contributor = tmp_path / "v3 contributor"
+    maintainer = tmp_path / "v3 maintainer"
     subprocess.run(["git", "init", "--bare", "-q", str(remote)], check=True)
-    producer.mkdir()
-    v3_git(producer, "init", "-q", "-b", "main")
-    v3_git(producer, "config", "user.name", "Producer")
-    v3_git(producer, "config", "user.email", "producer@example.invalid")
+    contributor.mkdir()
+    v3_git(contributor, "init", "-q", "-b", "main")
+    v3_git(contributor, "config", "user.name", "Contributor")
+    v3_git(contributor, "config", "user.email", "contributor@example.invalid")
     base_text = "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\nBase instruction.\n"
-    v3_commit(producer, base_text, message="base")
-    v3_git(producer, "remote", "add", "origin", str(remote))
-    v3_git(producer, "push", "-q", "-u", "origin", "main")
-    v3_git(producer, "checkout", "-q", "-b", "machine/testlab")
-    v3_git(producer, "push", "-q", "-u", "origin", "machine/testlab")
+    v3_commit(contributor, base_text, message="base")
+    v3_git(contributor, "remote", "add", "origin", str(remote))
+    v3_git(contributor, "push", "-q", "-u", "origin", "main")
+    v3_git(contributor, "checkout", "-q", "-b", "machine/testlab")
+    v3_git(contributor, "push", "-q", "-u", "origin", "machine/testlab")
 
-    subprocess.run(["git", "clone", "-q", "-b", "main", str(remote), str(publisher)],
+    subprocess.run(["git", "clone", "-q", "-b", "main", str(remote), str(maintainer)],
                    check=True)
-    v3_git(publisher, "config", "user.name", "Publisher")
-    v3_git(publisher, "config", "user.email", "publisher@example.invalid")
+    v3_git(maintainer, "config", "user.name", "Maintainer")
+    v3_git(maintainer, "config", "user.email", "maintainer@example.invalid")
 
     store, vault, home = tmp_path / "v3 store", tmp_path / "v3 vault", tmp_path / "v3 home"
     for directory in (store, vault, home):
         directory.mkdir()
     config = {
         "schema": 3, "repo_id": "owned-skills", "remote": "origin",
-        "publisher_repo": str(publisher), "runtime_roots": [str(producer)],
+        "maintainer_repo": str(maintainer), "runtime_roots": [str(contributor)],
         "policy": "skill-review-v1",
-        "publisher_identity": {"machine": "publisher-test", "profile": "default",
+        "maintainer_identity": {"machine": "maintainer-test", "profile": "default",
                                "scope": "shared-generic"},
         "sources": [{"ref": "refs/heads/machine/testlab", "machine": "testlab",
                      "profile": "default", "scope": "shared-generic", "enabled": True}],
         "report": {"vault": "fixture", "vault_root": str(vault),
                    "directory": "projects/hermes-agent/reports"},
     }
-    (store / "publisher.json").write_text(json.dumps(config), encoding="utf-8")
+    (store / "maintainer.json").write_text(json.dumps(config), encoding="utf-8")
     (home / "skill-repo-sync.json").write_text(json.dumps({
         "version": "3.0.0", "machine": "testlab",
-        "repos": [{"name": "producer", "path": str(producer), "remote": "origin"}],
+        "repos": [{"name": "contributor", "path": str(contributor), "remote": "origin"}],
         "ledger_cursor": 0,
     }), encoding="utf-8")
-    return {"tmp": tmp_path, "remote": remote, "producer": producer,
-            "publisher": publisher, "store": store, "vault": vault, "home": home,
-            "base": v3_git(producer, "rev-parse", "main")}
+    return {"tmp": tmp_path, "remote": remote, "contributor": contributor,
+            "maintainer": maintainer, "store": store, "vault": vault, "home": home,
+            "base": v3_git(contributor, "rev-parse", "main")}
 
 
 def v3_helper(lab: dict, *args: str, repo: Path | None = None,
@@ -670,7 +670,7 @@ def v3_helper(lab: dict, *args: str, repo: Path | None = None,
     env = dict(os.environ, HERMES_HOME=str(home or lab["home"]), GIT_TERMINAL_PROMPT="0")
     return subprocess.run(
         [sys.executable, str(V3_HELPER), *args,
-         "--repo", str(repo or lab["publisher"]), "--store", str(store or lab["store"])],
+         "--repo", str(repo or lab["maintainer"]), "--store", str(store or lab["store"])],
         capture_output=True, text=True, env=env, check=False)
 
 
@@ -683,8 +683,8 @@ def v3_engine(lab: dict, *args: str, home: Path | None = None):
 def v3_offer(lab: dict, text: str | None = None) -> str:
     text = text or ("---\nname: demo\ndescription: Demonstration skill.\n---\n\n"
                     "# Demo\n\nBase instruction.\nA useful generic rule.\n")
-    tip = v3_commit(lab["producer"], text)
-    v3_git(lab["producer"], "push", "-q", "origin", "machine/testlab")
+    tip = v3_commit(lab["contributor"], text)
+    v3_git(lab["contributor"], "push", "-q", "origin", "machine/testlab")
     return tip
 
 
@@ -694,11 +694,11 @@ REFACTOR_TEXT = ("---\nname: demo\ndescription: Demonstration skill.\n---\n\n"
 
 def v3_refactor_branch(lab: dict, name: str = "refactor/topic") -> tuple[str, str]:
     """A developer's own refactor branch, pushed as a backup (not readiness)."""
-    producer = lab["producer"]
-    v3_git(producer, "fetch", "-q", "origin")
-    v3_git(producer, "checkout", "-q", "-b", name, "origin/main")
-    tip = v3_commit(producer, REFACTOR_TEXT, message="refactor the demo instruction")
-    v3_git(producer, "push", "-q", "-u", "origin", name)
+    contributor = lab["contributor"]
+    v3_git(contributor, "fetch", "-q", "origin")
+    v3_git(contributor, "checkout", "-q", "-b", name, "origin/main")
+    tip = v3_commit(contributor, REFACTOR_TEXT, message="refactor the demo instruction")
+    v3_git(contributor, "push", "-q", "-u", "origin", name)
     return f"refs/heads/{name}", tip
 
 
@@ -805,15 +805,15 @@ def v3_snapshot(lab: dict) -> dict:
     return {
         "store": v3_tree(lab["store"]),
         "vault": v3_tree(lab["vault"]),
-        "publisher": v3_repo_state(lab["publisher"]),
-        "producer": v3_repo_state(lab["producer"]),
+        "maintainer": v3_repo_state(lab["maintainer"]),
+        "contributor": v3_repo_state(lab["contributor"]),
         "remote": v3_remote_state(lab),
     }
 
 
 def test_cli_round_trip_capture_to_complete(v3lab):
     """Real subprocess HELPER: capture -> prepare -> record-review -> render ->
-    verify -> publish -> reconcile -> render-result -> verify-result."""
+    verify -> integrate -> reconcile -> render-result -> verify-result."""
     v3_offer(v3lab)
     candidate = v3_capture(v3lab)
     assert candidate["status"] == "captured" and candidate["kind"] == "transport"
@@ -834,14 +834,14 @@ def test_cli_round_trip_capture_to_complete(v3lab):
     assert verified.returncode == 0, verified.stderr + verified.stdout
     assert json.loads(verified.stdout)["status"] == "report-verified"
 
-    published = v3_helper(v3lab, "--publish", candidate["id"])
-    assert published.returncode == 0, published.stderr + published.stdout
-    published_state = json.loads(published.stdout)
-    assert published_state["status"] == "published" and published_state["result_sha"]
-    p = published_state["result_sha"]
-    assert v3_git(v3lab["publisher"], "show", "-s", "--format=%P", p).split() == [
+    integrated = v3_helper(v3lab, "--integrate", candidate["id"])
+    assert integrated.returncode == 0, integrated.stderr + integrated.stdout
+    integrated_state = json.loads(integrated.stdout)
+    assert integrated_state["status"] == "integrated" and integrated_state["result_sha"]
+    p = integrated_state["result_sha"]
+    assert v3_git(v3lab["maintainer"], "show", "-s", "--format=%P", p).split() == [
         candidate["main_sha"], candidate["source_sha"]]
-    assert v3_git(v3lab["producer"], "ls-remote", "origin", "refs/heads/main").split()[0] == p
+    assert v3_git(v3lab["contributor"], "ls-remote", "origin", "refs/heads/main").split()[0] == p
 
     reconciled = v3_helper(v3lab, "--reconcile", candidate["id"])
     assert reconciled.returncode == 0, reconciled.stderr + reconciled.stdout
@@ -898,7 +898,7 @@ def test_submit_refactor_cli_records_exact_tip(v3lab):
     assert payload["mode"] == "submit-refactor"
     assert payload["ref"] == ref and payload["tip"] == tip
     assert payload["main_sha"] == v3lab["base"]
-    assert payload["publisher_identity"]["machine"] == "publisher-test"
+    assert payload["maintainer_identity"]["machine"] == "maintainer-test"
     assert (v3lab["store"] / "refactor-submissions" / f"{payload['candidate']}.json").is_file()
 
     pending = v3_helper(v3lab, "--pending")
@@ -921,17 +921,17 @@ def test_cli_exit_codes_and_repo_store_agreement(v3lab):
     mismatch = v3_helper(v3lab, "--capture-source", "refs/heads/machine/testlab",
                          repo=other)
     assert mismatch.returncode == 12
-    assert "publisher_repo" in mismatch.stderr
+    assert "maintainer_repo" in mismatch.stderr
 
     missing = v3_helper(v3lab, "--capture-source", "refs/heads/machine/testlab",
                         store=v3lab["tmp"] / "no-store")
     assert missing.returncode == 13
-    assert "publisher config missing" in missing.stderr
+    assert "maintainer config missing" in missing.stderr
 
     missing_pending = v3_helper(v3lab, "--pending", store=v3lab["tmp"] / "no-store")
     assert missing_pending.returncode == 13
     assert missing_pending.stdout == ""
-    assert "publisher config missing" in missing_pending.stderr
+    assert "maintainer config missing" in missing_pending.stderr
 
     usage = subprocess.run([sys.executable, str(V3_HELPER)], capture_output=True, text=True)
     assert usage.returncode == 2
@@ -942,7 +942,7 @@ def test_cli_exit_codes_and_repo_store_agreement(v3lab):
     help_text = subprocess.run([sys.executable, str(V3_HELPER), "--help"],
                                capture_output=True, text=True)
     assert help_text.returncode == 0
-    for mode in ("--capture-source", "--record-review", "--publish", "--pending", "--retry"):
+    for mode in ("--capture-source", "--record-review", "--integrate", "--pending", "--retry"):
         assert mode in help_text.stdout
     assert "RETIRED" in help_text.stdout
 
@@ -956,16 +956,16 @@ def test_cli_exit_codes_and_repo_store_agreement(v3lab):
 
 def test_record_review_hard_check_failure_exits_10(v3lab):
     """Required checks fail -> exit 10 and no reviewed journal is written."""
-    v3_commit(v3lab["producer"],
+    v3_commit(v3lab["contributor"],
               "---\nname: demo\ndescription: Demonstration skill.\n---\n\n# Demo\n\n"
               "Base instruction.\nA useful generic rule.\n",
               message="generic rule")
-    audit = v3lab["producer"] / "skills/skill-library-maintenance/scripts/audit-skill-library.py"
+    audit = v3lab["contributor"] / "skills/skill-library-maintenance/scripts/audit-skill-library.py"
     audit.parent.mkdir(parents=True, exist_ok=True)
     audit.write_text("import sys\n\nsys.exit(1)\n", encoding="utf-8")
-    v3_git(v3lab["producer"], "add", "--", str(audit.relative_to(v3lab["producer"])))
-    v3_git(v3lab["producer"], "commit", "-q", "-m", "failing package audit runner")
-    v3_git(v3lab["producer"], "push", "-q", "origin", "machine/testlab")
+    v3_git(v3lab["contributor"], "add", "--", str(audit.relative_to(v3lab["contributor"])))
+    v3_git(v3lab["contributor"], "commit", "-q", "-m", "failing package audit runner")
+    v3_git(v3lab["contributor"], "push", "-q", "origin", "machine/testlab")
 
     candidate = v3_capture(v3lab)
     v3_prepare(v3lab, candidate["id"])
@@ -1012,7 +1012,7 @@ def test_pending_error_signal_is_stable(v3lab):
     """A technical monitor failure is exactly one stable stdout line plus stderr
     diagnostics; recovery changes the hash back to real pending lines."""
     v3_offer(v3lab)
-    v3_git(v3lab["publisher"], "remote", "set-url", "origin",
+    v3_git(v3lab["maintainer"], "remote", "set-url", "origin",
            str(v3lab["tmp"] / "missing remote.git"))
     first = v3_helper(v3lab, "--pending")
     second = v3_helper(v3lab, "--pending")
@@ -1021,7 +1021,7 @@ def test_pending_error_signal_is_stable(v3lab):
     assert second.stdout == first.stdout
     assert first.stderr.startswith("pending monitor:") and first.stderr.strip()
 
-    v3_git(v3lab["publisher"], "remote", "set-url", "origin", str(v3lab["remote"]))
+    v3_git(v3lab["maintainer"], "remote", "set-url", "origin", str(v3lab["remote"]))
     recovered = v3_helper(v3lab, "--pending")
     assert recovered.returncode == 0
     assert recovered.stdout.startswith("pending ")
@@ -1030,7 +1030,7 @@ def test_pending_error_signal_is_stable(v3lab):
 
 def test_pending_dry_run_reports_cannot_determine_without_fetch(v3lab):
     v3_offer(v3lab)
-    v3_git(v3lab["publisher"], "update-ref", "-d", "refs/remotes/origin/machine/testlab")
+    v3_git(v3lab["maintainer"], "update-ref", "-d", "refs/remotes/origin/machine/testlab")
     result = v3_helper(v3lab, "--pending", "--dry-run")
     assert result.returncode == 0
     assert result.stdout == ""
@@ -1041,7 +1041,7 @@ def v3_setup_mode(lab: dict, mode: str) -> tuple[list[str], bool]:
     """Advance the lab to the state one dry-run mode needs; return its argv and
     whether it is an engine mode."""
     if mode == "engine-stage":
-        (lab["producer"] / "notes.md").write_text("pending sweep content\n", encoding="utf-8")
+        (lab["contributor"] / "notes.md").write_text("pending sweep content\n", encoding="utf-8")
         return ["--stage", "--dry-run"], True
     if mode == "engine-sync":
         return ["--sync-from-main", "--dry-run"], True
@@ -1052,11 +1052,11 @@ def v3_setup_mode(lab: dict, mode: str) -> tuple[list[str], bool]:
                 "--brief", str(v3_refactor_brief(lab))], False
 
     if mode == "retry":
-        link = lab["producer"] / "skills/demo/link"
+        link = lab["contributor"] / "skills/demo/link"
         os.symlink("SKILL.md", link)
-        v3_git(lab["producer"], "add", "--", "skills/demo/link")
-        v3_git(lab["producer"], "commit", "-q", "-m", "symlink source")
-        v3_git(lab["producer"], "push", "-q", "origin", "machine/testlab")
+        v3_git(lab["contributor"], "add", "--", "skills/demo/link")
+        v3_git(lab["contributor"], "commit", "-q", "-m", "symlink source")
+        v3_git(lab["contributor"], "push", "-q", "origin", "machine/testlab")
         candidate = v3_capture(lab)
         v3_prepare(lab, candidate["id"], expect=12)
         return ["--retry", candidate["id"]], False
@@ -1083,10 +1083,10 @@ def v3_setup_mode(lab: dict, mode: str) -> tuple[list[str], bool]:
         return ["--verify-report", cid], False
     verified = v3_helper(lab, "--verify-report", cid)
     assert verified.returncode == 0, verified.stderr + verified.stdout
-    if mode == "publish":
-        return ["--publish", cid], False
-    published = v3_helper(lab, "--publish", cid)
-    assert published.returncode == 0, published.stderr + published.stdout
+    if mode == "integrate":
+        return ["--integrate", cid], False
+    integrated = v3_helper(lab, "--integrate", cid)
+    assert integrated.returncode == 0, integrated.stderr + integrated.stdout
     if mode == "reconcile":
         return ["--reconcile", cid], False
     if mode == "render-result":
@@ -1100,7 +1100,7 @@ def v3_setup_mode(lab: dict, mode: str) -> tuple[list[str], bool]:
 
 
 DRY_RUN_MODES = ("capture", "prepare", "record-review", "render-report", "verify-report",
-                 "publish", "reconcile", "render-result", "verify-result", "retry",
+                 "integrate", "reconcile", "render-result", "verify-result", "retry",
                  "submit-refactor", "engine-stage", "engine-sync")
 
 
@@ -1130,20 +1130,20 @@ def test_helper_selfcheck_reports_observed_facts_only(v3lab):
     assert payload["script_version"] == "3.0.0"
     assert payload["core_version"] == "3.0.0"
     assert payload["installer_version"] == "3.0.0"
-    assert payload["publisher_config"].endswith("publisher.json")
+    assert payload["maintainer_config"].endswith("maintainer.json")
     assert payload["report_root_present"] is True
-    assert payload["publisher_lock"] == "not held"
+    assert payload["maintainer_lock"] == "not held"
     assert "not inspected" in payload["hooks"]
     assert "healthy" not in json.dumps(payload).lower()   # no fabricated hook-health claim
 
     missing = v3_helper(v3lab, "--selfcheck", store=v3lab["tmp"] / "none")
     assert missing.returncode == 13
-    assert "publisher config missing" in missing.stderr
+    assert "maintainer config missing" in missing.stderr
 
 
 def test_capture_dry_run_reports_cannot_determine_without_fetch(v3lab):
     v3_offer(v3lab)
-    v3_git(v3lab["publisher"], "update-ref", "-d", "refs/remotes/origin/machine/testlab")
+    v3_git(v3lab["maintainer"], "update-ref", "-d", "refs/remotes/origin/machine/testlab")
     result = v3_helper(v3lab, "--capture-source", "refs/heads/machine/testlab", "--dry-run")
     assert result.returncode == 0
     payload = json.loads(result.stdout)

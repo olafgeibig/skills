@@ -4,14 +4,14 @@
 # WORKFLOW_SCHEMA: 3
 # CORE_VERSION: 3.0.0
 # Part of the skill-library-maintenance skill. CLI adapters
-# (skill-repo-sync.py, skill-repo-consolidate.py, install-skill-repo-sync.py)
+# (skill-repo-sync.py, skill-repo-maintain.py, install-skill-repo-sync.py)
 # import this module from their script directory; it is a library and owns no
 # command surface of its own.
 #
 # Scope of this unit (OpenSpec change skill-sync-v3, packets 03-07):
 #   * pure state helpers: canonical JSON bytes, candidate identity, atomic
 #     state writes, strict JSON reads, safe relative paths
-#   * strict publisher registry/config validation
+#   * strict maintainer registry/config validation
 #   * git() with argument lists, no terminal prompt, batch-mode SSH, timeouts
 #   * ancestry: is_ancestor(), source_status() (consumed == T is an ancestor of
 #     main; no diff-size or empty-diff shortcut)
@@ -39,14 +39,14 @@
 #   * render_review()/verify_report(): deterministic payload (captured
 #     timestamp, no wall clock) saved only under the store, then exact-byte
 #     read-back at the configured report root before `report-verified`
-#   * acquire_publisher_lock()/release_publisher_lock(): one owner-token lock
-#     at <publisher git-common-dir>/hermes-sync/publisher.lock created with
+#   * acquire_maintainer_lock()/release_maintainer_lock(): one owner-token lock
+#     at <maintainer git-common-dir>/hermes-sync/maintainer.lock created with
 #     atomic O_CREAT|O_EXCL; every linked worktree and alternate state store of
-#     the same publisher clone contends on it, release requires the matching
+#     the same maintainer clone contends on it, release requires the matching
 #     token, and there is no age expiry, TTL override or cron-claim heuristic
-#   * acquire_producer_lock()/release_producer_lock(): the same owner-token
-#     mechanism at the PRODUCER repo's common dir (hermes-sync/producer.lock),
-#     used only for the short staging and pre-consolidation merge/push operations
+#   * acquire_contributor_lock()/release_contributor_lock(): the same owner-token
+#     mechanism at the PRODUCER repo's common dir (hermes-sync/contributor.lock),
+#     used only for the short staging and pre-integration merge/push operations
 #   * screen_source_history(): walks the entire unpublished range
 #     `tip ^ base_tip` and reports forbidden paths / suspected credential
 #     patterns as path + category only — never the matched value, line or blob
@@ -54,17 +54,17 @@
 #     review to one tip and its exact commit rows
 #   * pending_lines(): the stable monitor protocol — sorted `pending <cid>` /
 #     `blocked <cid>` lines for enabled registered machine/* tips that are not
-#     ancestors of published main, plus submitted refactor candidates. Independent
+#     ancestors of integrated main, plus submitted refactor candidates. Independent
 #     journal recovery emits `recover <cid>` / `incident <cid>` after consumption
 #     too; retry suffixes affect existing pending/blocked lines only
 #   * next_skill(): deterministic one-skill-per-run cursor for the periodic
 #     whole-skill review (sorted, de-duplicated, deletion-safe, wrapping)
 #   * retry_candidate(): one explicit generation step for a blocked candidate
-#   * publish()/reconcile()/render_result(): promotion re-reads and revalidates
+#   * integrate()/reconcile()/render_result(): promotion re-reads and revalidates
 #     review/tree/report/registry, requires remote main to remain the captured
 #     M while tolerating a source T2, forms P with `git commit-tree <tree>
 #     -p M -p T` (ordered parents, no second merge, no hooks, repo-local
-#     process identity), persists publish-intent before a non-force push,
+#     process identity), persists integrate-intent before a non-force push,
 #     confirms the result with `git ls-remote` plus fetched ancestry, and makes
 #     repeated calls reconcile the saved P instead of creating a new commit
 #
@@ -81,7 +81,7 @@
 #   * the store is an absolute caller-provided path; capture never uses a
 #     scratch directory inside a tracked repository
 #   * capture does not check out, reset, merge or stage anything in the
-#     publisher clone: HEAD and the index stay exactly as found
+#     maintainer clone: HEAD and the index stay exactly as found
 #   * preparation never resets, rebases, force-applies text or defaults to
 #     "ours": Git's own three-way merge builds the index, and unresolvable
 #     inputs block instead of being repaired silently
@@ -115,12 +115,12 @@ HOOKS_DISABLED_DIR = "hooks-disabled"
 PIN_ROOT = "refs/hermes-sync/candidates"
 MAIN_BRANCH = "main"
 PUBLISHER_LOCK_DIR = "hermes-sync"
-PUBLISHER_LOCK_NAME = "publisher.lock"
+PUBLISHER_LOCK_NAME = "maintainer.lock"
 PUBLISHER_LOCK_SCHEMA = 1
-# A producer checkout has its own short-operation lock: staging and the
-# pre-consolidation merge/push must never interleave, while the publisher's
-# consolidation lock stays a different repository and a different file.
-PRODUCER_LOCK_NAME = "producer.lock"
+# A contributor checkout has its own short-operation lock: staging and the
+# pre-integration merge/push must never interleave, while the maintainer's
+# integration lock stays a different repository and a different file.
+PRODUCER_LOCK_NAME = "contributor.lock"
 PRODUCER_LOCK_SCHEMA = 1
 
 # Semantic classifications an agent may record per unpublished source commit.
@@ -151,8 +151,8 @@ STATUSES = (
     "prepared",
     "reviewed",
     "report-verified",
-    "publish-intent",
-    "published",
+    "integrate-intent",
+    "integrated",
     "receipt-pending",
     "complete",
     "blocked",
@@ -160,14 +160,14 @@ STATUSES = (
 )
 # Statuses that may only exist with a recorded reviewed tree/review digest.
 _REVIEWED_STATUSES = frozenset(
-    {"reviewed", "report-verified", "publish-intent", "published", "receipt-pending", "complete"}
+    {"reviewed", "report-verified", "integrate-intent", "integrated", "receipt-pending", "complete"}
 )
 # Statuses that may only exist with a recorded result commit P.
-_RESULT_STATUSES = frozenset({"published", "receipt-pending", "complete"})
+_RESULT_STATUSES = frozenset({"integrated", "receipt-pending", "complete"})
 # A saved P may already exist here; only reconciliation or receipt work is
 # allowed, never a second integration commit.
 _RECONCILABLE_STATUSES = frozenset(
-    {"publish-intent", "published", "receipt-pending", "complete"}
+    {"integrate-intent", "integrated", "receipt-pending", "complete"}
 )
 
 _SHA_RE = re.compile(r"\A[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
@@ -201,15 +201,15 @@ __all__ = [
     "is_ancestor",
     "source_status",
     "git_common_dir",
-    "producer_lock_path",
-    "read_producer_lock",
-    "acquire_producer_lock",
-    "release_producer_lock",
+    "contributor_lock_path",
+    "read_contributor_lock",
+    "acquire_contributor_lock",
+    "release_contributor_lock",
     "screen_source_history",
     "history_review_digest",
     "HISTORY_REVIEW_SCHEMA",
     "HISTORY_CLASSIFICATIONS",
-    "load_publisher_config",
+    "load_maintainer_config",
     "load_candidate",
     "capture",
     "prepare",
@@ -220,7 +220,7 @@ __all__ = [
     "record_review",
     "render_review",
     "verify_report",
-    "publish",
+    "integrate",
     "reconcile",
     "render_result",
     "verify_result",
@@ -572,7 +572,7 @@ def is_ancestor(repo: Path, older: str, newer: str) -> bool:
 
 
 def source_status(repo: Path, main: str, tip: str) -> str:
-    """Consumed only when T is an ancestor of published main.
+    """Consumed only when T is an ancestor of integrated main.
 
     A same-tree but non-ancestor tip is pending: there is deliberately no
     diff-size or empty-diff shortcut that would suppress its acknowledgment.
@@ -583,7 +583,7 @@ def source_status(repo: Path, main: str, tip: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Publisher registry (strict)
+# Maintainer registry (strict)
 # ---------------------------------------------------------------------------
 
 
@@ -602,9 +602,9 @@ def _validate_report(value: Any) -> Mapping[str, Any]:
 
 
 def _validate_identity(value: Any) -> Mapping[str, Any]:
-    identity = _mapping(value, "publisher_identity")
+    identity = _mapping(value, "maintainer_identity")
     for field in ("machine", "profile", "scope"):
-        _text(identity.get(field), f"publisher_identity.{field}")
+        _text(identity.get(field), f"maintainer_identity.{field}")
     return identity
 
 
@@ -618,20 +618,20 @@ def _validate_source_entry(value: Any) -> Mapping[str, Any]:
 
 
 def _validate_config(raw: Any, store: Path) -> dict:
-    config = dict(_mapping(raw, "publisher config"))
+    config = dict(_mapping(raw, "maintainer config"))
     schema = config.get("schema")
     if isinstance(schema, bool) or not isinstance(schema, int) or schema != WORKFLOW_SCHEMA:
-        raise WorkflowError(f"publisher config schema must be {WORKFLOW_SCHEMA}")
+        raise WorkflowError(f"maintainer config schema must be {WORKFLOW_SCHEMA}")
     _text(config.get("repo_id"), "repo_id")
     remote = _text(config.get("remote"), "remote")
     if not _REMOTE_RE.match(remote):
         raise WorkflowError(f"remote is not a valid Git remote name: {remote}")
-    _absolute_text(config.get("publisher_repo"), "publisher_repo")
+    _absolute_text(config.get("maintainer_repo"), "maintainer_repo")
     roots = _list(config.get("runtime_roots"), "runtime_roots")
     for index, root in enumerate(roots):
         _absolute_text(root, f"runtime_roots[{index}]")
     _text(config.get("policy"), "policy")
-    _validate_identity(config.get("publisher_identity"))
+    _validate_identity(config.get("maintainer_identity"))
 
     sources = _list(config.get("sources"), "sources")
     seen: set[str] = set()
@@ -650,11 +650,11 @@ def _validate_config(raw: Any, store: Path) -> dict:
 
 
 def _read_config(store: Path) -> dict:
-    return _validate_config(read_json(store / "publisher.json"), store)
+    return _validate_config(read_json(store / "maintainer.json"), store)
 
 
-def load_publisher_config(store: Path) -> dict:
-    """Load and strictly validate `<store>/publisher.json`."""
+def load_maintainer_config(store: Path) -> dict:
+    """Load and strictly validate `<store>/maintainer.json`."""
     store_path = _store_path(store)
     return _read_config(store_path)
 
@@ -670,7 +670,7 @@ def _require_candidate_report_scope(state: Mapping[str, Any], config: Mapping[st
         _registry_entry(config, {"ref": state["source_ref"], "machine": state["source_machine"],
                                  "profile": state["source_profile"]})
     else:
-        _require_report_scope(config, state["source_ref"], config["publisher_identity"]["scope"])
+        _require_report_scope(config, state["source_ref"], config["maintainer_identity"]["scope"])
 
 
 def _registry_entry(config: Mapping[str, Any], source: Any) -> Mapping[str, Any]:
@@ -682,16 +682,16 @@ def _registry_entry(config: Mapping[str, Any], source: Any) -> Mapping[str, Any]
         for field in ("machine", "profile", "scope"):
             if field in candidate and candidate[field] != entry[field]:
                 raise WorkflowError(
-                    f"source {ref} {field} does not match the publisher registry"
+                    f"source {ref} {field} does not match the maintainer registry"
                 )
         if not entry["enabled"]:
-            raise WorkflowError(f"source is disabled in the publisher registry: {ref}")
+            raise WorkflowError(f"source is disabled in the maintainer registry: {ref}")
         _require_report_scope(config, ref, entry["scope"])
         return entry
-    raise WorkflowError(f"source is not registered for this publisher: {ref}")
+    raise WorkflowError(f"source is not registered for this maintainer: {ref}")
 
 
-def _assert_publisher(repo: Path, config: Mapping[str, Any]) -> None:
+def _assert_maintainer(repo: Path, config: Mapping[str, Any]) -> None:
     repo_path = Path(repo)
     if not repo_path.is_absolute():
         raise WorkflowError("repository path must be absolute")
@@ -699,20 +699,20 @@ def _assert_publisher(repo: Path, config: Mapping[str, Any]) -> None:
     if top.returncode != 0:
         raise _git_error(top, "rev-parse --show-toplevel")
     actual = Path(top.stdout.strip()).resolve()
-    configured = Path(config["publisher_repo"]).resolve()
+    configured = Path(config["maintainer_repo"]).resolve()
     if actual != configured:
         raise WorkflowError(
-            f"configured publisher_repo does not match the actual checkout: {configured} != {actual}"
+            f"configured maintainer_repo does not match the actual checkout: {configured} != {actual}"
         )
     remote = git(repo, "remote", "get-url", config["remote"])
     if remote.returncode != 0:
-        raise WorkflowError(f"configured remote does not exist in the publisher: {config['remote']}")
+        raise WorkflowError(f"configured remote does not exist in the maintainer: {config['remote']}")
 
 
 def _assert_store_outside_repo(repo: Path, store: Path) -> None:
     top = Path(_git_text(repo, "rev-parse", "--show-toplevel")).resolve()
     if store == top or top in store.parents:
-        raise WorkflowError("state store must live outside the publisher working tree")
+        raise WorkflowError("state store must live outside the maintainer working tree")
 
 
 # ---------------------------------------------------------------------------
@@ -782,7 +782,7 @@ def _validate_submission(raw: Any, cid: str, config: Mapping[str, Any]) -> dict:
     record = dict(_mapping(raw, "refactor submission"))
     required = (
         "schema", "id", "repo_id", "kind", "ref", "main_sha", "tip", "policy",
-        "publisher_identity", "brief", "brief_sha256", "submitted_at",
+        "maintainer_identity", "brief", "brief_sha256", "submitted_at",
     )
     missing = [field for field in required if field not in record]
     if missing:
@@ -797,18 +797,18 @@ def _validate_submission(raw: Any, cid: str, config: Mapping[str, Any]) -> dict:
     if record["kind"] != "refactor":
         raise WorkflowError("refactor submission kind must be refactor")
     if record["repo_id"] != config["repo_id"]:
-        raise WorkflowError("refactor submission repo_id does not match the publisher config")
+        raise WorkflowError("refactor submission repo_id does not match the maintainer config")
     if record["policy"] != config["policy"]:
-        raise WorkflowError("refactor submission policy does not match the publisher config")
+        raise WorkflowError("refactor submission policy does not match the maintainer config")
     ref = _refactor_ref(record["ref"])
     if not _is_full_sha(record["main_sha"]) or not _is_full_sha(record["tip"]):
         raise WorkflowError("refactor submission main and tip must be full commit SHAs")
-    identity = _validate_identity(record["publisher_identity"])
-    configured = config["publisher_identity"]
+    identity = _validate_identity(record["maintainer_identity"])
+    configured = config["maintainer_identity"]
     for field in ("machine", "profile", "scope"):
         if identity[field] != configured[field]:
             raise WorkflowError(
-                "refactor submission was not made by the configured publisher identity")
+                "refactor submission was not made by the configured maintainer identity")
     brief = validate_refactor_brief(record["brief"])
     if record["brief_sha256"] != _brief_digest(brief):
         raise WorkflowError("refactor submission brief digest does not match its brief")
@@ -833,7 +833,7 @@ def _load_submission(store: Path, cid: str, config: Mapping[str, Any]) -> dict:
 
 
 def refactor_submissions(store: Path) -> list[dict]:
-    """Every validated submission for the configured publisher, sorted by id."""
+    """Every validated submission for the configured maintainer, sorted by id."""
     store_path = _store_path(store)
     config = _read_config(store_path)
     root = store_path / REFACTOR_SUBMISSIONS_DIR
@@ -854,13 +854,13 @@ def submit_refactor(repo: Path, store: Path, ref: str, tip: str, brief: dict) ->
     The ref must be `refs/heads/refactor/<slug>`, `tip` must be a full SHA that
     is exactly the fetched remote tip, and captured main must be an ancestor of
     the tip. The brief is the only review scope; identity and scope are taken
-    from the configured `publisher_identity`, never from the caller. The tip is
+    from the configured `maintainer_identity`, never from the caller. The tip is
     pinned immediately and a later main advance makes this submission stale
     (merge main into the branch and submit again), never silently extended.
     """
     store_path = _store_path(store)
     config = _read_config(store_path)
-    _assert_publisher(repo, config)
+    _assert_maintainer(repo, config)
     _assert_store_outside_repo(repo, store_path)
 
     ref = _refactor_ref(ref)
@@ -902,10 +902,10 @@ def submit_refactor(repo: Path, store: Path, ref: str, tip: str, brief: dict) ->
         "main_sha": main_sha,
         "tip": tip_text,
         "policy": config["policy"],
-        "publisher_identity": {
-            "machine": config["publisher_identity"]["machine"],
-            "profile": config["publisher_identity"]["profile"],
-            "scope": config["publisher_identity"]["scope"],
+        "maintainer_identity": {
+            "machine": config["maintainer_identity"]["machine"],
+            "profile": config["maintainer_identity"]["profile"],
+            "scope": config["maintainer_identity"]["scope"],
         },
         "brief": brief_value,
         "brief_sha256": _brief_digest(brief_value),
@@ -931,7 +931,7 @@ def submit_refactor(repo: Path, store: Path, ref: str, tip: str, brief: dict) ->
 
 
 # ---------------------------------------------------------------------------
-# Publisher lock
+# Maintainer lock
 # ---------------------------------------------------------------------------
 
 def git_common_dir(repo: Path) -> Path:
@@ -962,15 +962,15 @@ def git_common_dir(repo: Path) -> Path:
     return common.resolve()
 
 
-def publisher_git_common_dir(repo: Path) -> Path:
-    """Backward-compatible name for the publisher clone's common directory."""
+def maintainer_git_common_dir(repo: Path) -> Path:
+    """Backward-compatible name for the maintainer clone's common directory."""
     return git_common_dir(repo)
 
 
-def publisher_lock_path(store: Path) -> Path:
-    """The one lock path covering the configured publisher clone."""
-    config = load_publisher_config(store)
-    common = publisher_git_common_dir(Path(config["publisher_repo"]))
+def maintainer_lock_path(store: Path) -> Path:
+    """The one lock path covering the configured maintainer clone."""
+    config = load_maintainer_config(store)
+    common = maintainer_git_common_dir(Path(config["maintainer_repo"]))
     return common / PUBLISHER_LOCK_DIR / PUBLISHER_LOCK_NAME
 
 
@@ -981,7 +981,7 @@ def _read_lock_file(path: Path) -> dict | None:
     except FileNotFoundError:
         return None
     except OSError as exc:
-        raise WorkflowError(f"cannot read publisher lock {path}: {exc}") from exc
+        raise WorkflowError(f"cannot read maintainer lock {path}: {exc}") from exc
     try:
         value = json.loads(text)
     except json.JSONDecodeError:
@@ -993,12 +993,12 @@ def _read_lock_file(path: Path) -> dict | None:
     return value
 
 
-def read_publisher_lock(store: Path) -> dict | None:
+def read_maintainer_lock(store: Path) -> dict | None:
     """Diagnostic view of the held lock; never creates, breaks or releases it."""
-    return _read_lock_file(publisher_lock_path(store))
+    return _read_lock_file(maintainer_lock_path(store))
 
 
-def _lock_held_error(path: Path, label: str = "publisher") -> WorkflowError:
+def _lock_held_error(path: Path, label: str = "maintainer") -> WorkflowError:
     record = _read_lock_file(path)
     if record is None:
         return WorkflowError(f"{label} lock is held: {path} (owner details unavailable)")
@@ -1069,49 +1069,49 @@ def _release_lock(lock_path: Path, token: str, label: str) -> None:
         raise WorkflowError(f"cannot release {label} lock {lock_path}: {exc}") from exc
 
 
-def acquire_publisher_lock(store: Path) -> str:
-    """Atomically acquire the publisher clone's single lock and return its owner token.
+def acquire_maintainer_lock(store: Path) -> str:
+    """Atomically acquire the maintainer clone's single lock and return its owner token.
 
-    `O_CREAT|O_EXCL` at `<git-common-dir>/hermes-sync/publisher.lock`; the record
+    `O_CREAT|O_EXCL` at `<git-common-dir>/hermes-sync/maintainer.lock`; the record
     carries the owner token, pid, host and acquisition time. There is no age
     expiry and no TTL: an old lock is never evidence that its owner is gone.
     """
-    return _acquire_lock(publisher_lock_path(store), "publisher", PUBLISHER_LOCK_SCHEMA)
+    return _acquire_lock(maintainer_lock_path(store), "maintainer", PUBLISHER_LOCK_SCHEMA)
 
 
-def release_publisher_lock(store: Path, token: str) -> None:
+def release_maintainer_lock(store: Path, token: str) -> None:
     """Release only with the acquiring owner token; never guess or break another owner's lock."""
-    _release_lock(publisher_lock_path(store), token, "publisher")
+    _release_lock(maintainer_lock_path(store), token, "maintainer")
 
 
-def producer_lock_path(repo: Path) -> Path:
-    """The one short-operation lock path covering a producer checkout.
+def contributor_lock_path(repo: Path) -> Path:
+    """The one short-operation lock path covering a contributor checkout.
 
-    Derived from the producer repository's Git **common dir**, so every linked
+    Derived from the contributor repository's Git **common dir**, so every linked
     worktree of that checkout contends on the same file. It is deliberately a
-    different file from the publisher lock and never lives in the store.
+    different file from the maintainer lock and never lives in the store.
     """
     return git_common_dir(repo) / PUBLISHER_LOCK_DIR / PRODUCER_LOCK_NAME
 
 
-def read_producer_lock(repo: Path) -> dict | None:
-    """Diagnostic view of the held producer lock; never creates, breaks or releases it."""
-    return _read_lock_file(producer_lock_path(repo))
+def read_contributor_lock(repo: Path) -> dict | None:
+    """Diagnostic view of the held contributor lock; never creates, breaks or releases it."""
+    return _read_lock_file(contributor_lock_path(repo))
 
 
-def acquire_producer_lock(repo: Path) -> str:
-    """Acquire the producer checkout's short-operation lock and return its owner token.
+def acquire_contributor_lock(repo: Path) -> str:
+    """Acquire the contributor checkout's short-operation lock and return its owner token.
 
-    Used only for the staging commit and the pre-consolidation merge/push, never
+    Used only for the staging commit and the pre-integration merge/push, never
     for a whole chat session. An existing file is a refusal with its owner
     details; there is no age expiry that could silently break a live owner.
     """
-    return _acquire_lock(producer_lock_path(repo), "producer", PRODUCER_LOCK_SCHEMA)
+    return _acquire_lock(contributor_lock_path(repo), "contributor", PRODUCER_LOCK_SCHEMA)
 
 
-def release_producer_lock(repo: Path, token: str) -> None:
-    """Release the producer lock only with the acquiring owner token."""
-    _release_lock(producer_lock_path(repo), token, "producer")
+def release_contributor_lock(repo: Path, token: str) -> None:
+    """Release the contributor lock only with the acquiring owner token."""
+    _release_lock(contributor_lock_path(repo), token, "contributor")
 
 
 # ---------------------------------------------------------------------------
@@ -1174,7 +1174,7 @@ def _validate_candidate_state(
     if state["id"] != cid:
         raise WorkflowError(f"candidate id does not match its journal: {state['id']}")
     if state["repo_id"] != config["repo_id"]:
-        raise WorkflowError("candidate repo_id does not match the publisher config")
+        raise WorkflowError("candidate repo_id does not match the maintainer config")
     kind = _text_in(state["kind"], "kind", KINDS)
     source_ref = _validate_branch_ref(state["source_ref"], "source_ref")
     if kind == "transport":
@@ -1185,7 +1185,7 @@ def _validate_candidate_state(
         registry = next(
             (entry for entry in config["sources"] if entry["ref"] == source_ref), None
         )
-        # Saved publication intents must remain inspectable after registry
+        # Saved integration intents must remain inspectable after registry
         # revocation: remote P may already exist. Loading this recovery journal
         # is NOT authorization to push; the shared pre-push gate still requires
         # the current registry entry and exact recorded identity.
@@ -1212,7 +1212,7 @@ def _validate_candidate_state(
             if submission.get(field) != value:
                 raise WorkflowError(
                     f"refactor candidate {cid} does not match its submission record ({field})")
-        identity = _validate_identity(submission["publisher_identity"])
+        identity = _validate_identity(submission["maintainer_identity"])
         machine, profile = identity["machine"], identity["profile"]
     _text(state["source_machine"], "source_machine")
     _text(state["source_profile"], "source_profile")
@@ -1257,9 +1257,9 @@ def _validate_candidate_state(
     result_tree = state.get("result_tree", "")
     if result_tree and not _is_full_sha(result_tree):
         raise WorkflowError("candidate result_tree must be a full Git tree SHA")
-    published_main = state.get("published_main", "")
-    if published_main and not _is_full_sha(published_main):
-        raise WorkflowError("candidate published_main must be a full commit SHA")
+    integrated_main = state.get("integrated_main", "")
+    if integrated_main and not _is_full_sha(integrated_main):
+        raise WorkflowError("candidate integrated_main must be a full commit SHA")
     result_observed_at = state.get("result_observed_at", "")
     if result_observed_at:
         _text(result_observed_at, "result_observed_at")
@@ -1299,7 +1299,7 @@ def _validate_candidate_state(
     if status in _REVIEWED_STATUSES:
         if not state["reviewed_tree"] or not state["review_digest"]:
             raise WorkflowError(f"candidate status {status} requires a reviewed tree and digest")
-    if status in _RESULT_STATUSES or status == "publish-intent":
+    if status in _RESULT_STATUSES or status == "integrate-intent":
         if not state["result_sha"]:
             raise WorkflowError(f"candidate status {status} requires a result commit")
         if state.get("result_parents") != [state["main_sha"], state["source_sha"]]:
@@ -1337,7 +1337,7 @@ def _validate_state(
 
     A refactor journal is never accepted from the transport registry; it must
     name an existing submission record that matches its ref, main, tip, policy
-    and publisher identity exactly.
+    and maintainer identity exactly.
     """
     submission = None
     if state.get("kind") == "refactor":
@@ -1350,7 +1350,7 @@ def _validate_state(
 def load_candidate(store: Path, cid: str) -> dict:
     """Load the authoritative candidate journal plus an in-memory `_store`.
 
-    The publisher registry is parsed and validated before any candidate file is
+    The maintainer registry is parsed and validated before any candidate file is
     trusted; `_store` is never read from disk and never persisted. A refactor
     journal additionally requires its exact-tip submission record.
     """
@@ -1403,7 +1403,7 @@ def _submitted_refactor_lines(
 
     An unsubmitted `refs/heads/refactor/*` branch has no record and is never
     listed, so a backup push cannot look ready. A submission whose captured main
-    is no longer the published main is stale (merge main, review, submit again)
+    is no longer the integrated main is stale (merge main, review, submit again)
     and is omitted rather than reported as pending forever. When the journal
     exists its blocked/pending status and retry generation win, exactly as for a
     transport candidate.
@@ -1433,14 +1433,14 @@ def pending_lines(
     """Return the monitor's stable line protocol for this store.
 
     * one `pending <cid>` line per enabled registered `machine/*` tip that is
-      not an ancestor of published main (an unacknowledged empty-diff tip
+      not an ancestor of integrated main (an unacknowledged empty-diff tip
       included: consumption is ancestry, never diff size)
     * one `blocked <cid>` line instead when that exact candidate journal is
       blocked, so an unchanged block never looks like fresh work
     * submitted refactor candidates (a refactor journal exists) are listed the
       same way; unsubmitted refactor refs are never listed
     * consumed tips are omitted from source discovery, but unfinished journals
-      independently emit `recover <cid>` (publish-intent/published/receipt-pending)
+      independently emit `recover <cid>` (integrate-intent/integrated/receipt-pending)
       or `incident <cid>` (sticky incident), even for disabled sources
     * `retry <n>` is appended once an explicit `retry_candidate()` advanced the
       generation, so the monitor key changes exactly once per invocation
@@ -1454,7 +1454,7 @@ def pending_lines(
     store_path = _store_path(store)
     config = _read_config(store_path)
     repo_path = Path(repo)
-    _assert_publisher(repo_path, config)
+    _assert_maintainer(repo_path, config)
     if sources is None:
         source_entries: Sequence[Mapping[str, Any]] = config["sources"]
     else:
@@ -1473,7 +1473,7 @@ def pending_lines(
     main = git(repo_path, "rev-parse", "--verify", "--quiet", main_ref)
     if main.returncode != 0 or not _is_full_sha(main.stdout.strip()):
         reason = "no successful fetch is recorded" if not fetch else "it is missing"
-        raise WorkflowError(f"cannot determine published main: {main_ref} {reason}")
+        raise WorkflowError(f"cannot determine integrated main: {main_ref} {reason}")
     main_sha = main.stdout.strip()
 
     lines: list[str] = []
@@ -1507,7 +1507,7 @@ def pending_lines(
         state = load_candidate(store_path, path.parent.name)
         if state.get("incident"):
             recovery[state["id"]] = f"incident {state['id']}"
-        elif state["status"] in ("publish-intent", "published", "receipt-pending"):
+        elif state["status"] in ("integrate-intent", "integrated", "receipt-pending"):
             recovery[state["id"]] = f"recover {state['id']}"
     lines = [line for line in lines if line.split()[1] not in recovery]
     lines.extend(recovery.values())
@@ -1627,7 +1627,7 @@ def validate_source_history(
                 continue
             raise WorkflowError(
                 f"transport tip {tip_sha} merges unpublished parent {parent} in merge {commit}; "
-                "a transport branch may only merge commits already published on main"
+                "a transport branch may only merge commits already integrated on main"
             )
     if isinstance(known_refactors, str):
         known_refactors = (known_refactors,)
@@ -1651,7 +1651,7 @@ def validate_source_history(
 # an intermediate commit may add prohibited content that a later commit
 # deletes. It walks every commit in the unpublished range and reports only a
 # path and a category — never the matched line, value or blob content. Already
-# published exposure is a separate incident; this screen deliberately only
+# integrated exposure is a separate incident; this screen deliberately only
 # covers `<tip> ^<last verified remote source tip>`.
 # ---------------------------------------------------------------------------
 
@@ -1745,7 +1745,7 @@ def screen_source_history(repo: Path, tip: str, base_tip: str | None = None) -> 
     remains the reviewing agent's job.
     """
     tip_sha = _resolve_commit(repo, tip, "source tip")
-    base_sha = _resolve_commit(repo, base_tip, "published source tip") if base_tip else ""
+    base_sha = _resolve_commit(repo, base_tip, "integrated source tip") if base_tip else ""
     if base_sha:
         result = git(repo, "rev-list", "--reverse", tip_sha, f"^{base_sha}")
     else:
@@ -1857,7 +1857,7 @@ def _new_candidate_state(
         "attempts": 0,
         # Explicit monitor/retry state: only --retry advances it, once per call.
         "retry_generation": 0,
-        # Publication/receipt fields are created empty so every journal has one
+        # Integration/receipt fields are created empty so every journal has one
         # stable shape; they are filled only from observed evidence.
         "result_observed_at": "",
         "receipt_sha256": "",
@@ -1907,10 +1907,10 @@ def _capture_refactor(repo: Path, store: Path, config: Mapping[str, Any], source
     extra = sorted(set(given) - {"ref"})
     if extra:
         raise WorkflowError(
-            "refactor capture takes only a ref; identity comes from publisher_identity, "
+            "refactor capture takes only a ref; identity comes from maintainer_identity, "
             f"not from caller fields: {', '.join(extra)}")
     ref = _refactor_ref(given.get("ref"))
-    _require_report_scope(config, ref, config["publisher_identity"]["scope"])
+    _require_report_scope(config, ref, config["maintainer_identity"]["scope"])
     remote = config["remote"]
     _fetch_inputs(repo, remote)
     main_sha = _resolve_commit(
@@ -1956,7 +1956,7 @@ def _capture_refactor(repo: Path, store: Path, config: Mapping[str, Any], source
             f"merge {remote}/{MAIN_BRANCH} into {ref} and submit the merged exact tip")
 
     _require_unexposed_history(repo, main_sha, tip)
-    identity = submission["publisher_identity"]
+    identity = submission["maintainer_identity"]
     entry = {"ref": ref, "machine": identity["machine"], "profile": identity["profile"]}
     cid = submission["id"]
     state_file = _candidate_path(store, cid, STATE_FILE)
@@ -1977,14 +1977,14 @@ def capture(repo: Path, store: Path, source: dict, kind: str = "transport") -> d
     """Capture immutable fetched M and T and persist an idempotent candidate.
 
     One fetch, then M and T are resolved from the fetched remote-tracking refs
-    and pinned under `refs/hermes-sync/candidates/<cid>/`. The publisher clone's
+    and pinned under `refs/hermes-sync/candidates/<cid>/`. The maintainer clone's
     HEAD and index are never touched. Transport sources come from the registry;
     a refactor tip comes only from an explicit submission record.
     """
     kind = _text_in(kind, "kind", KINDS)
     store_path = _store_path(store)
     config = _read_config(store_path)
-    _assert_publisher(repo, config)
+    _assert_maintainer(repo, config)
     _assert_store_outside_repo(repo, store_path)
 
     if kind == "refactor":
@@ -2044,11 +2044,11 @@ def _verify_pins(repo: Path, cid: str, main_sha: str, source_sha: str) -> None:
 
 
 def _assert_candidate_dir_allowed(worktree: Path, config: Mapping[str, Any]) -> None:
-    """Refuse a candidate checkout inside runtime, report or publisher roots."""
+    """Refuse a candidate checkout inside runtime, report or maintainer roots."""
     candidate = Path(worktree).resolve()
     protected = [("runtime root", root) for root in config["runtime_roots"]]
     protected.append(("report root", config["report"]["vault_root"]))
-    protected.append(("publisher repository", config["publisher_repo"]))
+    protected.append(("maintainer repository", config["maintainer_repo"]))
     for label, root in protected:
         resolved = Path(root).resolve()
         if candidate == resolved or resolved in candidate.parents:
@@ -2300,7 +2300,7 @@ def _worktree_revisions(worktree: Path) -> dict | None:
 
 
 def _same_repository(repo: Path, worktree: Path) -> bool:
-    """A candidate worktree must share the publisher's common Git directory."""
+    """A candidate worktree must share the maintainer's common Git directory."""
     left = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
     right = git(worktree, "rev-parse", "--path-format=absolute", "--git-common-dir")
     if left.returncode != 0 or right.returncode != 0:
@@ -2371,15 +2371,15 @@ def prepare(repo: Path, store: Path, candidate: dict) -> dict:
     """Create the detached candidate worktree and stop with a real merge index.
 
     Isolation: the worktree lives under `<store>/worktrees/<cid>/`, never inside
-    a runtime discovery root, report root or the publisher checkout; repository
-    hooks and rerere are disabled in the publisher's own config. The merge is
+    a runtime discovery root, report root or the maintainer checkout; repository
+    hooks and rerere are disabled in the maintainer's own config. The merge is
     native `git merge --no-ff --no-commit T`, so `MERGE_HEAD` is exactly T and
     the index is the complete proposed tree. Exit status 1 is accepted only
     when the index really lists unmerged entries; everything else blocks.
     """
     store_path = _store_path(store)
     config = _read_config(store_path)
-    _assert_publisher(repo, config)
+    _assert_maintainer(repo, config)
     _assert_store_outside_repo(repo, store_path)
 
     cid = candidate.get("id") if isinstance(candidate, Mapping) else None
@@ -3041,7 +3041,7 @@ def validate_review(candidate: dict, review: dict, repo: Path, worktree: Path) -
 
 
 # ---------------------------------------------------------------------------
-# Final gate: the staged index is the publication artifact
+# Final gate: the staged index is the integration artifact
 # ---------------------------------------------------------------------------
 
 
@@ -3253,7 +3253,7 @@ def _check_plan(
     index_paths = set(_index_map(worktree))
     main_paths = set(_tree_paths(worktree, state["main_sha"]))
     config = _read_config(_candidate_store(state))
-    publisher = Path(config["publisher_repo"]).resolve()
+    maintainer = Path(config["maintainer_repo"]).resolve()
     candidates: list[dict] = []
     # Keep the historic maintenance rows (including unchanged N/A), then add
     # explicit rows for other changed packages. Captured-but-rejected paths do
@@ -3291,8 +3291,8 @@ def _check_plan(
         else:
             # Absolute script AND trusted cwd: sibling imports and helper
             # resolution must not come from the unreviewed candidate either.
-            runner = safe_relative(publisher, spec["runner"]).resolve()
-            spec["cwd"] = str(publisher)
+            runner = safe_relative(maintainer, spec["runner"]).resolve()
+            spec["cwd"] = str(maintainer)
             if spec["name"] == CHECK_LIBRARY_AUDIT:
                 spec["argv"] = [sys.executable, str(runner), str(bound_root / "skills"), "--json"]
             else:
@@ -3300,7 +3300,7 @@ def _check_plan(
             spec["tree_source"] = "git-tree-blobs-readonly-v1"
             present = runner.is_file()
             if spec["changed"] and not present and spec["runner"] in index_paths:
-                spec["unavailable"] = "required validation tool is missing from trusted publisher: " + spec["runner"]
+                spec["unavailable"] = "required validation tool is missing from trusted maintainer: " + spec["runner"]
             spec["tool_sha256"] = hashlib.sha256(runner.read_bytes()).hexdigest() if present else ""
         previously = _runner_present(spec["runner"], spec["kind"], main_paths)
         if not spec["changed"]:
@@ -3310,7 +3310,7 @@ def _check_plan(
         elif present or spec.get("unavailable"):
             plan.append({**spec, "applicable": True, "required": True, "note": ""})
         elif previously:
-            raise WorkflowError("required check runner disappeared from trusted publisher: " + spec["runner"])
+            raise WorkflowError("required check runner disappeared from trusted maintainer: " + spec["runner"])
         else:
             plan.append({**spec, "applicable": False, "required": False,
                          "note": f"no runner is configured for {spec['name']} in this repository"})
@@ -3876,7 +3876,7 @@ def record_review(
     candidate_worktree = Path(worktree)
     normalized = _normalize_review(review)
     validate_review(
-        state, normalized, Path(config["publisher_repo"]), candidate_worktree
+        state, normalized, Path(config["maintainer_repo"]), candidate_worktree
     )
     rows = _validate_check_rows(checks)
     _require_matching_check_rows(rows, state, candidate_worktree)
@@ -4151,21 +4151,21 @@ def verify_report(candidate: dict, expected_text: str, report_root: Path) -> dic
 
 
 # ---------------------------------------------------------------------------
-# Publication: exact merges, durable intent, observed remote evidence
+# Integration: exact merges, durable intent, observed remote evidence
 #
 # Promotion never re-merges and never rewrites history. The reviewed tree is
 # committed once with `git commit-tree <tree> -p M -p T` (ordered parents, no
 # hooks, an explicit author/committer identity supplied through the process
 # environment so Git config is never modified), the intent is persisted
 # atomically *before* a non-force push, and only a checked `git ls-remote` plus
-# fetched ancestry may record `published`. A repeated call works from the saved
+# fetched ancestry may record `integrated`. A repeated call works from the saved
 # P and reconciles; it never creates a second integration commit.
 # ---------------------------------------------------------------------------
 
 RESULT_FILE = "result.md"
 # Result receipts are a separate note next to the immutable review note: a
-# publication outcome is never backfilled into the approved report.
-_RECEIPT_RECOVERY_HINT = "publish-intent retained for reconcile"
+# integration outcome is never backfilled into the approved report.
+_RECEIPT_RECOVERY_HINT = "integrate-intent retained for reconcile"
 
 
 def _result_relative_path(config: Mapping[str, Any], cid: str) -> str:
@@ -4235,11 +4235,11 @@ _RESULT_TRAILERS = (
 
 def _result_identity_env(config: Mapping[str, Any]) -> dict[str, str]:
     """Process-local author/committer identity; never writes Git config."""
-    identity = config["publisher_identity"]
+    identity = config["maintainer_identity"]
 
     def clean(value: str) -> str:
         cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-")
-        return cleaned or "publisher"
+        return cleaned or "maintainer"
 
     machine = clean(identity["machine"])
     profile = clean(identity["profile"])
@@ -4256,7 +4256,7 @@ def _result_identity_env(config: Mapping[str, Any]) -> dict[str, str]:
 
 def _result_message(state: Mapping[str, Any]) -> str:
     return (
-        f"consolidator: integrate {state['source_ref']} {state['source_sha'][:12]} "
+        f"maintainer: integrate {state['source_ref']} {state['source_sha'][:12]} "
         f"as candidate {state['id'][:12]}\n"
         "\n"
         f"Skill-Sync-Candidate: {state['id']}\n"
@@ -4318,8 +4318,8 @@ def _verify_result_commit(repo: Path, state: Mapping[str, Any]) -> str:
                 f"result commit {sha} trailer {key} is {observed!r}, "
                 f"expected {expected_trailers[key]!r}"
             )
-    if not facts["message"].startswith("consolidator:"):
-        raise WorkflowError(f"result commit {sha} is not a consolidator merge")
+    if not facts["message"].startswith("maintainer:"):
+        raise WorkflowError(f"result commit {sha} is not a maintainer merge")
     return sha
 
 
@@ -4404,7 +4404,7 @@ def _remember_intent_error(
     message: str,
     config: Mapping[str, Any],
 ) -> dict:
-    """Keep `publish-intent` and its saved P; the outcome stays uncertain until reconcile.
+    """Keep `integrate-intent` and its saved P; the outcome stays uncertain until reconcile.
 
     The persisted diagnostic always names the recovery step, so an operator or a
     later run can distinguish an uncertain outcome from a failed or absent push
@@ -4420,35 +4420,35 @@ def _remember_intent_error(
     return _public_state(updated, store)
 
 
-def _mark_published(
+def _mark_integrated(
     store: Path,
     cid: str,
     state: Mapping[str, Any],
     observed_main: str,
     config: Mapping[str, Any],
 ) -> dict:
-    """Record observed publication evidence, then render the receipt payload.
+    """Record observed integration evidence, then render the receipt payload.
 
-    `published` is only ever written from an exact remote reading; a later main
+    `integrated` is only ever written from an exact remote reading; a later main
     that already contains P is recorded as the observed main too. An existing
     `receipt-pending`/`complete` status is not downgraded by a repeat call, and
     the observation timestamp is fixed the first time so every later render of
     the result is byte-identical. A review note that no longer matches its
-    recorded digest is recorded as an incident: publication is not undone and
+    recorded digest is recorded as an incident: integration is not undone and
     the immutable note is never rewritten to fit the result.
     """
     updated = _persisted_state(state)
-    if updated["status"] == "publish-intent":
-        updated["status"] = "published"
-    updated["published_main"] = observed_main
+    if updated["status"] == "integrate-intent":
+        updated["status"] = "integrated"
+    updated["integrated_main"] = observed_main
     if not updated.get("result_observed_at"):
         updated["result_observed_at"] = _utc_now()
     incident = updated.get("incident", "")
     observation, detail = _report_observation(config, updated, store)
     if observation != "present" and not incident:
         incident = (
-            f"publication incident: {detail}; result {updated['result_sha']} remains "
-            "published and the immutable review note is never rewritten"
+            f"integration incident: {detail}; result {updated['result_sha']} remains "
+            "integrated and the immutable review note is never rewritten"
         )
     if incident:
         updated["incident"] = incident
@@ -4487,9 +4487,9 @@ def _push_and_confirm(
     except WorkflowError as exc:
         message = f"saved result {result_sha} could not be confirmed on {remote}: {exc}"
         _remember_intent_error(store, cid, state, message, config)
-        raise WorkflowError(f"candidate {cid} publish-intent retained: {message}") from exc
+        raise WorkflowError(f"candidate {cid} integrate-intent retained: {message}") from exc
     if observed == result_sha:
-        return _mark_published(store, cid, state, observed, config)
+        return _mark_integrated(store, cid, state, observed, config)
 
     # A later main still counts when it contains P; fetch before the ancestry
     # check so a remote object that is not local yet is present.
@@ -4498,16 +4498,16 @@ def _push_and_confirm(
         repo, f"refs/remotes/{remote}/{MAIN_BRANCH}", f"{remote}/{MAIN_BRANCH}"
     )
     if is_ancestor(repo, result_sha, fetched):
-        return _mark_published(store, cid, state, observed, config)
+        return _mark_integrated(store, cid, state, observed, config)
 
     if fetched == state["main_sha"]:
         detail = _result_tail(pushed) if pushed.returncode != 0 else "remote main did not advance"
         message = (
             f"saved result {result_sha} was not accepted and remote main is still the captured "
-            f"main {state['main_sha']} ({detail}); publish-intent retained for reconcile"
+            f"main {state['main_sha']} ({detail}); integrate-intent retained for reconcile"
         )
         _remember_intent_error(store, cid, state, message, config)
-        raise WorkflowError(f"candidate {cid} publish-intent retained: {message}")
+        raise WorkflowError(f"candidate {cid} integrate-intent retained: {message}")
 
     message = (
         f"remote main {fetched} no longer contains the captured main {state['main_sha']} and "
@@ -4552,14 +4552,14 @@ def _require_remote_inputs(
     if not _is_full_sha(tip) or not is_ancestor(repo, state["source_sha"], tip):
         message = (
             f"source {source_ref} was rewritten: captured tip {state['source_sha']} is not an "
-            f"ancestor of the remote tip {tip}; recapture instead of publishing replaced history"
+            f"ancestor of the remote tip {tip}; recapture instead of integrating replaced history"
         )
         _mark_failed(store, cid, state, "blocked", message, config)
         raise WorkflowError(f"candidate {cid} is blocked: {message}")
 
 
 def _render_result_payload(state: Mapping[str, Any], result_sha: str) -> str:
-    published = state.get("published_main") or "not recorded"
+    integrated = state.get("integrated_main") or "not recorded"
     report = state["report_relative_path"] or "not rendered"
     observed_at = state.get("result_observed_at") or state["created_at"]
     hub, project_tag = _report_note_context(report)
@@ -4589,21 +4589,21 @@ def _render_result_payload(state: Mapping[str, Any], result_sha: str) -> str:
         f"- Result tree: `{state['reviewed_tree']}`",
         f"- Review digest: `{state['review_digest']}`",
         f"- Review report: `{report}`",
-        f"- Published main observed at `refs/heads/{MAIN_BRANCH}`: `{published}`",
-        f"- Publication observed at: `{observed_at}`",
+        f"- Integrated main observed at `refs/heads/{MAIN_BRANCH}`: `{integrated}`",
+        f"- Integration observed at: `{observed_at}`",
         "- Source consumption: `consumed` — the integrated tip is an ancestor of the "
-        "published main",
-        "- Publication outcome: `published` — a receipt never restates its own "
+        "integrated main",
+        "- Integration outcome: `integrated` — a receipt never restates its own "
         "delivery state",
         "- Immutability: the review report stays the reviewed evidence; this receipt records "
-        "only the publication outcome and never rewrites or re-approves that review",
+        "only the integration outcome and never rewrites or re-approves that review",
     ]
     if state.get("incident"):
         lines.append(f"- Incident: {_one_line(state['incident'])}")
     lines.extend(
         [
             "",
-            "The publication is a real merge commit: the ordered parents are the captured main and",
+            "The integration is a real merge commit: the ordered parents are the captured main and",
             "the reviewed source tip, and the tree is exactly the reviewed tree. No force, reset,",
             "rebase or amended source ref was used.",
             "",
@@ -4616,7 +4616,7 @@ def _render_result_payload(state: Mapping[str, Any], result_sha: str) -> str:
 
 
 def render_result(candidate: dict) -> str:
-    """Render the deterministic publication result and save it under the store.
+    """Render the deterministic integration result and save it under the store.
 
     Only a candidate whose saved P was verified may be rendered: the payload
     names the exact commit, parents, tree and observed remote main from the
@@ -4630,7 +4630,7 @@ def render_result(candidate: dict) -> str:
             "after the integration commit was observed on main"
         )
     config = _read_config(store)
-    result_sha = _verify_result_commit(Path(config["publisher_repo"]), state)
+    result_sha = _verify_result_commit(Path(config["maintainer_repo"]), state)
     text = _render_result_payload(state, result_sha)
     _atomic_text(_candidate_path(store, state["id"], RESULT_FILE), text)
     return text
@@ -4639,19 +4639,19 @@ def render_result(candidate: dict) -> str:
 def verify_result(store: Path, cid: str, report_root: Path) -> dict:
     """Verify the exact result-receipt bytes and record delivery completion.
 
-    `publish`/`reconcile` only render a payload under the candidate store; the
+    `integrate`/`reconcile` only render a payload under the candidate store; the
     live receipt note is delivered separately (TurboVault by the agent) and is
     verified here by exact bytes at
     `<report.vault_root>/<report.directory>/skill-sync-<cid>-result.md`.
 
-    The publisher lock is acquired exactly once for the journal transition, so a
+    The maintainer lock is acquired exactly once for the journal transition, so a
     receipt attempt cannot lose an update against a concurrent reconcile. The
     journal, config and stored result are reloaded: the caller's status is never
     trusted. Every completed attempt records either `receipt-pending` or exact
     delivery evidence. A missing, altered, symlinked or
     escaping receipt is refused and the receipt stays pending; an exact match
     records `complete` plus the SHA-256 of the delivered bytes. A recorded
-    publication incident blocks completion and the immutable review note is
+    integration incident blocks completion and the immutable review note is
     never written here.
     """
     store_path = _store_path(store)
@@ -4661,33 +4661,33 @@ def verify_result(store: Path, cid: str, report_root: Path) -> dict:
     root = Path(report_root)
     if not root.is_absolute():
         raise WorkflowError("report_root must be an absolute path")
-    token = acquire_publisher_lock(store_path)
+    token = acquire_maintainer_lock(store_path)
     try:
         return _verify_result_locked(store_path, cid, root, config)
     finally:
-        release_publisher_lock(store_path, token)
+        release_maintainer_lock(store_path, token)
 
 
 def _verify_result_locked(
     store: Path, cid: str, root: Path, config: Mapping[str, Any]
 ) -> dict:
-    """Receipt read-back under the already-acquired publisher lock."""
+    """Receipt read-back under the already-acquired maintainer lock."""
     state = load_candidate(store, cid)
     if state["status"] not in _RESULT_STATUSES:
         raise WorkflowError(
-            f"candidate {cid} is {state['status']}; only an observed publication has a "
+            f"candidate {cid} is {state['status']}; only an observed integration has a "
             "result receipt to verify"
         )
     configured = Path(config["report"]["vault_root"])
     if root.resolve() != configured.resolve():
         raise WorkflowError("report_root is not the configured report.vault_root")
-    result_sha = _verify_result_commit(Path(config["publisher_repo"]), state)
+    result_sha = _verify_result_commit(Path(config["maintainer_repo"]), state)
     # Receipt completion must itself observe the immutable review, even when no
-    # publish/reconcile call has run since the note was altered (or since complete).
+    # integrate/reconcile call has run since the note was altered (or since complete).
     observation, detail = _report_observation(config, state, store)
     if observation != "present" and not state.get("incident"):
         state["incident"] = (
-            f"publication incident: {detail}; result {result_sha} remains published "
+            f"integration incident: {detail}; result {result_sha} remains integrated "
             "and the immutable review note is never rewritten"
         )
     expected_text = _render_result_payload(state, result_sha)
@@ -4698,7 +4698,7 @@ def _verify_result_locked(
     data = b""
     if state.get("incident"):
         problem = (
-            f"candidate {cid} has a recorded publication incident: {state['incident']}; "
+            f"candidate {cid} has a recorded integration incident: {state['incident']}; "
             "the receipt cannot complete until that discrepancy is resolved and the "
             "immutable review note is never rewritten"
         )
@@ -4726,7 +4726,7 @@ def _verify_result_locked(
     updated = _persisted_state(state)
     updated["receipt_attempts"] = int(updated.get("receipt_attempts") or 0) + 1
     if problem:
-        # `published` -> `receipt-pending`: delivery is attempted but unverified.
+        # `integrated` -> `receipt-pending`: delivery is attempted but unverified.
         updated["status"] = "receipt-pending"
         updated["receipt_sha256"] = ""
         updated["receipt_verified_at"] = ""
@@ -4752,7 +4752,7 @@ def _reconcile_locked(
     state = load_candidate(store, cid)
     if state["status"] not in _RECONCILABLE_STATUSES:
         raise WorkflowError(
-            f"candidate {cid} is {state['status']}; there is no saved publication to reconcile"
+            f"candidate {cid} is {state['status']}; there is no saved integration to reconcile"
         )
     result_sha = _verify_result_commit(repo, state)
     remote = config["remote"]
@@ -4767,16 +4767,16 @@ def _reconcile_locked(
             f"({observed} -> {fetched}); retry reconcile"
         )
     if is_ancestor(repo, result_sha, fetched):
-        return _mark_published(store, cid, state, observed, config)
+        return _mark_integrated(store, cid, state, observed, config)
     if fetched == state["main_sha"]:
         try:
-            if state["status"] != "publish-intent":
-                raise WorkflowError("previously observed publication is absent from remote main")
+            if state["status"] != "integrate-intent":
+                raise WorkflowError("previously observed integration is absent from remote main")
             state = _authorize_publication(
                 repo, store, cid, Path(config["report"]["vault_root"]), config, state)
             _verify_result_commit(repo, state)
         except WorkflowError as exc:
-            message = f"publication retry incident: re-authorisation refused: {exc}"
+            message = f"integration retry incident: re-authorisation refused: {exc}"
             refused = _persisted_state(state)
             refused["incident"] = refused.get("incident") or message
             _mark_failed(store, cid, refused, "stale", message, config)
@@ -4794,7 +4794,7 @@ def _authorize_publication(
     repo: Path, store: Path, cid: str, report_root: Path,
     config: Mapping[str, Any], state: dict,
 ) -> dict:
-    """The same pre-push gate for first publication and retrying an absent P."""
+    """The same pre-push gate for first integration and retrying an absent P."""
     if state.get("incident"):
         raise WorkflowError(f"candidate {cid} has a recorded incident: {state['incident']}")
     # Source authorisation, review, checks, tree and report are re-read and
@@ -4837,7 +4837,7 @@ def _authorize_publication(
     ]
     if failed:
         raise WorkflowError(
-            "required checks are not green for publication: " + ", ".join(failed)
+            "required checks are not green for integration: " + ", ".join(failed)
         )
     validation = validate_tree(state, candidate_worktree, stored_review)
     if validation["tree"] != state["reviewed_tree"]:
@@ -4856,10 +4856,10 @@ def _authorize_publication(
     return state
 
 
-def _publish_locked(
+def _integrate_locked(
     repo: Path, store: Path, cid: str, report_root: Path, config: Mapping[str, Any]
 ) -> dict:
-    """Promotion under the already-acquired publisher lock (no recursive acquire)."""
+    """Promotion under the already-acquired maintainer lock (no recursive acquire)."""
     state = load_candidate(store, cid)
     status = state["status"]
     if status in _RECONCILABLE_STATUSES:
@@ -4867,22 +4867,22 @@ def _publish_locked(
     if status in ("stale", "blocked"):
         raise WorkflowError(
             f"candidate {cid} is {status}: {state['last_error'] or 'no recorded detail'}; "
-            "capture a new candidate instead of publishing this one"
+            "capture a new candidate instead of integrating this one"
         )
     if status != "report-verified":
         raise WorkflowError(
-            f"candidate {cid} is {status}; publish requires a report-verified candidate "
+            f"candidate {cid} is {status}; integrate requires a report-verified candidate "
             "(review, checks and report read-back must all still match)"
         )
     state = _authorize_publication(repo, store, cid, report_root, config, state)
     result_sha = _create_result_commit(repo, state, config)
     updated = _persisted_state(state)
     updated.update(
-        status="publish-intent",
+        status="integrate-intent",
         result_sha=result_sha,
         result_parents=[state["main_sha"], state["source_sha"]],
         result_tree=state["reviewed_tree"],
-        published_main="",
+        integrated_main="",
         last_error="",
     )
     _validate_state(store, updated, cid, config)
@@ -4891,43 +4891,43 @@ def _publish_locked(
     return _push_and_confirm(repo, store, cid, _public_state(updated, store), config)
 
 
-def publish(repo: Path, store: Path, cid: str, report_root: Path) -> dict:
+def integrate(repo: Path, store: Path, cid: str, report_root: Path) -> dict:
     """Promote a report-verified candidate as one exact merge commit on main.
 
-    The publisher lock is acquired exactly once for the whole public operation
+    The maintainer lock is acquired exactly once for the whole public operation
     and released with its owner token in `finally`. Everything is revalidated
     from the store, remote main must still be the captured M, and the resulting
     P is persisted before a non-force push and confirmed from `git ls-remote`.
     """
     store_path = _store_path(store)
     config = _read_config(store_path)
-    _assert_publisher(repo, config)
+    _assert_maintainer(repo, config)
     _assert_store_outside_repo(repo, store_path)
     if not isinstance(cid, str) or not _CID_RE.match(cid):
         raise WorkflowError(f"invalid candidate id: {cid!r}")
     root = Path(report_root)
     if not root.is_absolute():
         raise WorkflowError("report_root must be an absolute path")
-    token = acquire_publisher_lock(store_path)
+    token = acquire_maintainer_lock(store_path)
     try:
-        return _publish_locked(Path(repo), store_path, cid, root, config)
+        return _integrate_locked(Path(repo), store_path, cid, root, config)
     finally:
-        release_publisher_lock(store_path, token)
+        release_maintainer_lock(store_path, token)
 
 
 def reconcile(repo: Path, store: Path, cid: str) -> dict:
-    """Reconcile an uncertain publication from the saved P; never re-integrates."""
+    """Reconcile an uncertain integration from the saved P; never re-integrates."""
     store_path = _store_path(store)
     config = _read_config(store_path)
-    _assert_publisher(repo, config)
+    _assert_maintainer(repo, config)
     _assert_store_outside_repo(repo, store_path)
     if not isinstance(cid, str) or not _CID_RE.match(cid):
         raise WorkflowError(f"invalid candidate id: {cid!r}")
-    token = acquire_publisher_lock(store_path)
+    token = acquire_maintainer_lock(store_path)
     try:
         return _reconcile_locked(Path(repo), store_path, cid, config)
     finally:
-        release_publisher_lock(store_path, token)
+        release_maintainer_lock(store_path, token)
 
 
 # ---------------------------------------------------------------------------

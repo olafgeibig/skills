@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
-# skill-repo-sync — v3 "Stage & Consolidate" producer engine (staging, refresh, publication).
+# skill-repo-sync — v3 "Stage & Integrate" contributor engine (staging, refresh, integration).
 #
 # SCRIPT_VERSION: 3.0.0
 # Part of the skill-library-maintenance skill (shared repo). Install with
 # scripts/install-skill-repo-sync.py; verify with `--selfcheck`.
 #
-# The producer engine runs on every installation. It bundles pending skill work
+# The contributor engine runs on every installation. It bundles pending skill work
 # into ONE commit on the installation's transport branch `machine/<name>`, refreshes
-# that branch by merge ancestry, and publishes exactly the reviewed commit. Stage
-# secures the work locally; the pre-consolidation run owns the push — what lands on
-# a transport branch is always pre-consolidated. It never writes `main`; consolidation
-# onto main is the consolidator's job (skill-repo-consolidate.py / agent cron on the
-# consolidation host).
+# that branch by merge ancestry, and integrates exactly the reviewed commit. Stage
+# secures the work locally; the pre-integration run owns the push — what lands on
+# a transport branch is always pre-integrated. It never writes `main`; integration
+# onto main is the maintainer's job (skill-repo-maintain.py / agent cron on the
+# integration host).
 #
 # Modes
 #   --stage           (default) bundle ledger+worktree changes into one commit on
 #                     machine/<name> — local only, the push is held for the
-#                     pre-consolidation run; safe to re-run (idempotent by content).
+#                     pre-integration run; safe to re-run (idempotent by content).
 #                     Only the transport branch is a sweep target: a `refactor/*`
 #                     branch is excluded untouched, `main` is refused (exit 12,
 #                     clean or dirty). A missing never-tracked ledger path is
 #                     recorded as skipped and does not block valid work; a
 #                     whitespace/commit failure undoes only this run's index
 #                     entries, so fixing the cause and rerunning succeeds. The
-#                     short staging operation runs under the producer lock.
+#                     short staging operation runs under the contributor lock.
 #   --sync-from-main  session-start refresh by ancestry: fetch; fast-forward when
-#                     HEAD is an ancestor of published main and the worktree is
+#                     HEAD is an ancestor of integrated main and the worktree is
 #                     clean; do nothing when main is an ancestor of HEAD; on
-#                     divergence report "pre-consolidation merge required" and
+#                     divergence report "pre-integration merge required" and
 #                     change no file or index. Never reset, rebase or autostash.
 #   --screen-history SHA  mechanical screen of the ENTIRE unpublished range
 #                     `SHA ^ <remote source tip>`: forbidden file names and
@@ -37,16 +37,16 @@
 #                     persist the agent's semantic profile-scope review, bound to
 #                     the exact full SHA and its exact commit set (digest over the
 #                     review fields). Required before --push-reviewed.
-#   --push-reviewed SHA   under the producer lock: re-run the history screen,
+#   --push-reviewed SHA   under the contributor lock: re-run the history screen,
 #                     require the matching history review, require SHA to be HEAD
 #                     or an ancestor of HEAD, push `<SHA>:refs/heads/machine/<name>`
 #                     (NOT the branch name), verify the remote ref with ls-remote
 #                     and record `last_pushed_tip` as metadata only. A commit made
 #                     after the review (T2) stays local and unpublished.
-#   --lock / --unlock hold/release the producer lock across a deliberate
-#                     pre-consolidation merge; never hold it for a whole session.
+#   --lock / --unlock hold/release the contributor lock across a deliberate
+#                     pre-integration merge; never hold it for a whole session.
 #   --selfcheck       verify the local install (state, machine, branch policy, wrapper,
-#                     producer lock, last published tip)
+#                     contributor lock, last integrated tip)
 #   --version         print SCRIPT_VERSION
 #   --dry-run         no state, index, commit, fetch, push or lock-file writes
 #   --verbose         also report no-op runs
@@ -54,18 +54,18 @@
 #
 # Exit codes: 0 ok/no-op · 10 history-screen findings · 12 policy refusal or error · 13 not installed
 #
-# Design rules (design record: "Stage & Consolidate", decisions D1/D2):
+# Design rules (design record: "Stage & Integrate", decisions D1/D2):
 #   * the transport branch is `machine/<name>` — anything on main is refused
 #   * the mutation ledger picks/attributes paths; the v1 before/after hash chain
 #     is gone (it deadlocked against a moving HEAD: foreign commits retroactively
 #     invalidated old entries and froze cursor + push for the whole repo)
 #   * one bundled commit per stage run; this layer never uses force
 #   * stage never pushes (push-gate): the commit stays local until the
-#     pre-consolidation run cleans and pushes it
-#   * refresh and publication use merge ancestry only; there is no reset, rebase,
+#     pre-integration run cleans and pushes it
+#   * refresh and integration use merge ancestry only; there is no reset, rebase,
 #     autostash or "last_pushed_tip means consumed" shortcut anywhere
-#   * staging, refresh and the pre-consolidation push/merge share one producer
-#     lock at the producer repo's Git common dir (separate from the publisher lock)
+#   * staging, refresh and the pre-integration push/merge share one contributor
+#     lock at the contributor repo's Git common dir (separate from the maintainer lock)
 #   * no provider/network calls beyond git itself
 from __future__ import annotations
 
@@ -98,8 +98,8 @@ _CORE_MODULE = None
 def workflow_core():
     """Import the shared v3 core beside this engine (no CLI, no import side effects).
 
-    The producer lock and the history-exposure screen live in the shared core so the
-    publisher and the producer cannot drift into two different definitions.
+    The contributor lock and the history-exposure screen live in the shared core so the
+    maintainer and the contributor cannot drift into two different definitions.
     """
     global _CORE_MODULE
     if _CORE_MODULE is None:
@@ -126,12 +126,12 @@ def workflow_core():
     return _CORE_MODULE
 
 
-def _release_producer_lock(repo: Path, token: str, notes: list[str] | None = None) -> None:
+def _release_contributor_lock(repo: Path, token: str, notes: list[str] | None = None) -> None:
     """Release our own lock; a release failure is reported but never masks the result."""
     try:
-        workflow_core().release_producer_lock(repo, token)
+        workflow_core().release_contributor_lock(repo, token)
     except (OSError, RuntimeError) as exc:
-        message = f"producer lock release failed: {exc}"
+        message = f"contributor lock release failed: {exc}"
         if notes is None:
             print(f"skill-repo-sync: {message}", file=sys.stderr)
         else:
@@ -168,7 +168,7 @@ def added_pairs_from_diff(diff_text: str) -> list[tuple[str, str]]:
     return out
 
 
-def pre_consolidation_scan(repo: Path, added: list[tuple[str, str]]) -> list[dict]:
+def pre_integration_scan(repo: Path, added: list[tuple[str, str]]) -> list[dict]:
     """Vorbereitung fuer die Konsolidierung: welche Additionen brauchen Augen?
     Instanz-Pointer (Veto) und Duplikat-Kandidaten (Zeile >= 8 Woerter existiert
     sinngemaess schon in origin/main:<file> oder im Branch-Verlauf/HEAD). Der Scan ist
@@ -364,7 +364,7 @@ def repository_preflight(repo: Path, machine: str) -> tuple[bool, str]:
 def write_stage_report(findings: list[dict], skipped: list[dict]) -> None:
     """Report what this successful staging attempt scanned and which ledger paths it skipped."""
     report = {"at": datetime.now(tz=timezone.utc).isoformat(),
-              "needs_pre_consolidation": len(findings),
+              "needs_pre_integration": len(findings),
               "findings": findings,
               "skipped_ledger_paths": skipped}
     (state_path().parent / "stage-report.json").write_text(
@@ -384,14 +384,14 @@ def previous_stage_findings() -> list[dict]:
 
 def stage(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, list[str]]:
     """Bundle ledger + worktree changes into one commit on machine/<name>.
-    Stage secures the work locally; the pre-consolidation run owns the push.
+    Stage secures the work locally; the pre-integration run owns the push.
 
     Only a registered transport checkout is a sweep target: a deliberate `refactor/*` branch is
     excluded without touching it, and `main` is refused as a branch-policy violation even when
-    clean (a clean main is the consolidator's state, never healthy transport staging).
+    clean (a clean main is the maintainer's state, never healthy transport staging).
 
-    The commit is a short producer operation and runs under the producer lock; a
-    pre-consolidation merge/push holding that lock refuses staging before any index, worktree
+    The commit is a short contributor operation and runs under the contributor lock; a
+    pre-integration merge/push holding that lock refuses staging before any index, worktree
     or state write.
     """
     notes: list[str] = []
@@ -464,18 +464,18 @@ def stage(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, 
             notes.append(f"[dry-run] would skip stale ledger path: {item['path']}")
         return 0, notes
 
-    # Short staging operation: one owner-token lock at the producer repo's Git common dir.
-    # It is never held for a chat session, and a held pre-consolidation lock refuses here
+    # Short staging operation: one owner-token lock at the contributor repo's Git common dir.
+    # It is never held for a chat session, and a held pre-integration lock refuses here
     # before anything is written.
     try:
-        token = workflow_core().acquire_producer_lock(repo)
+        token = workflow_core().acquire_contributor_lock(repo)
     except (OSError, RuntimeError) as exc:
         return 12, [f"machine/{machine}: {exc}"]
     try:
         return _stage_apply(repo, machine, paths, skipped, ledger_ids, manual_paths,
                             snapshot_len, state, notes)
     finally:
-        _release_producer_lock(repo, token, notes)
+        _release_contributor_lock(repo, token, notes)
 
 
 def _stage_apply(
@@ -489,7 +489,7 @@ def _stage_apply(
     state: dict,
     notes: list[str],
 ) -> tuple[int, list[str]]:
-    """The index/commit/state part of staging; the caller holds the producer lock."""
+    """The index/commit/state part of staging; the caller holds the contributor lock."""
     if not paths:
         # Explicit recorded skipping: a stale entry must not block the cursor forever. This
         # attempt secures no new content, so an existing report's findings stay authoritative
@@ -523,9 +523,9 @@ def _stage_apply(
         return 12, [f"machine/{machine}: staged whitespace check failed — index restored to HEAD, "
                     f"worktree bytes untouched; fix the whitespace and rerun"]
 
-    # v2.1 staging pre-consolidation scan (R3): every staged addition against origin/main/HEAD —
+    # v2.1 staging pre-integration scan (R3): every staged addition against origin/main/HEAD —
     # instance pointers and duplicate candidates. Safety net: mark, never route.
-    findings = pre_consolidation_scan(repo, added_pairs_from_diff(git(repo, "diff", "--cached").stdout))
+    findings = pre_integration_scan(repo, added_pairs_from_diff(git(repo, "diff", "--cached").stdout))
 
     stamp = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     message_lines = [f"stage: skill updates on {machine} ({stamp})", ""]
@@ -539,10 +539,10 @@ def _stage_apply(
         shown = ", ".join(item["path"] for item in skipped[:20])
         message_lines.append("Skipped stale ledger paths: " + shown
                              + (f" … +{len(skipped) - 20} more" if len(skipped) > 20 else ""))
-    message_lines.append("Consolidating this content into main is the consolidator's job; "
+    message_lines.append("Consolidating this content into main is the maintainer's job; "
                          "this commit only secures the work.")
     if findings:
-        message_lines.append(f"Needs-pre-consolidation: {len(findings)}")
+        message_lines.append(f"Needs-pre-integration: {len(findings)}")
 
     commit = git(repo, "commit", "-q", "-m", "\n".join(message_lines), "--", *paths)
     if commit.returncode != 0:
@@ -551,10 +551,10 @@ def _stage_apply(
                     f"(index restored, worktree bytes untouched)"]
     notes.append(f"machine/{machine}: staged {len(paths)} path(s) "
                  f"({len(ledger_ids)} ledger entries, {len(manual_paths)} manual) — "
-                 f"holding push for the pre-consolidation run")
+                 f"holding push for the pre-integration run")
     write_stage_report(findings, skipped)
     # Push-gate: stage never pushes. The cursor advances through the snapshot read before
-    # staging — the pre-consolidation run owns the push; no reset is ever a recovery path.
+    # staging — the pre-integration run owns the push; no reset is ever a recovery path.
     state[CURSOR_KEY] = snapshot_len
     state["last_stage_run"] = datetime.now(tz=timezone.utc).isoformat()
     save_state(state)
@@ -564,17 +564,17 @@ def _stage_apply(
 # --- refresh --------------------------------------------------------------------------------------
 
 def sync_from_main(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tuple[int, list[str]]:
-    """Session-start refresh by ancestry: fast-forward, no-op, or defer to pre-consolidation.
+    """Session-start refresh by ancestry: fast-forward, no-op, or defer to pre-integration.
 
-    * HEAD is an ancestor of published main and the worktree is clean -> ``git merge --ff-only``.
-    * published main is an ancestor of HEAD -> nothing to integrate (no echo merge commit).
-    * the two sides diverged -> report "pre-consolidation merge required" and change nothing.
+    * HEAD is an ancestor of integrated main and the worktree is clean -> ``git merge --ff-only``.
+    * integrated main is an ancestor of HEAD -> nothing to integrate (no echo merge commit).
+    * the two sides diverged -> report "pre-integration merge required" and change nothing.
 
-    This path never resets, rebases or autostashes producer work, and never uses
+    This path never resets, rebases or autostashes contributor work, and never uses
     `last_pushed_tip` counts to decide that rewritten history is safe. A dirty worktree is
     never integrated; a merge/rebase already in progress is refused. Divergence exits 12 so
     the session hook actually reports it — it is a deliberate deferral, not an LLM wake-up.
-    Non-dry refresh holds the producer lock across preflight, fetch and merge;
+    Non-dry refresh holds the contributor lock across preflight, fetch and merge;
     every main checkout refuses before any mutation, even when clean.
     """
     notes: list[str] = []
@@ -583,19 +583,19 @@ def sync_from_main(repo: Path, machine: str, dry_run: bool, verbose: bool) -> tu
     if dry_run:
         return _sync_from_main_apply(repo, machine, dry_run, verbose, notes)
     try:
-        token = workflow_core().acquire_producer_lock(repo)
+        token = workflow_core().acquire_contributor_lock(repo)
     except (OSError, RuntimeError) as exc:
         return 12, [f"machine/{machine}: {exc}"]
     try:
         code, notes = _sync_from_main_apply(repo, machine, dry_run, verbose, notes)
         return code, notes
     finally:
-        _release_producer_lock(repo, token, notes)
+        _release_contributor_lock(repo, token, notes)
 
 
 def _sync_from_main_apply(repo: Path, machine: str, dry_run: bool, verbose: bool,
                           notes: list[str]) -> tuple[int, list[str]]:
-    """Preflight and refresh under the producer lock, or read-only cached dry-run."""
+    """Preflight and refresh under the contributor lock, or read-only cached dry-run."""
     # v2.1 session-start warning (R3): the local cleanup trigger for the last stage scan.
     report_path = state_path().parent / "stage-report.json"
     if report_path.is_file():
@@ -603,8 +603,8 @@ def _sync_from_main_apply(repo: Path, machine: str, dry_run: bool, verbose: bool
             rep = json.loads(report_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             rep = {}
-        if rep.get("needs_pre_consolidation"):
-            notes.append(f"skills: {rep['needs_pre_consolidation']} addition(s) need pre-consolidation — "
+        if rep.get("needs_pre_integration"):
+            notes.append(f"skills: {rep['needs_pre_integration']} addition(s) need pre-integration — "
                          "see stage-report.json (fix before staging again)")
     branch = git(repo, "branch", "--show-current").stdout.strip()
     if branch == "main":
@@ -639,7 +639,7 @@ def _sync_from_main_apply(repo: Path, machine: str, dry_run: bool, verbose: bool
         return 0, notes
 
     if git(repo, "merge-base", "--is-ancestor", head, origin_main).returncode == 0:
-        # Consumed by published main. Only integrating is fast-forward; local bytes are
+        # Consumed by integrated main. Only integrating is fast-forward; local bytes are
         # never touched, so a dirty checkout defers the refresh instead of losing work.
         if git(repo, "status", "--porcelain").stdout.strip():
             if verbose:
@@ -654,7 +654,7 @@ def _sync_from_main_apply(repo: Path, machine: str, dry_run: bool, verbose: bool
         if merge.returncode != 0:
             return 12, [f"machine/{machine}: fast-forward failed: "
                         f"{(merge.stderr or merge.stdout).strip()[:300]} (nothing was reset)"]
-        notes.append(f"machine/{machine}: fast-forwarded to published main ({origin_main[:12]}) — "
+        notes.append(f"machine/{machine}: fast-forwarded to integrated main ({origin_main[:12]}) — "
                      "no reset, no rebase")
         return 0, notes
 
@@ -663,17 +663,17 @@ def _sync_from_main_apply(repo: Path, machine: str, dry_run: bool, verbose: bool
             notes.append(f"machine/{machine}: origin/main is an ancestor of HEAD — nothing to integrate")
         return 0, notes
 
-    return 12, [f"machine/{machine}: pre-consolidation merge required — local work and published "
+    return 12, [f"machine/{machine}: pre-integration merge required — local work and integrated "
                 f"main ({origin_main[:12]}) diverged; nothing was reset. Merge deliberately "
                 f"(git merge --no-ff origin/main), review, then push the reviewed tip "
                 f"with --push-reviewed <sha>"]
 
 
-# --- producer publication: exact reviewed tip + history exposure gate ------------------------------
+# --- contributor integration: exact reviewed tip + history exposure gate ------------------------------
 
 FULL_SHA_RE = re.compile(r"\A[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 HISTORY_REVIEWS_KEY = "history_reviews"
-PRODUCER_LOCKS_KEY = "producer_locks"
+PRODUCER_LOCKS_KEY = "contributor_locks"
 HISTORY_REVIEW_KEYS = frozenset({"schema", "tip", "scope", "summary", "commits"})
 HISTORY_REVIEW_ROW_KEYS = frozenset({"sha", "classification", "reason"})
 
@@ -750,7 +750,7 @@ def _require_local_tip(repo: Path, machine: str, sha: str) -> str:
         raise RuntimeError(f"reviewed tip {tip} is not a commit in this repository")
     if git(repo, "merge-base", "--is-ancestor", tip, "HEAD").returncode != 0:
         raise RuntimeError(f"reviewed tip {tip} is not HEAD or an ancestor of HEAD; "
-                           f"refusing to publish a commit outside this transport history")
+                           f"refusing to integrate a commit outside this transport history")
     return tip
 
 
@@ -877,7 +877,7 @@ def record_history_review(repo: Path, machine: str, sha: str, review_path: str,
     state = load_state()
     token = None
     if not dry_run:
-        token = core.acquire_producer_lock(repo)
+        token = core.acquire_contributor_lock(repo)
     try:
         base = _remote_source_tip(repo, machine, dry_run, notes)
         screen = core.screen_source_history(repo, tip, base)
@@ -916,7 +916,7 @@ def record_history_review(repo: Path, machine: str, sha: str, review_path: str,
         return 12, notes
     finally:
         if token is not None:
-            _release_producer_lock(repo, token, notes)
+            _release_contributor_lock(repo, token, notes)
 
 
 def push_reviewed(repo: Path, machine: str, sha: str, dry_run: bool,
@@ -938,24 +938,24 @@ def push_reviewed(repo: Path, machine: str, sha: str, dry_run: bool,
     token = None
     if not dry_run:
         try:
-            token = core.acquire_producer_lock(repo)
+            token = core.acquire_contributor_lock(repo)
         except (OSError, RuntimeError) as exc:
             return 12, [f"machine/{machine}: {exc}"]
     try:
         base = _remote_source_tip(repo, machine, dry_run, notes)
         if base == tip:
-            notes.append(f"{tip} is already the published tip of {ref}; nothing to push")
+            notes.append(f"{tip} is already the integrated tip of {ref}; nothing to push")
             if not dry_run:
                 _record_pushed_tip(repo, tip, ref)
             return 0, notes
         if base is not None and git(repo, "merge-base", "--is-ancestor", base, tip).returncode != 0:
             return 12, [f"machine/{machine}: remote {ref} is {base}, which is not an ancestor of "
-                        f"reviewed tip {tip}; refusing a non-fast-forward publication (rewritten "
+                        f"reviewed tip {tip}; refusing a non-fast-forward integration (rewritten "
                         f"history is a separate incident, never repaired by force)"]
         screen = core.screen_source_history(repo, tip, base)
         if screen["findings"]:
             _print_screen(notes, screen, tip)
-            notes.append(f"machine/{machine}: refusing to publish {tip}: the unpublished history "
+            notes.append(f"machine/{machine}: refusing to integrate {tip}: the unpublished history "
                          f"contains prohibited content even if the final tree does not "
                          f"(already-pushed exposure is a separate incident)")
             return 12, notes
@@ -990,11 +990,11 @@ def push_reviewed(repo: Path, machine: str, sha: str, dry_run: bool,
         return 12, [f"machine/{machine}: {exc}"]
     finally:
         if token is not None:
-            _release_producer_lock(repo, token, notes)
+            _release_contributor_lock(repo, token, notes)
 
 
 def _record_pushed_tip(repo: Path, tip: str, ref: str) -> None:
-    """Persist publication metadata; no code path reads it as permission to rewrite history."""
+    """Persist integration metadata; no code path reads it as permission to rewrite history."""
     state = load_state()
     state["last_pushed_tip"] = tip
     state["last_pushed_ref"] = ref
@@ -1003,22 +1003,22 @@ def _record_pushed_tip(repo: Path, tip: str, ref: str) -> None:
     save_state(state)
 
 
-def lock_producer(repos: list[Path], dry_run: bool, verbose: bool) -> tuple[int, list[str]]:
-    """Hold the producer lock across a deliberate pre-consolidation merge (then --unlock)."""
+def lock_contributor(repos: list[Path], dry_run: bool, verbose: bool) -> tuple[int, list[str]]:
+    """Hold the contributor lock across a deliberate pre-integration merge (then --unlock)."""
     notes: list[str] = []
     core = workflow_core()
     ordered = sorted(repos, key=lambda repo: str(repo.resolve()))
     if dry_run:
         for repo in ordered:
-            notes.append(f"[dry-run] would lock {core.producer_lock_path(repo)}")
+            notes.append(f"[dry-run] would lock {core.contributor_lock_path(repo)}")
         return 0, notes
     state = load_state()
     acquired: dict[str, str] = {}
     try:
         for repo in ordered:
-            token = core.acquire_producer_lock(repo)
+            token = core.acquire_contributor_lock(repo)
             acquired[str(repo.resolve())] = token
-            notes.append(f"producer lock acquired: {core.producer_lock_path(repo)} "
+            notes.append(f"contributor lock acquired: {core.contributor_lock_path(repo)} "
                          f"(release with --unlock; never hold it for a whole session)")
         state.setdefault(PRODUCER_LOCKS_KEY, {}).update(acquired)
         save_state(state)
@@ -1026,30 +1026,30 @@ def lock_producer(repos: list[Path], dry_run: bool, verbose: bool) -> tuple[int,
     except (OSError, RuntimeError) as exc:
         for repo_text, token in acquired.items():
             try:
-                core.release_producer_lock(Path(repo_text), token)
+                core.release_contributor_lock(Path(repo_text), token)
             except (OSError, RuntimeError):
                 pass
-        return 12, [f"producer lock not acquired: {exc}"]
+        return 12, [f"contributor lock not acquired: {exc}"]
 
 
-def unlock_producer(repos: list[Path], dry_run: bool, verbose: bool) -> tuple[int, list[str]]:
+def unlock_contributor(repos: list[Path], dry_run: bool, verbose: bool) -> tuple[int, list[str]]:
     """Release only locks this installation recorded an owner token for."""
     notes: list[str] = []
     core = workflow_core()
     state = load_state()
     locks = state.get(PRODUCER_LOCKS_KEY) or {}
     if not locks:
-        return 12, ["no producer lock token recorded — refusing to break an unowned lock"]
+        return 12, ["no contributor lock token recorded — refusing to break an unowned lock"]
     if dry_run:
         for repo_text in sorted(locks):
-            notes.append(f"[dry-run] would release {core.producer_lock_path(Path(repo_text))}")
+            notes.append(f"[dry-run] would release {core.contributor_lock_path(Path(repo_text))}")
         return 0, notes
     for repo_text in sorted(list(locks)):
-        core.release_producer_lock(Path(repo_text), locks[repo_text])
+        core.release_contributor_lock(Path(repo_text), locks[repo_text])
         locks.pop(repo_text, None)
         state[PRODUCER_LOCKS_KEY] = locks
         save_state(state)
-        notes.append(f"producer lock released: {core.producer_lock_path(Path(repo_text))}")
+        notes.append(f"contributor lock released: {core.contributor_lock_path(Path(repo_text))}")
     state.pop(PRODUCER_LOCKS_KEY, None)
     save_state(state)
     return 0, notes
@@ -1074,24 +1074,24 @@ def _installer_version(state: dict) -> str:
     return str(recorded).strip() or "not recorded"
 
 
-def _publisher_facts(notes: list[str]) -> bool:
-    """Report observed publisher-config/report-root facts on this installation.
+def _maintainer_facts(notes: list[str]) -> bool:
+    """Report observed maintainer-config/report-root facts on this installation.
 
-    A producer-only machine legitimately has no publisher config; that is
+    A contributor-only machine legitimately has no maintainer config; that is
     reported, not invented into a failure. An invalid config is a finding.
     """
     store = hermes_home() / "skill-repo-sync-v3"
-    config_path = store / "publisher.json"
+    config_path = store / "maintainer.json"
     if not config_path.is_file():
-        notes.append(f"publisher config: absent ({config_path}) — producer-only installation")
+        notes.append(f"maintainer config: absent ({config_path}) — contributor-only installation")
         return True
     try:
-        config = workflow_core().load_publisher_config(store)
+        config = workflow_core().load_maintainer_config(store)
     except (OSError, RuntimeError) as exc:
-        notes.append(f"publisher config: INVALID ({config_path}): {exc}")
+        notes.append(f"maintainer config: INVALID ({config_path}): {exc}")
         return False
     report = Path(config["report"]["vault_root"])
-    notes.append(f"publisher config: present ({config_path})")
+    notes.append(f"maintainer config: present ({config_path})")
     notes.append(f"  report root: {'present' if report.is_dir() else 'MISSING'} ({report})")
     return report.is_dir()
 
@@ -1127,22 +1127,22 @@ def selfcheck(verbose: bool, machine_override: str | None) -> tuple[int, list[st
         head = git(repo, "rev-parse", "--short", "HEAD").stdout.strip()
         notes.append(f"repo {repo}: remote={'yes' if remote else 'NO'} head={head}")
         try:
-            lock = workflow_core().read_producer_lock(repo)
+            lock = workflow_core().read_contributor_lock(repo)
         except (OSError, RuntimeError) as exc:
             lock = {"malformed": str(exc)}
         if lock is None:
-            notes.append("  producer lock: not held")
+            notes.append("  contributor lock: not held")
         elif lock.get("malformed") is not None:
-            notes.append("  producer lock: unreadable content (refusing to guess an owner)")
+            notes.append("  contributor lock: unreadable content (refusing to guess an owner)")
         else:
-            notes.append(f"  producer lock: held by token {lock.get('token')} "
+            notes.append(f"  contributor lock: held by token {lock.get('token')} "
                          f"(pid {lock.get('pid')}, host {lock.get('host')})")
         if not remote:
             ok = False
         if not allowed:
             notes.append(f"WARN branch policy: {br_reason}")
             ok = False
-    if not _publisher_facts(notes):
+    if not _maintainer_facts(notes):
         ok = False
     notes.append("hooks: not inspected by --selfcheck — consent/health is `hermes hooks doctor`")
     notes.append(f"last pushed tip: {state.get('last_pushed_tip') or '(none)'} "
@@ -1153,14 +1153,14 @@ def selfcheck(verbose: bool, machine_override: str | None) -> tuple[int, list[st
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="stage/refresh/publish layer for the shared skill repo (v3)")
+    ap = argparse.ArgumentParser(description="stage/refresh/integrate layer for the shared skill repo (v3)")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--stage", action="store_true",
                       help="bundle pending work into one local commit on machine/<name> "
-                           "(push-gate: the pre-consolidation run pushes) (default)")
+                           "(push-gate: the pre-integration run pushes) (default)")
     mode.add_argument("--sync-from-main", action="store_true",
                       help="session-start refresh: fetch; fast-forward when HEAD is an "
-                           "ancestor of published main; never reset or rebase")
+                           "ancestor of integrated main; never reset or rebase")
     mode.add_argument("--screen-history", metavar="SHA", default=None,
                       help="mechanical screen of the whole unpublished range of SHA "
                            "(paths/categories only; exit 10 on findings)")
@@ -1171,9 +1171,9 @@ def main() -> int:
                       help="push the exact reviewed commit SHA to machine/<name>, not the "
                            "branch name; refuses without a matching history review")
     mode.add_argument("--lock", action="store_true",
-                      help="hold the producer lock across a deliberate pre-consolidation merge")
+                      help="hold the contributor lock across a deliberate pre-integration merge")
     mode.add_argument("--unlock", action="store_true",
-                      help="release the producer lock recorded by --lock")
+                      help="release the contributor lock recorded by --lock")
     mode.add_argument("--selfcheck", action="store_true", help="verify the install")
     mode.add_argument("--version", action="store_true", help="print the script version")
     ap.add_argument("--machine", default=None, help="machine name override (default: from state file)")
@@ -1206,9 +1206,9 @@ def main() -> int:
                 return 12
             repos = repos_from_state()
             if args.lock:
-                code, notes = lock_producer(repos, args.dry_run, args.verbose)
+                code, notes = lock_contributor(repos, args.dry_run, args.verbose)
             elif args.unlock:
-                code, notes = unlock_producer(repos, args.dry_run, args.verbose)
+                code, notes = unlock_contributor(repos, args.dry_run, args.verbose)
             elif args.sync_from_main:
                 code, notes = 0, []
                 for repo in repos:

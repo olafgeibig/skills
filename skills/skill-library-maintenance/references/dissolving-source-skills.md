@@ -1,6 +1,6 @@
 # Dissolving Migration-Source Skills
 
-A migration-source skill is a profile-local package whose rules were accumulated for later consolidation — typically an adaptation overlay that outgrew its owners. Dissolving it means: route every rule to its canonical owner skill, then retire the shell. This file is the long-form procedure behind the SKILL.md section.
+A migration-source skill is a profile-local package whose rules were accumulated for later integration — typically an adaptation overlay that outgrew its owners. Dissolving it means: route every rule to its canonical owner skill, then retire the shell. This file is the long-form procedure behind the SKILL.md section.
 
 ## Freeze the source
 

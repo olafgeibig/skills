@@ -41,7 +41,7 @@ topics:
 - The normal-candidate target is at most 35 assistant turns. It is a turn target, not a token
   ceiling, and no numeric token budget is enforced or claimed before a measured pilot.
 - An unfinished review is an `incomplete-review`: it keeps the candidate evidence and never
-  publishes a truncated diff.
+  integrates a truncated diff.
 
 ## Provenance
 
