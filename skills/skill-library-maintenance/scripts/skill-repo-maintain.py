@@ -55,7 +55,7 @@ from pathlib import Path
 
 SCRIPT_VERSION = "3.0.0"
 STATE_NAME = "skill-repo-sync.json"
-WORKFLOW_STORE_NAME = "skill-repo-sync-v3"
+WORKFLOW_STORE_NAME = "skill-repo-sync"
 REVIEW_FILE = "review.md"
 RESULT_FILE = "result.md"
 RETIRED_V2_MODES = ("--collect", "--preflight", "--merge-map", "--apply-decisions")
@@ -92,7 +92,7 @@ assert _core_spec is not None and _core_spec.loader is not None, "workflow core 
 core = module_from_spec(_core_spec)
 _core_spec.loader.exec_module(core)
 
-WORKFLOW_STORE_NAME = "skill-repo-sync-v3"
+WORKFLOW_STORE_NAME = "skill-repo-sync"
 LOCK_TOKEN_NAME = "maintainer-lock.token"
 
 
@@ -610,7 +610,7 @@ def _repo_from_config(config: dict, explicit: str | None) -> Path:
 
 
 def _report_root(config: dict) -> Path:
-    return Path(config["report"]["vault_root"])
+    return Path(config["report"]["path"])
 
 
 def _candidate_file(store: Path, cid: str, name: str) -> Path:
@@ -946,8 +946,7 @@ def _verify_result(store: Path, config: dict, cid: str,
             return 12, {"mode": "verify-result", "dry_run": True, "candidate": cid,
                         "would_refuse": "result payload not rendered"}, \
                    [f"candidate {cid} has no rendered result — run --render-result first"]
-        relative = (str(config["report"]["directory"]).rstrip("/")
-                    + f"/skill-sync-{cid}-result.md")
+        relative = f"skill-sync-{cid}-result.md"
         target = _report_root(config) / relative
         text = payload_path.read_text(encoding="utf-8")
         matches = target.is_file() and target.read_bytes() == text.encode("utf-8")
@@ -1010,8 +1009,7 @@ def selfcheck(repo: Path, store: Path, config: dict, verbose: bool) -> tuple[int
         policy = ("not evaluated (this checkout is not a registered contributor repo; "
                   f"branch {branch or '<detached>'})")
     lock = core.read_maintainer_lock(store)
-    vault_root = _report_root(config)
-    report_directory = vault_root / str(config["report"]["directory"])
+    report_directory = _report_root(config)
     payload = {
         "script_version": SCRIPT_VERSION,
         "core_version": core.CORE_VERSION,
@@ -1020,8 +1018,6 @@ def selfcheck(repo: Path, store: Path, config: dict, verbose: bool) -> tuple[int
         "branch": branch,
         "branch_policy": policy,
         "maintainer_config": str(store / "maintainer.json"),
-        "report_root": str(vault_root),
-        "report_root_present": vault_root.is_dir(),
         "report_directory": str(report_directory),
         "report_directory_present": report_directory.is_dir(),
         "maintainer_lock": "held by " + _owner_description(lock) if lock else "not held",

@@ -1080,7 +1080,7 @@ def _maintainer_facts(notes: list[str]) -> bool:
     A contributor-only machine legitimately has no maintainer config; that is
     reported, not invented into a failure. An invalid config is a finding.
     """
-    store = hermes_home() / "skill-repo-sync-v3"
+    store = hermes_home() / "skill-repo-sync"
     config_path = store / "maintainer.json"
     if not config_path.is_file():
         notes.append(f"maintainer config: absent ({config_path}) — contributor-only installation")
@@ -1090,7 +1090,7 @@ def _maintainer_facts(notes: list[str]) -> bool:
     except (OSError, RuntimeError) as exc:
         notes.append(f"maintainer config: INVALID ({config_path}): {exc}")
         return False
-    report = Path(config["report"]["vault_root"])
+    report = Path(config["report"]["path"])
     notes.append(f"maintainer config: present ({config_path})")
     notes.append(f"  report root: {'present' if report.is_dir() else 'MISSING'} ({report})")
     return report.is_dir()

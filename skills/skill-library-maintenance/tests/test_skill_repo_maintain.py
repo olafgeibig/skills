@@ -65,8 +65,8 @@ def write_state(home: Path, repo: Path, machine: str) -> Path:
 
 
 def write_maintainer_config(home: Path, maintainer: Path, runtime: Path) -> Path:
-    """v3 maintainer config under <HERMES_HOME>/skill-repo-sync-v3/maintainer.json."""
-    store = home / "skill-repo-sync-v3"
+    """v3 maintainer config under <HERMES_HOME>/skill-repo-sync/maintainer.json."""
+    store = home / "skill-repo-sync"
     store.mkdir(parents=True, exist_ok=True)
     config = {
         "schema": 3,
@@ -79,8 +79,7 @@ def write_maintainer_config(home: Path, maintainer: Path, runtime: Path) -> Path
                                "scope": "shared-generic"},
         "sources": [{"ref": "refs/heads/machine/testlab", "machine": "testlab",
                      "profile": "default", "scope": "shared-generic", "enabled": True}],
-        "report": {"vault": "fixture", "vault_root": str(runtime),
-                   "directory": "projects/hermes-agent/reports"},
+        "report": {"path": str(runtime)},
     }
     (store / "maintainer.json").write_text(json.dumps(config))
     return store
@@ -651,8 +650,7 @@ def v3lab(tmp_path: Path) -> dict:
                                "scope": "shared-generic"},
         "sources": [{"ref": "refs/heads/machine/testlab", "machine": "testlab",
                      "profile": "default", "scope": "shared-generic", "enabled": True}],
-        "report": {"vault": "fixture", "vault_root": str(vault),
-                   "directory": "projects/hermes-agent/reports"},
+        "report": {"path": str(vault)},
     }
     (store / "maintainer.json").write_text(json.dumps(config), encoding="utf-8")
     (home / "skill-repo-sync.json").write_text(json.dumps({
@@ -760,7 +758,7 @@ def v3_deliver_review(lab: dict, cid: str, rendered: dict) -> Path:
 
 
 def v3_deliver_result(lab: dict, cid: str, rendered: dict) -> Path:
-    relative = ("projects/hermes-agent/reports/skill-sync-" + cid + "-result.md")
+    relative = "skill-sync-" + cid + "-result.md"
     target = lab["vault"] / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(lab["store"] / "candidates" / cid / "result.md", target)
@@ -1131,7 +1129,7 @@ def test_helper_selfcheck_reports_observed_facts_only(v3lab):
     assert payload["core_version"] == "3.0.0"
     assert payload["installer_version"] == "3.0.0"
     assert payload["maintainer_config"].endswith("maintainer.json")
-    assert payload["report_root_present"] is True
+    assert payload["report_directory_present"] is True
     assert payload["maintainer_lock"] == "not held"
     assert "not inspected" in payload["hooks"]
     assert "healthy" not in json.dumps(payload).lower()   # no fabricated hook-health claim

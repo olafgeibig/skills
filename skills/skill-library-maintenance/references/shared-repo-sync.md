@@ -73,8 +73,9 @@ exact-tip refactor submission. Nothing is stubbed as successful.
   identity-mismatched source entries. A candidate journal can never override its registry entry.
 - `report.allowed_scopes` in `<store>/maintainer.json` is the destination's admission allowlist;
   omitted means `["shared-generic"]`, and `[]` denies every scope. Every entry must be nonempty
-  text, without duplicates. For example, `"report": {"vault": "…", "vault_root": "/…",
-  "directory": "projects/hermes-agent/reports", "allowed_scopes": ["shared-generic"]}`.
+  text, without duplicates. For example, `"report": {"path": "/…/skill-sync-reports",
+  "allowed_scopes": ["shared-generic"]}`. `report.path` is a plain absolute directory: no vault
+  handle, no hub note and no vault write path.
   The registry's declared source `scope` must occur in that list **before capture fetches or
   renders content**. A refusal names only the ref and declared scope. Submitted refactors use
   the configured maintainer identity's scope. Preparation, report rendering and every integration
@@ -411,25 +412,23 @@ entire store.
 
 `render_review()` is deterministic: the timestamp is the captured `created_at`, never the wall
 clock, and the same candidate/review/checks/tree always render the same bytes. It writes
-`review.md` under the candidate store only. The live note is written by the agent through
-TurboVault; `verify_report()` then reloads journal, config and stored payload, compares the exact
-bytes at `<report.vault_root>/<report.directory>/skill-sync-<cid>-review.md`, and refuses a
+`review.md` under the candidate store only. The live note is written by the agent as a plain file
+under `report.path`; `verify_report()` then reloads journal, config and stored payload, compares
+the exact bytes at `<report.path>/skill-sync-<cid>-review.md`, and refuses a
 missing, altered, symlinked or escaping file. Only an exact match advances to `report-verified`,
 recording the SHA-256 of the approved bytes. The template is
 `assets/skill-sync-report.md.example`.
 
 ### Report folder, note metadata and feedback
 
-The report destination is deployment data: `report.directory` in the maintainer config, with
-`report.vault_root` the registered vault root. Before the first report is delivered, create the
-local hub `<report.directory>/+reports.md` — `reports/+reports.md` inside that destination —
-**through TurboVault** with that first report listed, and link the hub once from the project MoC
-(use the project MoC's existing filename; do not rename it to fit a convention). Later reports
-append one line each to the hub.
+The report destination is deployment data: one plain absolute directory in `report.path`. Nothing
+vault-specific is involved — the agent writes the rendered bytes as a regular file and reads them
+back. The directory may live inside a vault (`…/projects/<project>/skill-sync-reports`); that only
+means Obsidian indexes the notes, and no hub note or MoC link is required.
 
-Every per-candidate note is a normal vault note: `type: zettel`, a one-sentence description, the
-`skill-sync` tag plus the project tag (`project/<project>`), frontmatter `topics` naming the local
-`+reports` hub **and** the mirrored `Topics:` footer. The rendered payload carries those fields;
+Every per-candidate note is a plain Markdown note: `type: zettel`, a one-sentence description, the
+`skill-sync` tag plus — when the configured path contains `/projects/<name>/` — the project tag.
+There is no `topics` block and no hub link. The rendered payload carries those fields;
 the created/updated timestamps come from the captured/observed clock values in the candidate, never
 from a later re-render, so exact re-delivery stays byte-identical. The review note is immutable
 evidence of M, T, decisions, checks and tree. Integration outcome goes only to the separate result
@@ -486,11 +485,11 @@ delivery status — so re-rendering after a clock change is byte-identical and a
 once still matches after the receipt moves from `integrated` to `receipt-pending` to `complete`.
 
 `verify_result(store, cid, report_root)` is the separate receipt step. It reloads the journal and
-config, refuses a `report_root` that is not the configured `report.vault_root`, re-verifies the
+config, refuses a `report_root` that is not the configured `report.path`, re-verifies the
 saved `P`, re-observes the immutable review at the **currently configured** destination against
 the stored `review.md` bytes and recorded SHA-256 on every call (including calls on `complete`),
 and then compares
-`<report.vault_root>/<report.directory>/skill-sync-<cid>-result.md` byte for byte. Missing,
+`<report.path>/skill-sync-<cid>-result.md` byte for byte. Missing,
 changed, symlinked or escaping receipts are refused and stay `receipt-pending`; an exact match
 records `complete` with `receipt_sha256` (the SHA-256 of the delivered bytes) and
 `receipt_verified_at`. `complete` without a recorded receipt digest is rejected by the journal
@@ -891,18 +890,17 @@ helper imports the engine and the shared core beside itself.
    checks (whitespace, staged syntax, package tests, validator, library audit) and persists the
    reviewed tree/digest. Exit 10 = required checks failed; repair and re-run, never bypass, delete
    or weaken a check to get green.
-8. `--render-report <cid>` — deterministic payload under the store. Deliver those exact bytes to
-   the configured registered vault path through TurboVault: first write with `expected_hash`
-   absent; when the note already exists, read it and either confirm identical bytes (idempotent
-   verified-existing report) or stop on a mismatch — never blind-overwrite. Read the note back
-   exactly.
+8. `--render-report <cid>` — deterministic payload under the store. Write those exact bytes as a
+   plain file into the configured `report.path`: when the file already exists, compare and either
+   confirm identical bytes (idempotent) or stop on a mismatch — never blind-overwrite. Read the
+   file back exactly.
 9. `--verify-report <cid>` — exact-byte comparison at the registered report root; a missing,
    altered or symlinked note blocks integration and keeps the candidate.
 10. `--integrate <cid>` — exactly one merge commit with ordered parents M,T and the reviewed tree,
     non-force push, remote confirmation. A moved main is `stale`, never force-pushed.
 11. Crash or uncertain push: `--reconcile <cid>` from the saved P. It never creates a second
     integration commit; receipt delivery is repaired separately.
-12. `--render-result <cid>` — receipt payload; deliver those bytes through TurboVault, read them
+12. `--render-result <cid>` — receipt payload; write those bytes as a plain file under `report.path`, read them
     back exactly, then `--verify-result <cid>` records `complete`. The immutable review note is
     never edited or backfilled; the outcome lives only in the result note.
 

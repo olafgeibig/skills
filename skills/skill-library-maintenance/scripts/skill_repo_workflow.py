@@ -589,16 +589,13 @@ def source_status(repo: Path, main: str, tip: str) -> str:
 
 def _validate_report(value: Any) -> Mapping[str, Any]:
     report = _mapping(value, "report")
-    _text(report.get("vault"), "report.vault")
-    vault_root = _absolute_text(report.get("vault_root"), "report.vault_root")
-    directory = _text(report.get("directory"), "report.directory")
-    safe_relative(Path(vault_root), directory)
+    path = _absolute_text(report.get("path"), "report.path")
     allowed = _list(report.get("allowed_scopes", ["shared-generic"]), "report.allowed_scopes")
     for scope in allowed:
         _text(scope, "report.allowed_scopes entry")
     if len(set(allowed)) != len(allowed):
         raise WorkflowError("report.allowed_scopes must not contain duplicates")
-    return {**report, "allowed_scopes": list(allowed)}
+    return {"path": path, "allowed_scopes": list(allowed)}
 
 
 def _validate_identity(value: Any) -> Mapping[str, Any]:
@@ -2047,7 +2044,7 @@ def _assert_candidate_dir_allowed(worktree: Path, config: Mapping[str, Any]) -> 
     """Refuse a candidate checkout inside runtime, report or maintainer roots."""
     candidate = Path(worktree).resolve()
     protected = [("runtime root", root) for root in config["runtime_roots"]]
-    protected.append(("report root", config["report"]["vault_root"]))
+    protected.append(("report root", config["report"]["path"]))
     protected.append(("maintainer repository", config["maintainer_repo"]))
     for label, root in protected:
         resolved = Path(root).resolve()
@@ -3821,8 +3818,9 @@ def _require_matching_check_rows(
 
 
 def _report_relative_path(config: Mapping[str, Any], cid: str) -> str:
-    directory = _text(config["report"]["directory"], "report.directory").rstrip("/")
-    return f"{directory}/skill-sync-{cid}-review.md"
+    """The configured report.path is the directory itself; the note sits directly in it."""
+    _absolute_text(config["report"]["path"], "report.path")
+    return f"skill-sync-{cid}-review.md"
 
 
 def _atomic_text(path: Path, text: str) -> None:
@@ -3947,21 +3945,19 @@ def _one_line(value: str) -> str:
     return " ".join(value.split())
 
 
-def _report_note_context(report_relative_path: str) -> tuple[str, str]:
-    """Derive the local reports hub link and project tag from the configured path.
+def _project_tag(config: Mapping[str, Any]) -> str:
+    """Project tag for a report note, derived from the configured report path.
 
-    The report directory is deployment data (`projects/<project>/reports` in the
-    agreed destination). Notes link back to their local `+reports` hub and carry
-    the project tag, without hardcoding a vault or project name in the template.
+    Reports live in a plain configured directory (no vault hub note). When that
+    path sits under `.../projects/<name>/...` the note carries `project/<name>`;
+    otherwise a neutral `skill-sync` tag is used.
     """
-    directory = posixpath.dirname(report_relative_path)
-    hub = f"{directory}/+reports"
-    parts = directory.split("/")
-    if len(parts) >= 3 and parts[0] == "projects":
-        tag = f"project/{parts[1]}"
-    else:
-        tag = "skill-sync"
-    return hub, tag
+    parts = str(config["report"]["path"]).split("/")
+    if "projects" in parts:
+        index = parts.index("projects")
+        if index + 1 < len(parts) and parts[index + 1]:
+            return f"project/{parts[index + 1]}"
+    return "skill-sync"
 
 
 def _render_decisions(normalized: Mapping[str, Any]) -> str:
@@ -4029,9 +4025,10 @@ def _render_report(
     tree: str,
     digest: str,
 ) -> str:
-    _require_candidate_report_scope(state, _read_config(_candidate_store(state)))
+    config = _read_config(_candidate_store(state))
+    _require_candidate_report_scope(state, config)
     template = _report_template()
-    hub, project_tag = _report_note_context(state["report_relative_path"])
+    project_tag = _project_tag(config)
     values = {
         "CID": state["id"],
         "CID_SHORT": state["id"][:12],
@@ -4045,7 +4042,6 @@ def _render_report(
         "TREE": tree,
         "REVIEW_DIGEST": digest,
         "REPORT_PATH": state["report_relative_path"],
-        "REPORT_HUB": hub,
         "PROJECT_TAG": project_tag,
         "SUMMARY": _one_line(normalized["summary"]),
         "DECISIONS": _render_decisions(normalized),
@@ -4111,9 +4107,9 @@ def verify_report(candidate: dict, expected_text: str, report_root: Path) -> dic
     root = Path(report_root)
     if not root.is_absolute():
         raise WorkflowError("report_root must be an absolute path")
-    configured = Path(config["report"]["vault_root"])
+    configured = Path(config["report"]["path"])
     if root.resolve() != configured.resolve():
-        raise WorkflowError("report_root is not the configured report.vault_root")
+        raise WorkflowError("report_root is not the configured report.path")
     expected_relative = _report_relative_path(config, state["id"])
     if state["report_relative_path"] != expected_relative:
         raise WorkflowError("candidate report path does not match the configured report directory")
@@ -4169,8 +4165,8 @@ _RECEIPT_RECOVERY_HINT = "integrate-intent retained for reconcile"
 
 
 def _result_relative_path(config: Mapping[str, Any], cid: str) -> str:
-    directory = _text(config["report"]["directory"], "report.directory").rstrip("/")
-    return f"{directory}/skill-sync-{cid}-{RESULT_FILE}"
+    _absolute_text(config["report"]["path"], "report.path")
+    return f"skill-sync-{cid}-{RESULT_FILE}"
 
 
 def _report_observation(
@@ -4202,7 +4198,7 @@ def _report_observation(
         return "altered", (
             f"stored review report payload changed (sha256 {stored_digest}, expected {expected})"
         )
-    root = Path(config["report"]["vault_root"])
+    root = Path(config["report"]["path"])
     try:
         target = safe_relative(root, relative)
     except WorkflowError as exc:
@@ -4558,11 +4554,11 @@ def _require_remote_inputs(
         raise WorkflowError(f"candidate {cid} is blocked: {message}")
 
 
-def _render_result_payload(state: Mapping[str, Any], result_sha: str) -> str:
+def _render_result_payload(state: Mapping[str, Any], result_sha: str, config: Mapping[str, Any]) -> str:
     integrated = state.get("integrated_main") or "not recorded"
     report = state["report_relative_path"] or "not rendered"
     observed_at = state.get("result_observed_at") or state["created_at"]
-    hub, project_tag = _report_note_context(report)
+    project_tag = _project_tag(config)
     lines = [
         "---",
         "type: zettel",
@@ -4572,8 +4568,6 @@ def _render_result_payload(state: Mapping[str, Any], result_sha: str) -> str:
         f"  - {project_tag}",
         f"created: {observed_at}",
         f"updated: {observed_at}",
-        "topics:",
-        f'  - "[[{hub}]]"',
         "---",
         "",
         f"# Skill sync result — {state['id']}",
@@ -4607,9 +4601,6 @@ def _render_result_payload(state: Mapping[str, Any], result_sha: str) -> str:
             "the reviewed source tip, and the tree is exactly the reviewed tree. No force, reset,",
             "rebase or amended source ref was used.",
             "",
-            "Topics:",
-            f"- [[{hub}]]",
-            "",
         ]
     )
     return "\n".join(lines)
@@ -4631,7 +4622,7 @@ def render_result(candidate: dict) -> str:
         )
     config = _read_config(store)
     result_sha = _verify_result_commit(Path(config["maintainer_repo"]), state)
-    text = _render_result_payload(state, result_sha)
+    text = _render_result_payload(state, result_sha, config)
     _atomic_text(_candidate_path(store, state["id"], RESULT_FILE), text)
     return text
 
@@ -4642,7 +4633,7 @@ def verify_result(store: Path, cid: str, report_root: Path) -> dict:
     `integrate`/`reconcile` only render a payload under the candidate store; the
     live receipt note is delivered separately (TurboVault by the agent) and is
     verified here by exact bytes at
-    `<report.vault_root>/<report.directory>/skill-sync-<cid>-result.md`.
+    `<report.path>/<report.directory>/skill-sync-<cid>-result.md`.
 
     The maintainer lock is acquired exactly once for the journal transition, so a
     receipt attempt cannot lose an update against a concurrent reconcile. The
@@ -4678,9 +4669,9 @@ def _verify_result_locked(
             f"candidate {cid} is {state['status']}; only an observed integration has a "
             "result receipt to verify"
         )
-    configured = Path(config["report"]["vault_root"])
+    configured = Path(config["report"]["path"])
     if root.resolve() != configured.resolve():
-        raise WorkflowError("report_root is not the configured report.vault_root")
+        raise WorkflowError("report_root is not the configured report.path")
     result_sha = _verify_result_commit(Path(config["maintainer_repo"]), state)
     # Receipt completion must itself observe the immutable review, even when no
     # integrate/reconcile call has run since the note was altered (or since complete).
@@ -4690,7 +4681,7 @@ def _verify_result_locked(
             f"integration incident: {detail}; result {result_sha} remains integrated "
             "and the immutable review note is never rewritten"
         )
-    expected_text = _render_result_payload(state, result_sha)
+    expected_text = _render_result_payload(state, result_sha, config)
     payload = expected_text.encode("utf-8")
     relative = _result_relative_path(config, cid)
 
@@ -4773,7 +4764,7 @@ def _reconcile_locked(
             if state["status"] != "integrate-intent":
                 raise WorkflowError("previously observed integration is absent from remote main")
             state = _authorize_publication(
-                repo, store, cid, Path(config["report"]["vault_root"]), config, state)
+                repo, store, cid, Path(config["report"]["path"]), config, state)
             _verify_result_commit(repo, state)
         except WorkflowError as exc:
             message = f"integration retry incident: re-authorisation refused: {exc}"

@@ -6,8 +6,6 @@ tags:
   - {{PROJECT_TAG}}
 created: "{{CREATED_AT}}"
 updated: "{{CREATED_AT}}"
-topics:
-  - "[[{{REPORT_HUB}}]]"
 ---
 
 # Skill sync review: {{CID}}
@@ -48,6 +46,3 @@ topics:
 This report records an autonomous review decision bound to the commits, tree
 and check results above. Any change to the staged candidate requires a fresh
 review and a newly rendered report. No manual sign-off is required.
-
-Topics:
-- [[{{REPORT_HUB}}]]

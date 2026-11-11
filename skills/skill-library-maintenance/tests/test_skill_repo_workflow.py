@@ -60,8 +60,7 @@ def lab(tmp_path):
               "maintainer_identity":{"machine":"maintainer-test","profile":"default","scope":"shared-generic"},
               "sources":[{"ref":"refs/heads/machine/testlab","machine":"testlab",
                           "profile":"default","scope":"shared-generic","enabled":True}],
-              "report":{"vault":"fixture","vault_root":str(vault),
-                        "directory":"projects/hermes-agent/reports"}}
+              "report":{"path":str(vault)}}
     (store / "maintainer.json").write_text(json.dumps(config))
     return {"remote":remote,"contributor":contributor,"maintainer":maintainer,
             "store":store,"vault":vault,"base":base,"source":config["sources"][0]}
@@ -842,7 +841,7 @@ def test_prepare_refuses_candidate_dir_inside_runtime_or_report_root(core, lab, 
     if root == "runtime":
         config["runtime_roots"] = [str(lab["store"])]
     else:
-        config["report"]["vault_root"] = str(lab["store"])
+        config["report"]["path"] = str(lab["store"])
     config_path.write_text(json.dumps(config), encoding="utf-8")
 
     with pytest.raises(core.WorkflowError) as excinfo:
@@ -2585,8 +2584,7 @@ def test_report_binds_inputs_review_and_tree(core, lab, monkeypatch):
     offer(lab)
     candidate = reviewed(core, lab)
     assert candidate["status"] == "report-verified"
-    assert candidate["report_relative_path"] == (
-        f"projects/hermes-agent/reports/skill-sync-{candidate['id']}-review.md")
+    assert candidate["report_relative_path"] == f"skill-sync-{candidate['id']}-review.md"
     target = lab["vault"] / candidate["report_relative_path"]
     assert target.is_file()
     text = target.read_text(encoding="utf-8")
@@ -2598,11 +2596,11 @@ def test_report_binds_inputs_review_and_tree(core, lab, monkeypatch):
                      "A useful generic rule.", "skills/demo/SKILL.md"):
         assert expected in text, expected
     assert "passed" in text and "not applicable" in text
-    # The note is a real vault note: project tag plus the local reports hub in
-    # frontmatter topics and the mirrored footer. Usage fields are explicit.
-    assert "project/hermes-agent" in text
-    assert text.count("[[projects/hermes-agent/reports/+reports]]") == 2
-    assert "Topics:" in text
+    # The note lives in a plain configured directory: a tag, no vault hub link.
+    # (The fixture path has no `/projects/<name>/` segment, so the neutral tag applies;
+    # a deployed path under .../projects/hermes-agent/... yields `project/hermes-agent`.)
+    assert "  - skill-sync" in text
+    assert "+reports" not in text and "topics:" not in text
     assert "measured" in text and "unavailable" in text and "not a token" in text
     assert "approve" not in text.lower() and "approval" not in text.lower()
     assert "sign-off" in text and text.endswith("\n")
@@ -3373,7 +3371,7 @@ RECEIPT_FILE_SUFFIX = "-result.md"
 
 def receipt_path(lab, cid):
     config = json.loads((lab["store"] / "maintainer.json").read_text(encoding="utf-8"))
-    return lab["vault"] / config["report"]["directory"] / f"skill-sync-{cid}{RECEIPT_FILE_SUFFIX}"
+    return lab["vault"] / f"skill-sync-{cid}{RECEIPT_FILE_SUFFIX}"
 
 
 def store_result_text(lab, cid):
@@ -3658,7 +3656,7 @@ def test_receipt_failure_does_not_reintegrate(core, lab, monkeypatch):
     other_root.mkdir()
     with pytest.raises(core.WorkflowError) as excinfo:
         core.verify_result(lab["store"], c["id"], other_root)
-    assert "configured report.vault_root" in str(excinfo.value)
+    assert "configured report.path" in str(excinfo.value)
     done = core.verify_result(lab["store"], c["id"], lab["vault"])
     assert done["status"] == "complete"
     assert done["receipt_sha256"] == hashlib.sha256(receipt.read_bytes()).hexdigest()
@@ -3706,9 +3704,15 @@ def test_verify_result_reobserves_immutable_review_on_every_call(
         stored.write_bytes(original + b"Tampered stored report.\n")
     else:
         config = json.loads(config_bytes)
-        config["report"]["directory"] = "projects/hermes-agent/other-reports"
+        config["report"]["path"] = str(lab["vault"].parent / "other-reports")
         config_path.write_text(json.dumps(config), encoding="utf-8")
     calls = record_git_calls(core, monkeypatch)
+    if changed == "directory":
+        # A changed configured destination is refused before any observation.
+        with pytest.raises(core.WorkflowError, match="report.path"):
+            core.verify_result(lab["store"], c["id"], lab["vault"])
+        no_publication_writes(calls)
+        return
     with pytest.raises(core.WorkflowError, match="incident"):
         core.verify_result(lab["store"], c["id"], lab["vault"])
     state = core.load_candidate(lab["store"], c["id"])
@@ -4172,9 +4176,7 @@ def test_refactor_promotion_tree_equals_submitted_tip(core, lab, tmp_path):
     # The receipt path is the same for a refactor: exact bytes, then complete.
     result_text = (lab["store"] / "candidates" / candidate["id"] / "result.md").read_text(
         encoding="utf-8")
-    receipt = lab["vault"] / (
-        f"projects/hermes-agent/reports/skill-sync-{candidate['id']}-result.md")
-    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt = lab["vault"] / f"skill-sync-{candidate['id']}-result.md"
     receipt.write_text(result_text, encoding="utf-8")
     assert core.verify_result(lab["store"], candidate["id"], lab["vault"])["status"] == "complete"
 

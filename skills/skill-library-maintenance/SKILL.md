@@ -179,7 +179,7 @@ consumed branch.
   pre-integrated.
 - `main` has exactly one writer: the monitor-gated maintainer (a scheduled agent run, model-pinned).
   It processes one candidate per pass through `--pending` → `--capture-source` → `--prepare` →
-  review → `--record-review` → `--render-report`/TurboVault write/`--verify-report` → `--integrate`
+  review → `--record-review` → `--render-report`/plain-directory write/`--verify-report` → `--integrate`
   → `--render-result`/write/`--verify-result`; an uncertain push is resolved by `--reconcile`,
   never by a second merge. The candidate worktree is the complete native merge index, so clean
   additions, deletions and empty files are reviewed with the conflicts, not left as an untouched

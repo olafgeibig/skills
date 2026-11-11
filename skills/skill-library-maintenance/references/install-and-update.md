@@ -41,7 +41,7 @@ Five, and the agent already knows where to find them:
 - `{machine}` — the logical name from the machine table in `hermes-projects` (verify with `hostname`)
 - `{skills_repo}` — the shared checkout's entry in `hermes config get skills.external_dirs`
 - `{hermes_home}` — `$HERMES_HOME`
-- `{store}` — `{hermes_home}/skill-repo-sync-v3` (the v3 maintainer store; explicit `--store` target)
+- `{store}` — `{hermes_home}/skill-repo-sync` (the maintainer store, version-independent; explicit `--store` target)
 - `{maintainer_repo}` — the maintainer clone recorded as `maintainer_repo` in `{store}/maintainer.json` (explicit `--repo` target; the helper refuses any other checkout)
 
 ### Templates to render
@@ -79,15 +79,15 @@ the operator approves that separate job.
 
 ### Reports destination and feedback
 
-Reports go to the configured `report.directory` under the registered `report.vault_root`; neither is
-hardcoded in the repository. Before the first report:
+Reports go to the single plain directory in `report.path`; it is not hardcoded in the repository.
+No vault handle, hub note or vault write path is involved — the agent writes the rendered bytes as a
+regular file and reads them back:
 
-1. Create the local hub `<report.directory>/+reports.md` (`reports/+reports.md` inside the
-   configured destination) **through TurboVault**, listing the first report.
-2. Link that hub once from the project MoC (use its existing filename; do not rename the MoC).
-3. Each later review/result note is appended there. The rendered note already carries `type:
-   zettel`, a short description, `skill-sync` plus `project/<project>` tags, frontmatter `topics`
-   and the mirrored `Topics:` footer; do not add a second metadata copy by hand.
+1. Create nothing up front: the directory exists or the first write creates it.
+2. The rendered note carries `type: zettel`, a short description and `skill-sync` plus, when the
+   path contains `/projects/<name>/`, a `project/<name>` tag; do not add a second metadata copy.
+3. The directory may sit inside a vault (`…/projects/hermes-agent/skill-sync-reports`); that only
+   means Obsidian indexes the files, nothing depends on it.
 4. The review note is immutable; the result note carries the outcome. To give feedback on an older
    report, name it in chat: the agent reads the report **and** the current skill, asks only if the
    correction is ambiguous, records its interpretation in a new feedback note or a result-linked

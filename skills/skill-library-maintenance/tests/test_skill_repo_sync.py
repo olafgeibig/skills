@@ -501,8 +501,7 @@ def integrate_merge(repo: Path, remote: Path, tmp_path: Path, *, quote: str) -> 
                                "scope": "shared-generic"},
         "sources": [{"ref": f"refs/heads/machine/{MACHINE}", "machine": MACHINE,
                      "profile": "default", "scope": "shared-generic", "enabled": True}],
-        "report": {"vault": "fixture", "vault_root": str(vault),
-                   "directory": "projects/hermes-agent/reports"},
+        "report": {"path": str(vault)},
     }
     (store / "maintainer.json").write_text(json.dumps(config), encoding="utf-8")
     candidate = core.capture(maintainer, store, config["sources"][0])
