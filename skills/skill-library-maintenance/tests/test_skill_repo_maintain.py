@@ -1203,7 +1203,7 @@ def test_render_artifacts_records_digests_and_is_idempotent(tmp_path: Path, monk
     for record in manifest["artifacts"].values():
         assert record["asset_sha256"] == record["rendered_sha256"]
 
-    shim = (home / "scripts" / "skill-repo-maintain-monitor.sh").read_text(encoding="utf-8")
+    shim = (store / "scripts" / "skill-repo-maintain-monitor.sh").read_text(encoding="utf-8")
     assert "skill-repo-maintain.py\" --pending" in shim
     assert str(store) in shim and "{" not in shim        # placeholders resolved
     prompt = json.loads((home / "cron" / "jobs.json").read_text(encoding="utf-8"))["jobs"][0]["prompt"]
@@ -1224,7 +1224,7 @@ def test_artifact_drift_is_reported_and_render_clears_it(tmp_path: Path, monkeyp
     integrate.render_artifacts(store, config, home)
     assert integrate.artifact_problems(store, config, home) == []
 
-    shim = home / "scripts" / "skill-repo-sync-stage.sh"
+    shim = store / "scripts" / "skill-repo-sync-stage.sh"
     shim.write_text(shim.read_text(encoding="utf-8") + "# tampered\n", encoding="utf-8")
     tampered = integrate.artifact_problems(store, config, home)
     assert any("stage-sweep-script" in item and "differs" in item for item in tampered)
@@ -1243,4 +1243,4 @@ def test_render_artifacts_dry_run_writes_nothing(tmp_path: Path, monkeypatch) ->
     assert result["dry_run"] is True and set(result["rendered"]) == ARTIFACT_NAMES
     assert (home / "cron" / "jobs.json").read_bytes() == before_jobs
     assert not (store / "rendered.json").exists()
-    assert not (home / "scripts").exists()
+    assert not (store / "scripts").exists()

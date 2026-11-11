@@ -1002,9 +1002,9 @@ ARTIFACT_SPECS: tuple[dict, ...] = (
      "asset": "assets/pre-integration-cron-prompt.md.example", "job_prefix": "skill-repo pre-integration"},
     {"name": "maintain-monitor-script", "kind": "file",
      "asset": "assets/maintain-monitor-script.sh.example",
-     "target": "{hermes_home}/scripts/skill-repo-maintain-monitor.sh", "mode": 0o755},
+     "target": "{store}/scripts/skill-repo-maintain-monitor.sh", "mode": 0o755},
     {"name": "stage-sweep-script", "kind": "file", "asset": "assets/stage-sweep-script.sh.example",
-     "target": "{hermes_home}/scripts/skill-repo-sync-stage.sh", "mode": 0o755},
+     "target": "{store}/scripts/skill-repo-sync-stage.sh", "mode": 0o755},
 )
 
 
@@ -1086,10 +1086,17 @@ def _write_target_file(path: Path, text: str, mode: int) -> None:
     os.replace(temporary, path)
 
 
+def _expand(template: str, values: dict[str, str]) -> str:
+    text = template
+    for key, value in values.items():
+        text = text.replace("{" + key + "}", value)
+    return text
+
+
 def _target_digest(spec: dict, values: dict[str, str], home: Path) -> str | None:
     """Current bytes of the rendered target, or None when it is absent."""
     if spec["kind"] == "file":
-        target = Path(values["hermes_home"]) / spec["target"].replace("{hermes_home}/", "", 1)
+        target = Path(_expand(spec["target"], values))
         try:
             return hashlib.sha256(target.read_bytes()).hexdigest()
         except OSError:
@@ -1135,7 +1142,7 @@ def render_artifacts(store: Path, config: dict, home: Path, dry_run: bool = Fals
             prompt = str(job.get("prompt") or "")
             up_to_date = hashlib.sha256(prompt.encode("utf-8")).hexdigest() == asset_digest
         else:
-            target = "file:" + spec["target"].replace("{hermes_home}", values["hermes_home"])
+            target = "file:" + _expand(spec["target"], values)
             up_to_date = current == asset_digest
         if up_to_date:
             records[spec["name"]] = {

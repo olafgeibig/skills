@@ -51,8 +51,8 @@ list is the template contract):
 
 | Template | Renders to |
 |---|---|
-| `../assets/stage-sweep-script.sh.example` | `{hermes_home}/scripts/skill-repo-sync-stage.sh` (`chmod 755`) |
-| `../assets/maintain-monitor-script.sh.example` | `{hermes_home}/scripts/skill-repo-maintain-monitor.sh` (`chmod 755`) |
+| `../assets/stage-sweep-script.sh.example` | `{store}/scripts/skill-repo-sync-stage.sh` (`chmod 755`) |
+| `../assets/maintain-monitor-script.sh.example` | `{store}/scripts/skill-repo-maintain-monitor.sh` (`chmod 755`) |
 | `../assets/pre-integration-cron-prompt.md.example` | the pre-integration job prompt |
 | `../assets/maintainer-cron-prompt.md.example` | the integration job prompt (Maintainer only) |
 | `../assets/skill-review-cron-prompt.md.example` | the proposed periodic whole-skill review prompt (one skill per run; not created by this checklist) |
@@ -66,8 +66,8 @@ list is the template contract):
 | Wrapper | `{hermes_home}/bin/skill-repo-sync` — generated; execs the installed engine pair; the stable path hook consent binds to | both |
 | Installed engine pair | `{hermes_home}/bin/skill-repo-sync.py` + `{hermes_home}/bin/skill_repo_workflow.py` (+ the report template) — copied together by the installer; identical versions or the install is refused | both |
 | State | `{hermes_home}/skill-repo-sync.json` | both |
-| Shim | `{hermes_home}/scripts/skill-repo-sync-stage.sh` — generated (see table above) | both |
-| Monitor shim | `{hermes_home}/scripts/skill-repo-maintain-monitor.sh` — generated (see table above); prints the stable pending report (`--pending --store {store} --repo {maintainer_repo}`) for the maintainer job's monitor gate | Maintainer only |
+| Shim | `{store}/scripts/skill-repo-sync-stage.sh` — generated (see table above), referenced by the job by absolute path | both |
+| Monitor shim | `{store}/scripts/skill-repo-maintain-monitor.sh` — generated (see table above), referenced by absolute path; prints the stable pending report (`--pending --store {store} --repo {maintainer_repo}`) for the maintainer job's monitor gate | Maintainer only |
 | Staging sweep | hourly `:07` — bundles locally (no push); `no_agent`, shim, deliver telegram | both |
 | Pre-integration | `30 3 * * *` — cleans and pushes; agent, skills `skill-governance` + `skill-library-maintenance` | both (per profile on a multi-profile machine) |
 | Integration | monitor-gated (30 min tick; the agent wakes only when the pending report changes — no idle LLM runs); a fixed nightly slot is not required. Agent, skill `skill-library-maintenance` | Maintainer only |
@@ -112,7 +112,8 @@ regular file and reads them back:
      --skill skill-governance --skill skill-library-maintenance \
      --provider <P> --model <M> --pin --deliver telegram --workdir {skills_repo}
    # Maintainer only — monitor-gated: the shim's byte-stable --pending report wakes the agent
-   # only on change. --monitor-script takes the rendered shim's NAME under {hermes_home}/scripts/.
+   # only on change. --monitor-script takes the rendered shim's ABSOLUTE path under {store}/scripts/
+   # (a relative name would be resolved under {hermes_home}/scripts/ instead).
    hermes cron create '30m' "$(cat rendered-maintainer-prompt.txt)" \
      --name "skill-repo maintainer (monitor-gated)" \
      --skill skill-library-maintenance \
@@ -242,7 +243,7 @@ burning idle runs. On an existing 2.2 installation:
 1. Helper and engine update themselves — all logic lives in the repository tree; run
    `--selfcheck --verbose` and expect helper `SCRIPT_VERSION 2.3.0`.
 2. Render `../assets/maintain-monitor-script.sh.example` to
-   `{hermes_home}/scripts/skill-repo-maintain-monitor.sh` (`chmod 755`) and switch the
+   `{store}/scripts/skill-repo-maintain-monitor.sh` (`chmod 755`) and switch the
    maintainer job to the monitor mode:
    `hermes cron edit <maintainer job> --schedule '30m' --monitor-script skill-repo-maintain-monitor.sh`
    (the name is the rendered shim's name under `{hermes_home}/scripts/`). `hermes cron edit`
