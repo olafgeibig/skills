@@ -46,9 +46,13 @@ A minimal probe needs only one committed file, one appended change, one ledger e
 | Consolidator finds overlapping edits in two transport branches | Resolves to one home per rule and a SemVer increment beyond both; never `-X ours`/`-X theirs`, never a force-push of `main`. A resolution it cannot make stops the run before any `main` commit. |
 | No prior sync cursor exists | Historical path membership never authorizes today's dirty content; bootstrap is an explicit skip-history choice. |
 
-Repeat a blocked case after correcting the fixture to verify actual retry, not just preservation of an integer cursor. For push failure, assert that the retry creates no duplicate commit and the remote reaches the staged local HEAD; for consumption, assert the reset touches nothing but the transport branch.
+Repeat a blocked case after correcting the fixture to verify actual retry, not just preservation of an integer cursor. For push failure, assert that the retry creates no duplicate commit and the remote reaches the staged local HEAD; for consumption, assert the reset touches nothing but the transport branch. A review gate must be closable: after a finding is repaired, rerunning the gate must go green. A scan that reads incoming-branch diffs instead of the final worktree stays red forever — separate pre-merge warnings from a post-merge validation of the final artifact.
 
 Preserve successful disposable-repository probes as bundled regression tests rather than leaving them as scratch commands; retry and cursor defects require a repeatable sequence of runs. Run `python3 -m pytest skills/skill-library-maintenance/tests -q` from the repository root after the final engine or installer edit. Treat the passing suite as behavioral evidence only; run the package validator and library audit separately before declaring the skill change complete.
+
+A green suite proves its own contract, not the intended one: read what the existing tests assert as *required behavior* before trusting them. A suite can encode unsafe policy — automatic stale-lock deletion, blanket hook clearing, silent cursor bootstrap, reset heuristics that discard unpushed work — as correct behavior. When a fix changes that policy, rewrite the affected assertions explicitly with a rationale comment; deleting or weakening them to keep the suite green leaves the old policy as the tested contract.
+
+Prove the worktree, not the scratch: an apply step that writes per-file scratch artifacts can silently omit clean files, deletions, or empty files and still exit 0. After every apply step assert `git status --porcelain`, the exact contents of every manifest path, and the remote refs against the expected result. Distinguish a deleted blob from an intentionally empty file by asking Git (`git cat-file -e <rev>:<path>`), never by scratch-file size.
 
 ## 4. Consent and unattended operation
 

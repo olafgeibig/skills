@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing, dissolving or syncing a skill library."
 license: MIT
 metadata:
-  version: "0.22.1"
+  version: "0.22.3"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -58,6 +58,8 @@ The audit reports:
 - missing required discovery fields;
 - name/directory mismatches;
 - dangling references to package support files.
+
+Reference tokens resolve against the SKILL.md's own package directory: a bare support-file path that belongs to another package is reported as `missing references` even though the file exists there. Prefix a cross-package pointer with the owning skill's package name, or write it as prose without a bare path — both forms audit clean, the bare form does not.
 
 The audit does not edit files. Review findings using `skill-builder/references/skill-quality-gates.md` before refactoring.
 
@@ -137,7 +139,7 @@ When migrating a skill:
 Before installing or enabling skill-repository sync automation:
 
 1. Inspect the active checkout and fetched remote separately; fetching does not update the runtime-loaded skill. Preserve dirty work before integrating upstream changes.
-2. Test the publisher in disposable repositories with an isolated `HERMES_HOME`; syntax checks alone do not establish safe Git or cursor behavior.
+2. Test the publisher in disposable repositories with an isolated `HERMES_HOME`; syntax checks alone do not establish safe Git or cursor behavior. The test-review rule (what a green run does and does not prove) lives in `references/repository-sync-safety.md` §3 (*Behavioral acceptance matrix*) — apply it before trusting a run.
 3. Require dry-run to leave cursors, configuration, index, commits, and remotes unchanged. Retain blocked or failed ledger entries for retry rather than acknowledging them as published.
 4. Check file-level staging against mixed manual and automated edits; ledger membership identifies a path, not ownership of every change inside it.
 5. Verify branch and upstream guards in code, and approve only the exact hook commands needed; documentation does not enforce a branch policy, and global hook auto-accept widens consent beyond the installer. Distinguish configured hooks from approved and healthy hooks: installer success alone does not establish activation.

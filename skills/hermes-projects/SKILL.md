@@ -2,7 +2,7 @@
 name: hermes-projects
 description: "Use when structuring a project that Hermes works in."
 metadata:
-  version: "1.3.0"
+  version: "1.3.1"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   scope: personal
@@ -51,7 +51,7 @@ Shape is a decision, not an accident. Write it into the project's `AGENTS.md` (`
 - **The router is optional, but discovery decides.** Keep it only when an agent that has just the vault must be able to find the work tree. Otherwise drop it: the MoC carries one line instead — `Projektverzeichnis: der Arbeitsbaum, sein AGENTS.md ist das Betriebshandbuch; diese Notizen sind seine Wissensquelle` — and the manual names the vault notes worth reading. Two files describing the same project drift apart.
 - **Notes only (B):** the vault project directory *is* the project directory, so its `AGENTS.md` is the manual.
 
-Both use the same five sections — `Purpose`, `Setup`, `Important resources`, `Rules`, `Extending the rules` — from `assets/project-AGENTS.md.example`. Around 30–40 lines: the file is read on every entry, so everything longer belongs in `conventions.md` or in the project skill.
+Both use the same five sections — `Purpose`, `Setup`, `Important resources`, `Rules`, `Extending the rules` — from `assets/project-AGENTS.md.example`. The five sections are semantic: their headings follow the vault's language and the wording of sibling project manuals (`Zweck`, `Wichtige Ressourcen`, `Regeln`, `Regeln erweitern` where the vault is German). Read one or two sibling `AGENTS.md` files first and match their idiom — heading language, `Projektverzeichnis:`/`Projekttyp:` line format — instead of introducing a new one. Around 30–40 lines: the file is read on every entry, so everything longer belongs in `conventions.md` or in the project skill.
 
 **One manual, plus `conventions.md` when it earns its place.** `AGENTS.md` is the contract; `conventions.md` takes every rule that does not fit a page. Create it with the first rule that overflows and link it from `AGENTS.md` in the same change — the link is what makes the file editable: an agent told to extend the rules opens the file it was pointed at instead of growing the manual. Shape it from `assets/project-conventions.md.example` — in a vault it is a note (frontmatter, `topics`, body `Topics:` footer, MoC entry in the same change), in a work tree a plain markdown file. Never scaffold an empty file or leave a dangling link.
 
@@ -95,6 +95,7 @@ Declare the publication target per project; the shape alone does not determine i
 
 ## Writing these files safely
 
+- **Name only artifacts that exist.** List the directory and check every file the manual names — the `Projektverzeichnis` line, `conventions.md`, the work tree, named skills — before writing it. MoC boilerplate drifts and hands down phantom claims: a `conventions.md` that was never created, a work tree declared as the project directory when the notes are the project. The manual is read as authority, so a phantom name sends every later session hunting a file that is not there; when the claim came from the MoC or another note, correct that source line in the same change and say so in the report.
 - **Resolve “here” before choosing the manual.** For a request to create or update the project-root `AGENTS.md`, target the work-tree root, not the embedded vault root; inspect the directory context and existing manuals first. Preserve an adequate vault manual unless its own changes were requested, because the two files govern different contexts.
 - **State mandatory skills explicitly.** In the project manual's `Setup`, add a `Mandatory skills` subsection naming `hermes-projects` and, when a working vault exists, its kind-skill plus the requirement to read its local `AGENTS.md`. A passing mention of the vault kind does not tell the next agent what to load.
 
@@ -117,6 +118,8 @@ Keep this file a navigation bridge, not a second resource MoC; leave originals a
 ## Project kinds (notes projects)
 
 Shapes say where the files live; **kinds** say what the work is. A notes project may declare a kind in its `AGENTS.md` (`Projekttyp: <kind>`); the kind's skill holds the method — class tables, templates, care rules — while the project's `AGENTS.md` keeps facts and deviations only. One vocabulary per kind, enumerated in the vault root `AGENTS.md`'s type table; never a per-project dialect.
+
+**Adopting a kind on a project that predates it:** inventory the existing notes' `type:` values first (`SELECT path, type FROM files WHERE path LIKE 'projects/<x>/%'`), declare the kind in the manual, and record the legacy deviation — flat layout, pre-kind `type:` values — in its `Rules`. Migrating or retyping the existing notes is a separate assignment that waits for the user's go: writing the manual never restructures the note set it describes.
 
 | kind | What it is | Skill |
 |---|---|---|

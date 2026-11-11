@@ -1,7 +1,7 @@
 ---
 name: hermes-provider-setup
 description: Set up Hermes providers, keys, rate limits and model slots.
-version: 0.13.1
+version: 0.13.4
 author: Hermes Agent
 license: MIT
 metadata:
@@ -43,7 +43,7 @@ Class-level reference for the **mechanics** of provider setup in Hermes. This sk
 
 ## Work on the installation that is actually here
 
-Provider and slot config is machine-local, and a request can name a machine the session is not running on. Before touching config, confirm the target (`hostname`, plus the kernel signature when the host names are project-specific); if the user named a different machine, say so plainly and ask whether to work on the one you are on — never do machine-local config work silently on another host, and never claim the named machine's state from here. And when a credential or provider the user says they added is missing, check the local `.env` mtime and the `providers:` keys before hunting for a failed write: the change may have landed on a different host.
+Provider and slot config is machine-local, and a request can name a machine the session is not running on. Before touching config, confirm the target (`hostname`, plus the kernel signature when the host names are project-specific); if the user named a different machine, say so plainly and ask whether to work on the one you are on — never do machine-local config work silently on another host, and never claim the named machine's state from here. And when a credential or provider the user says they added is missing, check the local `.env` mtime and the `providers:` keys before hunting for a failed write: the change may have landed on a different host. The same applies to the profile home: `HERMES_HOME`/`TMPDIR` exported during a scratch probe persist in the terminal tool's shell, so a later `hermes config set` writes the probe's home instead of the live profile — read the config back from the absolute target path after every write.
 
 ## Config Schema: `providers:` vs `custom_providers:`
 
@@ -80,6 +80,7 @@ Two endpoints of the same family (two regions, two accounts) are two entries. `m
 - `providers:` is a **dict**, not a list → YAML uses `key: value`, never `-` bullets.
 - `providers: {}` (empty dict) is valid; `providers: null` is NOT (use `{}` or omit).
 - A malformed `custom_providers` (a string or a dict instead of a list) no longer empties the whole view silently: the legacy entries are skipped with a warning and a "change to:" hint, while any `providers:` entries stay in effect. A provider that "disappeared" from a picker is usually this shape error.
+- `base_url` is the **API root** (`https://host/v1`), never a full endpoint URL — the client appends the endpoint path per `api_mode`. A `…/v1/responses` base in `codex_responses` mode 404s on a path with the endpoint segment repeated (`/v1/responses/responses`); a 404 whose path doubles the endpoint segment is this shape error, not a bad model id.
 
 ### Headless registration (no TTY for the model picker)
 
@@ -231,7 +232,7 @@ Question class: "is my plan still enough?", "my monthly quota is nearly gone —
 Traps specific to this procedure:
 
 - **Overflow prices track the peak row.** The pay-per-token catalogue lists DeepSeek V4.1 Flash at $0.30/$1.20 — the Go peak price, twice the off-peak plan rate. Compare overflow against the row you would actually pay, or the recommendation flips.
-- **The same model under another slug is not another model.** `deepseek-flash` on a direct API is `deepseek-v4.1-flash` on the plan. Before buying headroom, check whether the "fallback" already provides it pay-per-token.
+- **The same model under another slug is not another model** (`deepseek-flash` on a direct API is `deepseek-v4.1-flash` on the plan) — and identity does not travel the other way: the same slug on another provider is no evidence of the same model, because model IDs are provider-local. Before buying headroom, check whether the "fallback" already provides it pay-per-token; before moving "the same model" to another provider for speed or cost, confirm that ID in the target's keyed catalogue and that the provider's `api_mode` matches the model's serving surface — a name match is a hypothesis to verify, never a rename to perform.
 - **A zero cost column is the catalogue's silence.** `estimated_cost_usd = 0` for a plan provider means "no price known", not "free" — recompute from the plan's price rows or say you cannot.
 
 ## Provider Keys: Which Consumer Sees Which Key
@@ -432,6 +433,8 @@ Slot semantics are not trigger semantics: the `session_search` tool is pure FTS5
 ### Pitfall 14 — a `delegation.*` pin also costs the children's fallback chain
 
 Pinning `delegation.model` / `delegation.provider` is not only a route choice: a pinned child resolves its own fallback chain instead of inheriting the session's (`tools/delegate_tool_config.py:_resolve_child_fallback_chain`, `pinned=True`), so subagents lose failover silently while the session keeps it. Leave `delegation.*` empty when children should inherit route **and** fallback; pin only when cutting children off the session chain is the intent (separate quota, independent provider). A pin that merely duplicates the parent route buys nothing and pays this cost.
+
+**Probe a `delegation.*` change with the consumer it serves: a real one-line `delegate_task` child, never only a `hermes -z` one-shot.** The two fail for each other's non-reasons — the one-shot runs in the terminal shell, whose env can lack a key the child resolves from the agent process's secret scope, and a client path-composition or account-gate fault surfaces only on the child's request. On a failed probe, clear the pin immediately so in-flight work keeps the working route; children already running keep the route they started with, so a pin redirects only later dispatches. The same move serves a single deliberately stronger review dispatch — restore `delegation.*` right after it.
 
 ### Pitfall 15 — a config cleanup can sweep more than intended
 

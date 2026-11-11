@@ -3,7 +3,7 @@ name: yt-grab-transcription
 description: "Use when fetching a YouTube transcript."
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # YT Grab Transcription
@@ -123,9 +123,14 @@ the transcript files should land.
 
 - **The inline transcript is truncated head+tail, not complete.** Long videos
   return roughly the first 15 k and last 5 k characters inline, with the full
-  text saved to the cache file named in the result footer. Read the omitted
-  middle from that file with `read_file` before extracting structure or
-  quotes. Assuming the inline text is everything is how the middle of a talk
+  text saved to the cache file named in the result footer. Raising
+  `char_limit` widens the inline window but never closes it on a long talk.
+  Read the omitted middle from that file with `read_file` before extracting
+  structure or quotes — and only the gap: the head is complete from the
+  start and the tail to the end, so span from slightly before the head's
+  last timestamp to slightly after the tail's first (the footer's suggested
+  `read_file` offset points at the gap start) instead of paging the whole
+  cache file. Assuming the inline text is everything is how the middle of a talk
   silently disappears — the chapters, the strongest arguments and the
   caveats usually live exactly there.
 - **Proper nouns in auto-captions are unreliable.** Names come out mangled and
@@ -134,7 +139,10 @@ the transcript files should land.
   the transcript body.
 - **Chapter timestamps come from the description, not the transcript.** They
   are human-written and far more reliable than anything derived from the
-  caption stream; use them as the note's structure.
+  caption stream; use them as the note's structure. They double as citation
+  anchors: attach every extracted fact to its chapter as a deep link
+  `[MM:SS](https://www.youtube.com/watch?v=ID&t=<seconds>)` (convert MM:SS to
+  seconds) so the reader can jump from the fact back to the spoken passage.
 
 ### Path B (`yt-dlp`)
 
