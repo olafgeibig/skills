@@ -1644,3 +1644,39 @@ def test_engine_dry_run_performs_no_writes(tmp_path: Path, mode: str) -> None:
     }
     assert result.returncode == 0, result.stderr or result.stdout
     assert after == before
+
+
+def test_installer_record_only_refreshes_state_without_installing(tmp_path: Path) -> None:
+    """--record-only fixes stale metadata (in-place wrapper mode) and installs nothing."""
+    _, scripts, _ = machine_repo(tmp_path)
+    home = tmp_path / "record only profile"
+    (home / "skills").mkdir(parents=True)
+    env, _, _ = installer_env(tmp_path, home)
+    first = invoke_installer(scripts, env, "--bootstrap-current-ledger")
+    assert first.returncode == 0, first.stderr or first.stdout
+
+    state_path = home / "skill-repo-sync.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["version"] = "2.0.0"
+    state["sync_model"] = "stage-consolidate-v2"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    wrapper_before = (home / "bin" / "skill-repo-sync").read_bytes()
+    engine_before = (home / "bin" / "skill-repo-sync.py").read_bytes()
+    calls_before = len(log_calls(Path(env["FAKE_HERMES_LOG"])))
+
+    second = invoke_installer(scripts, env, "--record-only")
+
+    assert second.returncode == 0, second.stderr or second.stdout
+    refreshed = json.loads(state_path.read_text(encoding="utf-8"))
+    assert refreshed["version"] == "3.0.0"
+    assert refreshed["sync_model"] == "stage-integrate-v3"
+    assert refreshed["ledger_cursor"] == state["ledger_cursor"]
+    assert (home / "bin" / "skill-repo-sync").read_bytes() == wrapper_before
+    assert (home / "bin" / "skill-repo-sync.py").read_bytes() == engine_before
+    assert len(log_calls(Path(env["FAKE_HERMES_LOG"]))) == calls_before   # no hook/config writes
+
+    absent_home = tmp_path / "absent profile"
+    absent_env = dict(env, HERMES_HOME=str(absent_home))
+    absent = invoke_installer(scripts, absent_env, "--record-only")
+    assert absent.returncode == 13
+    assert "existing state file" in (absent.stderr + absent.stdout)

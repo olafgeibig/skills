@@ -673,7 +673,7 @@ Written for Linux and macOS alike — an installation may be either, and the two
 |---|---|
 | `scripts/skill-repo-sync.py` | the contributor engine (staging, ancestry refresh, history screen, exact reviewed-tip push, contributor lock); `SCRIPT_VERSION` in the header |
 | `scripts/install-skill-repo-sync.py` | installer; copies the engine + shared core + report template into `<hermes home>/bin`, then writes the wrapper/state; `INSTALLER_VERSION` must match the engine |
-| `scripts/skill-repo-maintain.py` | the maintainer helper: `--capture-source`, `--prepare`, `--record-review`, `--render-report`, `--verify-report`, `--integrate`, `--reconcile`, `--render-result`, `--verify-result`, `--pending`, `--retry`, `--selfcheck`, `--lock`/`--unlock`, `--note-pushed` (metadata only); retired (exit 12, `retired:` diagnostic): `--collect`, `--preflight`, `--merge-map`, `--apply-decisions`, `--refresh-strip`, `--reset-branch`, `--init-last-pushed` |
+| `scripts/skill-repo-maintain.py` | the maintainer helper: `--capture-source`, `--prepare`, `--record-review`, `--render-report`, `--verify-report`, `--integrate`, `--reconcile`, `--render-result`, `--verify-result`, `--pending`, `--retry`, `--selfcheck`, `--render-artifacts`, `--lock`/`--unlock`, `--note-pushed` (metadata only); retired (exit 12, `retired:` diagnostic): `--collect`, `--preflight`, `--merge-map`, `--apply-decisions`, `--refresh-strip`, `--reset-branch`, `--init-last-pushed` |
 | `scripts/skill_repo_workflow.py` | shared v3 core (a library, not a CLI): candidate identity, strict maintainer state, fetched capture with local pins, ancestry-only consumption, cooperative transport provenance guard, the whole-unpublished-history exposure screen, review/tree/checks/report gates, exact merge integration/reconcile, the stable pending protocol and the two owner-token locks (maintainer at the clone's Git common dir, contributor at the contributor repo's Git common dir; atomic `O_CREAT`/`O_EXCL`, no TTL); imported by the adapters above |
 | `<hermes home>/bin/skill-repo-sync` | stable wrapper the hooks/crons call; execs the installed engine pair |
 | `<hermes home>/bin/skill-repo-sync.py` + `skill_repo_workflow.py` | installed engine + core (identical versions; the installer refuses a partial pair) |
@@ -686,6 +686,13 @@ The wrapper path must stay constant: the hook consent pair is `(event, command)`
 command needs fresh consent. The wrapper execs the **installed** engine pair under
 `<hermes home>/bin`; update the repository and re-run the installer to refresh that pair, then
 verify `--version` — never point the wrapper back at a checkout whose branch can change.
+
+Deployment artifacts are rendered, not hand-written: `--render-artifacts` rebuilds the two cron
+prompts and the two shims from `assets/*.example`, writes them, and records `asset`/`rendered`
+SHA-256 pairs in `<store>/rendered.json`. `--selfcheck` compares both and reports
+`artifacts_out_of_date` when an asset changed or a target drifted, so an asset edit cannot leave a
+stale prompt running. Code changes need no such step: the wrapper and the maintainer prompt execute
+the checkout/clone directly.
 
 The wrapper, the staging shim and the monitor shim are the **only generated artifacts** of this
 sync, and each exists for exactly one stable path: hook consent binds to the wrapper's

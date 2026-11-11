@@ -282,6 +282,9 @@ def main() -> int:
                     help="logical machine name (default: SKILL_REPO_MACHINE env var)")
     ap.add_argument("--repo", action="append", default=[], help="additional shared repo (repeatable)")
     ap.add_argument("--python", default="python3", help="interpreter the wrapper execs (default: python3)")
+    ap.add_argument("--record-only", action="store_true",
+                    help="refresh the recorded version metadata in an existing state file without "
+                         "installing the engine pair or touching hooks")
     ap.add_argument("--selfcheck", action="store_true", help="report the current install and exit")
     ap.add_argument("--version", action="store_true", help="print the installer version")
     args = ap.parse_args()
@@ -340,6 +343,28 @@ def main() -> int:
         if not isinstance(existing_state, dict):
             print(f"error: state file must contain a JSON object: {state_path}")
             return 1
+    if args.record_only:
+        if existing_state is None:
+            print(f"error: --record-only needs an existing state file: {state_path} is missing",
+                  file=sys.stderr)
+            return 13
+        fresh = dict(existing_state)
+        fresh.update({
+            "hermes_home": str(home),
+            "machine": machine,
+            "python": str(interpreter),
+            "repos": repos,
+            "script": str(engine),
+            "sync_model": "stage-integrate-v3",
+            "version": INSTALLER_VERSION,
+            "wrapper": str(wrapper),
+        })
+        temporary = state_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(fresh, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(temporary, state_path)
+        print(f"state: {state_path} (recorded version {INSTALLER_VERSION}; nothing installed)")
+        return 0
+
     if existing_state is None and not args.bootstrap_current_ledger:
         print(f"error: refusing a fresh install without --bootstrap-current-ledger: {state_path} "
               "does not exist, so the staging cursor would start at 0 and the next sweep would "

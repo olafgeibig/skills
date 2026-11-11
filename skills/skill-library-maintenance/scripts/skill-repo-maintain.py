@@ -47,6 +47,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -987,6 +988,215 @@ def _installer_version() -> str:
     return match.group(1) if match else "missing"
 
 
+# --- deployment artifacts: render the cron prompts and shims from the skill assets ---------------
+
+RENDER_MANIFEST = "rendered.json"
+
+# Each artifact is a copy rendered from a skill asset. Code changes need no local step (the wrapper
+# and the maintainer prompt both point into the checkout/clone); ASSET changes do, and --selfcheck
+# reports a stale copy so nobody has to remember it.
+ARTIFACT_SPECS: tuple[dict, ...] = (
+    {"name": "maintainer-cron-prompt", "kind": "cron", "asset": "assets/maintainer-cron-prompt.md.example",
+     "job_prefix": "skill-repo maintainer"},
+    {"name": "pre-integration-cron-prompt", "kind": "cron",
+     "asset": "assets/pre-integration-cron-prompt.md.example", "job_prefix": "skill-repo pre-integration"},
+    {"name": "maintain-monitor-script", "kind": "file",
+     "asset": "assets/maintain-monitor-script.sh.example",
+     "target": "{hermes_home}/scripts/skill-repo-maintain-monitor.sh", "mode": 0o755},
+    {"name": "stage-sweep-script", "kind": "file", "asset": "assets/stage-sweep-script.sh.example",
+     "target": "{hermes_home}/scripts/skill-repo-sync-stage.sh", "mode": 0o755},
+)
+
+
+def _asset_root(config: dict) -> Path:
+    return Path(config["maintainer_repo"]) / "skills" / "skill-library-maintenance"
+
+
+def _render_values(config: dict, store: Path, home: Path) -> dict[str, str]:
+    identity = config["maintainer_identity"]
+    return {
+        "skills_repo": str(config["maintainer_repo"]),
+        "maintainer_repo": str(config["maintainer_repo"]),
+        "store": str(store),
+        "hermes_home": str(home),
+        "machine": str(identity["machine"]),
+        "profile": str(identity["profile"]),
+    }
+
+
+def _render_text(spec: dict, values: dict[str, str], config: dict) -> tuple[str, str]:
+    asset = _asset_root(config) / spec["asset"]
+    try:
+        text = asset.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise core.WorkflowError(f"artifact asset is missing: {asset}: {exc}") from exc
+    for key, value in values.items():
+        text = text.replace("{" + key + "}", value)
+    leftover = sorted(set(re.findall(r"\{[a-z_]+\}", text)))
+    if leftover:
+        raise core.WorkflowError(
+            f"artifact {spec['name']} has unresolved placeholders: {', '.join(leftover)}")
+    return text, spec["asset"]
+
+
+def _jobs_path(home: Path) -> Path:
+    return home / "cron" / "jobs.json"
+
+
+def _jobs(home: Path) -> list[dict]:
+    path = _jobs_path(home)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise core.WorkflowError(f"cannot read cron jobs at {path}: {exc}") from exc
+    jobs = payload if isinstance(payload, list) else payload.get("jobs")
+    if isinstance(jobs, dict):
+        jobs = list(jobs.values())
+    if not isinstance(jobs, list):
+        raise core.WorkflowError(f"cron jobs at {path} have an unexpected shape")
+    return jobs
+
+
+def _job_for_prefix(home: Path, prefix: str) -> dict:
+    matches = [job for job in _jobs(home)
+               if isinstance(job, dict) and str(job.get("name") or "").startswith(prefix)]
+    if len(matches) != 1:
+        raise core.WorkflowError(
+            f"expected exactly one cron job named '{prefix}…', found {len(matches)}")
+    return matches[0]
+
+
+def _write_cron_prompt(home: Path, job_id: str, text: str) -> None:
+    hermes = shutil.which("hermes")
+    if not hermes:
+        raise core.WorkflowError("cannot render a cron prompt: the `hermes` CLI is not on PATH")
+    result = subprocess.run([hermes, "cron", "edit", job_id, "--prompt", text],
+                            capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip().splitlines()
+        raise core.WorkflowError(
+            f"hermes cron edit {job_id} failed: {detail[0] if detail else result.returncode}")
+
+
+def _write_target_file(path: Path, text: str, mode: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(text, encoding="utf-8")
+    os.chmod(temporary, mode)
+    os.replace(temporary, path)
+
+
+def _target_digest(spec: dict, values: dict[str, str], home: Path) -> str | None:
+    """Current bytes of the rendered target, or None when it is absent."""
+    if spec["kind"] == "file":
+        target = Path(values["hermes_home"]) / spec["target"].replace("{hermes_home}/", "", 1)
+        try:
+            return hashlib.sha256(target.read_bytes()).hexdigest()
+        except OSError:
+            return None
+    try:
+        job = _job_for_prefix(home, spec["job_prefix"])
+    except core.WorkflowError:
+        return None
+    prompt = job.get("prompt")
+    return hashlib.sha256(str(prompt).encode("utf-8")).hexdigest() if prompt else None
+
+
+def _manifest_path(store: Path) -> Path:
+    return store / RENDER_MANIFEST
+
+
+def _load_manifest(store: Path) -> dict:
+    path = _manifest_path(store)
+    if not path.is_file():
+        return {"schema": 1, "artifacts": {}}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise core.WorkflowError(f"rendered manifest is unreadable: {path}: {exc}") from exc
+    if not isinstance(payload, dict) or not isinstance(payload.get("artifacts"), dict):
+        raise core.WorkflowError(f"rendered manifest has an unexpected shape: {path}")
+    return payload
+
+
+def render_artifacts(store: Path, config: dict, home: Path, dry_run: bool = False) -> dict:
+    """Render every deployment artifact from its skill asset and record the digests."""
+    values = _render_values(config, store, home)
+    manifest = _load_manifest(store)
+    records = dict(manifest["artifacts"])
+    changed: list[str] = []
+    for spec in ARTIFACT_SPECS:
+        text, asset = _render_text(spec, values, config)
+        asset_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        current = _target_digest(spec, values, home)
+        if spec["kind"] == "cron":
+            job = _job_for_prefix(home, spec["job_prefix"])
+            target = f"cron:{job.get('id')}"
+            prompt = str(job.get("prompt") or "")
+            up_to_date = hashlib.sha256(prompt.encode("utf-8")).hexdigest() == asset_digest
+        else:
+            target = "file:" + spec["target"].replace("{hermes_home}", values["hermes_home"])
+            up_to_date = current == asset_digest
+        if up_to_date:
+            records[spec["name"]] = {
+                "asset": asset, "asset_sha256": asset_digest, "target": target,
+                "rendered_sha256": asset_digest,
+                "rendered_at": (records.get(spec["name"]) or {}).get("rendered_at") or _utc_now(),
+            }
+            continue
+        changed.append(spec["name"])
+        if not dry_run:
+            if spec["kind"] == "cron":
+                _write_cron_prompt(home, str(job.get("id")), text)
+            else:
+                _write_target_file(Path(target[len("file:"):]), text, spec.get("mode", 0o644))
+        records[spec["name"]] = {
+            "asset": asset, "asset_sha256": asset_digest, "target": target,
+            "rendered_sha256": asset_digest, "rendered_at": _utc_now(),
+        }
+    if not dry_run:
+        _atomic_json_simple(_manifest_path(store), {"schema": 1, "artifacts": records})
+    return {"rendered": changed, "dry_run": dry_run,
+            "manifest": str(_manifest_path(store)),
+            "artifacts": {name: {"target": rec["target"]} for name, rec in records.items()}}
+
+
+def artifact_problems(store: Path, config: dict, home: Path) -> list[str]:
+    """Report artifacts whose asset changed since rendering, or whose target drifted."""
+    values = _render_values(config, store, home)
+    manifest = _load_manifest(store)
+    problems: list[str] = []
+    for spec in ARTIFACT_SPECS:
+        record = manifest["artifacts"].get(spec["name"])
+        if not isinstance(record, dict):
+            problems.append(f"{spec['name']}: not rendered yet")
+            continue
+        try:
+            text, _asset = _render_text(spec, values, config)
+        except core.WorkflowError as exc:
+            problems.append(f"{spec['name']}: {exc}")
+            continue
+        asset_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        if record.get("asset_sha256") != asset_digest:
+            problems.append(f"{spec['name']}: asset changed since the last render")
+            continue
+        current = _target_digest(spec, values, home)
+        if current != record.get("rendered_sha256"):
+            problems.append(f"{spec['name']}: rendered target differs from the last render")
+    return problems
+
+
+def _utc_now() -> str:
+    return datetime.now(tz=timezone.utc).isoformat(timespec="seconds")
+
+
+def _atomic_json_simple(path: Path, value: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+
+
 def selfcheck(repo: Path, store: Path, config: dict, verbose: bool) -> tuple[int, dict, list[str]]:
     """Observed facts only: versions, branch policy, config/report presence, lock state.
 
@@ -1022,6 +1232,7 @@ def selfcheck(repo: Path, store: Path, config: dict, verbose: bool) -> tuple[int
         "report_directory_present": report_directory.is_dir(),
         "maintainer_lock": "held by " + _owner_description(lock) if lock else "not held",
         "hooks": "not inspected by --selfcheck — use `hermes hooks doctor`",
+        "artifacts_out_of_date": artifact_problems(store, config, hermes_home()),
     }
     notes = [f"created_at: {state.get('created_at') or '(not recorded)'}"] if verbose else []
     return 0, payload, notes
@@ -1107,6 +1318,8 @@ def main() -> int:
                            "(refs/heads/refactor/<slug>) with --tip and --brief")
     mode.add_argument("--selfcheck", action="store_true",
                       help="report observed versions, branch policy, config/report presence and lock state")
+    mode.add_argument("--render-artifacts", action="store_true",
+                      help="render the cron prompts and shims from the skill assets and record their digests")
     mode.add_argument("--lock", action="store_true", help="acquire the owner-token maintainer lock")
     mode.add_argument("--unlock", action="store_true", help="release the maintainer lock with its owner token")
     mode.add_argument("--note-pushed", action="store_true",
@@ -1156,7 +1369,7 @@ def main() -> int:
     known = any((args.capture_source, args.prepare, args.record_review, args.render_report,
                  args.verify_report, args.integrate, args.reconcile, args.render_result,
                  args.verify_result, args.pending, args.retry, args.submit_refactor,
-                 args.selfcheck, args.lock, args.unlock, args.note_pushed, args.collect,
+                 args.selfcheck, args.render_artifacts, args.lock, args.unlock, args.note_pushed, args.collect,
                  args.preflight, args.merge_map, args.apply_decisions, args.reset_branch,
                  args.refresh_strip, args.init_last_pushed))
     if not known:
@@ -1205,6 +1418,17 @@ def main() -> int:
             detail = ("maintainer config missing" if missing else "maintainer config invalid")
             print(f"error: {detail}: {store / 'maintainer.json'}", file=sys.stderr)
             return 13
+        if args.render_artifacts:
+            try:
+                rendered = render_artifacts(store, config, hermes_home(), dry_run=args.dry_run)
+            except core.WorkflowError as exc:
+                print(f"render-artifacts: {exc}", file=sys.stderr)
+                return 12
+            changed = rendered["rendered"]
+            prefix = "[dry-run] would render" if args.dry_run else "rendered"
+            print(f"{prefix}: {', '.join(changed) if changed else 'nothing to do'}", file=sys.stderr)
+            print(json.dumps(rendered, indent=2, sort_keys=True))
+            return 0
         try:
             repo = _repo_from_config(config, args.repo)
         except core.WorkflowError as exc:

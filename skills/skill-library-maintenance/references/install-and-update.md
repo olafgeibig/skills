@@ -149,6 +149,28 @@ regular file and reads them back:
 4. **Record the identity** — the rendered `SOUL.md` block (or a line in the profile's
    `hermes-profile-*` skill), so a fresh session knows its role and machine without asking.
 
+### Rendered artifacts and metadata: what a skill change implies
+
+Two different kinds of change, two different rules:
+
+| Change | Local action on a machine |
+|---|---|
+| A script, reference or `SKILL.md` in the skill | **none** — the wrapper and the maintainer prompt both execute the checkout/clone, so a pull is live on the next run |
+| A **template asset** (`assets/*.example`) | **re-render**: `--render-artifacts` rewrites the two cron prompts and the two shims |
+
+`--render-artifacts` (maintainer helper) renders `assets/maintainer-cron-prompt.md.example`,
+`assets/pre-integration-cron-prompt.md.example`, `assets/maintain-monitor-script.sh.example` and
+`assets/stage-sweep-script.sh.example` with the deployment values, updates the matching cron jobs
+and shim scripts, and records each `asset`/`rendered` SHA-256 in `<store>/rendered.json`.
+`--dry-run` reports what would change and writes nothing. `--selfcheck` lists
+`artifacts_out_of_date` when an asset changed since the last render or a rendered target drifted,
+so nobody has to remember the rule — the maintainer prompt re-renders before its first real step.
+
+`install-skill-repo-sync.py --record-only` refreshes the recorded metadata in an existing state
+file (`version`, `sync_model`, `script`, `wrapper`, `machine`, `python`) without installing the
+engine pair and without touching hooks — the repair for an in-place installation whose state still
+claims an older version. It exits 13 when no state file exists.
+
 ### Verification
 
 - `{hermes_home}/bin/skill-repo-sync --selfcheck --verbose` (the wrapper) or

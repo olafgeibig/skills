@@ -1149,3 +1149,98 @@ def test_capture_dry_run_reports_cannot_determine_without_fetch(v3lab):
     assert payload["reason"] == "cannot determine without fetch"
     assert "cannot determine without fetch" in result.stderr
     assert not (v3lab["store"] / "candidates").exists()
+
+
+# --- deployment artifacts: render + drift detection -----------------------------------------------
+
+ARTIFACT_NAMES = {"maintainer-cron-prompt", "pre-integration-cron-prompt",
+                  "maintain-monitor-script", "stage-sweep-script"}
+
+
+def artifact_lab(tmp_path: Path) -> tuple[Path, Path, Path, dict]:
+    home = tmp_path / "art home"
+    (home / "cron").mkdir(parents=True)
+    maintainer_repo = tmp_path / "art maintainer"
+    assets_src = SCRIPTS.parent / "assets"
+    assets_dst = maintainer_repo / "skills" / "skill-library-maintenance" / "assets"
+    shutil.copytree(assets_src, assets_dst)
+    store = tmp_path / "art store"
+    store.mkdir()
+    config = {"maintainer_repo": str(maintainer_repo),
+              "maintainer_identity": {"machine": "durin", "profile": "default",
+                                      "scope": "shared-generic"}}
+    jobs = {"jobs": [{"id": "job-maintainer", "name": "skill-repo maintainer (nightly)", "prompt": "stale"},
+                     {"id": "job-pre", "name": "skill-repo pre-integration (instance review)",
+                      "prompt": "stale"}]}
+    (home / "cron" / "jobs.json").write_text(json.dumps(jobs), encoding="utf-8")
+    return home, store, assets_dst, config
+
+
+def fake_cron_writer(monkeypatch, home: Path) -> None:
+    def write(home_path: Path, job_id: str, text: str) -> None:
+        path = home_path / "cron" / "jobs.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        for job in payload["jobs"]:
+            if job["id"] == job_id:
+                job["prompt"] = text
+        path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(integrate, "_write_cron_prompt", write)
+    monkeypatch.setattr(integrate, "hermes_home", lambda: home)
+
+
+def test_render_artifacts_records_digests_and_is_idempotent(tmp_path: Path, monkeypatch) -> None:
+    home, store, assets, config = artifact_lab(tmp_path)
+    fake_cron_writer(monkeypatch, home)
+
+    first = integrate.render_artifacts(store, config, home)
+    assert set(first["rendered"]) == ARTIFACT_NAMES
+    second = integrate.render_artifacts(store, config, home)
+    assert second["rendered"] == []                       # idempotent: nothing rewritten
+    assert integrate.artifact_problems(store, config, home) == []
+
+    manifest = json.loads((store / "rendered.json").read_text(encoding="utf-8"))
+    assert set(manifest["artifacts"]) == ARTIFACT_NAMES
+    for record in manifest["artifacts"].values():
+        assert record["asset_sha256"] == record["rendered_sha256"]
+
+    shim = (home / "scripts" / "skill-repo-maintain-monitor.sh").read_text(encoding="utf-8")
+    assert "skill-repo-maintain.py\" --pending" in shim
+    assert str(store) in shim and "{" not in shim        # placeholders resolved
+    prompt = json.loads((home / "cron" / "jobs.json").read_text(encoding="utf-8"))["jobs"][0]["prompt"]
+    assert str(store) in prompt and "{store}" not in prompt
+
+
+def test_artifact_drift_is_reported_and_render_clears_it(tmp_path: Path, monkeypatch) -> None:
+    home, store, assets, config = artifact_lab(tmp_path)
+    fake_cron_writer(monkeypatch, home)
+    integrate.render_artifacts(store, config, home)
+    assert integrate.artifact_problems(store, config, home) == []
+
+    asset = assets / "maintainer-cron-prompt.md.example"
+    asset.write_text(asset.read_text(encoding="utf-8") + "\nZusätzlicher Hinweis.\n", encoding="utf-8")
+    drift = integrate.artifact_problems(store, config, home)
+    assert any("maintainer-cron-prompt" in item and "asset changed" in item for item in drift)
+
+    integrate.render_artifacts(store, config, home)
+    assert integrate.artifact_problems(store, config, home) == []
+
+    shim = home / "scripts" / "skill-repo-sync-stage.sh"
+    shim.write_text(shim.read_text(encoding="utf-8") + "# tampered\n", encoding="utf-8")
+    tampered = integrate.artifact_problems(store, config, home)
+    assert any("stage-sweep-script" in item and "differs" in item for item in tampered)
+
+    integrate.render_artifacts(store, config, home)
+    assert integrate.artifact_problems(store, config, home) == []
+
+
+def test_render_artifacts_dry_run_writes_nothing(tmp_path: Path, monkeypatch) -> None:
+    home, store, assets, config = artifact_lab(tmp_path)
+    fake_cron_writer(monkeypatch, home)
+    before_jobs = (home / "cron" / "jobs.json").read_bytes()
+
+    result = integrate.render_artifacts(store, config, home, dry_run=True)
+
+    assert result["dry_run"] is True and set(result["rendered"]) == ARTIFACT_NAMES
+    assert (home / "cron" / "jobs.json").read_bytes() == before_jobs
+    assert not (store / "rendered.json").exists()
+    assert not (home / "scripts").exists()
