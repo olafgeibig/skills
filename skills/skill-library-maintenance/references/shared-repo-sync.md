@@ -925,7 +925,7 @@ exists.
 # outside runtime roots, the vault and the maintainer checkout, and BRIEF is the JSON below.
 export SOURCE_REPO=/path/to/maintainer-clone
 export REFACTOR_WORKTREE=/path/to/refactor-skill-sync
-export STORE=/path/to/skill-repo-sync-v3
+export STORE=/path/to/skill-repo-sync
 export SLUG=skill-sync
 
 git -C "$SOURCE_REPO" fetch origin
