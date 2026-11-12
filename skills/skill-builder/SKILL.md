@@ -58,7 +58,7 @@ Before writing:
 4. For an existing skill, load its current `SKILL.md` and every supporting file that will change.
 5. Decide whether the result targets portable Agent Skills, Hermes, Claude Code, or a documented combination.
 
-Do not infer ownership from a frontmatter category. Do not create an accidental or undeclared shadow of a canonical external skill. The narrow exception is an explicitly opened, temporary **working copy** of an owned skill: the complete package, same directory and name, recorded baseline, one owner, and closed by publication or abandonment before it leaves discovery (`skill-library-maintenance` → `references/skill-development-lifecycle.md`).
+Do not infer ownership from a frontmatter category. Do not create an accidental or undeclared shadow of a canonical external skill. The narrow exception is an explicitly opened, temporary **working copy** of an owned skill: the complete package, same directory and name, recorded baseline, one owner, and closed by publication or abandonment before it leaves discovery (`skill-library-maintenance/references/skill-development-lifecycle.md`).
 
 For an external target, verify three independent properties before writing: the directory exists, its Git root is the intended canonical repository, and the target profile actually discovers it. A familiar project shelf is not necessarily a repository or a configured skill source. Resolve conflicting paths from live configuration rather than copying a path from an older skill; use `references/hermes-skills.md` for the checks. If the destination remains a user decision, ask once with the verified alternatives and do not treat a timeout as approval.
 
