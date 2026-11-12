@@ -11,7 +11,9 @@ Hermes separates skill discovery from skill creation.
 - `skill_manage(action="create")` does not choose an external root from the skill's ownership or frontmatter category. It writes beneath one base directory: the profile-local skills directory by default, or the single configured `skills.create_dir`.
 - The `category` argument only adds a subdirectory below that one creation root. It does not select a repository.
 - A profile-local skill with the same name takes precedence over an external skill and can shadow it.
+- That precedence is legitimate in exactly one case: an explicitly opened **working copy** of an owned skill (`skill-library-maintenance` → `references/skill-development-lifecycle.md`). While it exists, the bare name resolves to the local copy, so `skill_manage(name=…)` edits the copy and **not** the released package — publication must address the canonical repository explicitly with filesystem tools.
 - Autonomous Curator review treats external-directory skills as read-only. A foreground, user-directed `skill_manage` operation may update them.
+- Curator lifecycle verbs split by target location: `curator lock` works and persists on an external root just as on a profile-local skill, while `curator adopt` and the maintenance lifecycle (stale/archive, consolidation, Curator snapshots) are profile-local only. Locks guard skill writes per profile; they do not pin a Git revision or stop filesystem-level changes.
 
 ## Consequence for multiple owned repositories
 
@@ -28,6 +30,7 @@ Do not temporarily switch the global `skills.create_dir` for individual writes i
 | Add a support file to an existing owned external skill | `skill_manage(action="write_file")` | Constrains the path and retains native hooks. |
 | Create a skill when `skills.create_dir` is its canonical root | `skill_manage(action="create")` | Native creation, validation, ledger, and cache handling. |
 | Create a skill for another canonical repository | Filesystem `write_file` in that repository | The target path is explicit; `skill_manage` has no per-call root selector. |
+| Publish a reviewed working copy into the canonical repository | Filesystem writes in that repository, then validate and commit explicit paths | The bare name resolves to the local copy; `skill_manage` would edit the copy, and a direct write has no ledger entry to roll back. |
 | Modify a third-party skill | Do not modify it | Route the learning according to governance. |
 
 ## Native `skill_manage` advantages

@@ -84,15 +84,22 @@ When the local skill happens to be the more detailed one, do not merge the two �
 
 ## Promotion
 
+**No automatic capture or promotion.** A released skill is locked, so ordinary use of it does not
+produce a new sidecar, and no background pass promotes an adaptation on its own. Promotion is a
+deliberate checkpoint, not a continuous process: a local delta stays local until the owning skill's
+development phase takes it up.
+
 Before promotion:
 
 1. Confirm that the rule is no longer profile-specific — and that it is not merely project-born: a method developed for one project stays in that project skill until a second, independent consumer appears.
 2. Remove names, local paths, dates, incidents, and environment-only assumptions.
 3. Search the target skill for the rule; a restatement of an existing rule is not a promotion.
-4. Propose the delta — target file, verbatim rule text, why it is generic, the dedupe search, and what gets retired — and wait for approval. See the review gate in `skill-governance`.
-5. Write, validate, and bump the canonical skill's version.
+4. Route the delta into the owning skill's development phase — the working copy described in
+   `skill-library-maintenance` → `references/skill-development-lifecycle.md` — and review it there as a
+   package. See the review gate in `skill-governance`.
+5. Write, validate, and bump the canonical skill's version at the reviewed publication checkpoint.
 6. Remove the duplicated rule from every affected adaptation after verification.
-7. A generic rule must not stay in the adaptation merely because that is where it was discovered. Promotion is part of writing the finding down, not a later cleanup.
+7. A generic rule must not stay in the adaptation merely because that is where it was discovered.
 
 ## Verification
 
@@ -105,5 +112,6 @@ Before promotion:
 - `metadata.hermes.category` is `adaptations`.
 - The source skill appears in `related_skills`.
 - The body contains only local deltas.
-- No same-name shadow exists in another skill root.
+- No same-name shadow exists in another skill root — the one exception is an explicitly opened
+  development working copy of the owning skill, which declares its baseline and ends with publication.
 - No dated batch or diary file was created here, and any promoted rule was removed from this adaptation after the canonical write.
