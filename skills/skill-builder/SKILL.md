@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.7.3"
+  version: "0.9.0"
   author: Olaf Geibig
   hermes:
     category: personal
@@ -58,7 +58,7 @@ Before writing:
 4. For an existing skill, load its current `SKILL.md` and every supporting file that will change.
 5. Decide whether the result targets portable Agent Skills, Hermes, Claude Code, or a documented combination.
 
-Do not infer ownership from a frontmatter category. Do not create a profile-local shadow of a canonical external skill.
+Do not infer ownership from a frontmatter category. Do not create an accidental or undeclared shadow of a canonical external skill. The narrow exception is an explicitly opened, temporary **working copy** of an owned skill: the complete package, same directory and name, recorded baseline, one owner, and closed by publication or abandonment before it leaves discovery (`skill-library-maintenance` → `references/skill-development-lifecycle.md`).
 
 For an external target, verify three independent properties before writing: the directory exists, its Git root is the intended canonical repository, and the target profile actually discovers it. A familiar project shelf is not necessarily a repository or a configured skill source. Resolve conflicting paths from live configuration rather than copying a path from an older skill; use `references/hermes-skills.md` for the checks. If the destination remains a user decision, ask once with the verified alternatives and do not treat a timeout as approval.
 
@@ -72,7 +72,7 @@ Write down:
 - required tools or environment constraints;
 - the concrete verification that proves the workflow works.
 
-Before writing, run the routing gate in `skill-governance`: search for an overlapping skill and pick one of the three declared forms — a delta in the owning skill, `<source>-adaptation`, or a skill that declares `metadata.scope: standalone`. An undeclared profile-local skill that overlaps an existing one is an unnamed adaptation.
+Before writing, run the routing gate in `skill-governance`: search for an overlapping skill and pick one of the declared forms — a delta in the owning skill, `<source>-adaptation`, a skill that declares `metadata.scope: standalone`, or, when the target is an existing owned skill, an explicitly opened working copy of it. An undeclared profile-local skill that overlaps an existing one is an unnamed adaptation.
 
 Keep project facts in project content, not reusable skills.
 
@@ -161,7 +161,9 @@ For existing skills:
 4. Remove contradictory legacy guidance.
 5. Bump the skill version according to `skill-governance` and the repository convention.
 
-When saving changes across several skills, stage each skill's complete package explicitly and make one commit per skill when requested; keep its version bump and supporting-file changes together. If another installation has unpublished work on the shared main branch, preserve the local work on a feature branch before committing rather than rebasing or resetting main. Treat commit, push, and PR creation as separate authorization scopes: confirmation of a remote URL is not permission to publish.
+**A released skill is not edited in place.** Its change happens in a complete profile-local working copy: a filesystem copy of the whole package (references, scripts, templates, assets), same directory and frontmatter name. `skill_manage(action="create")` is not the copy operation — it refuses a name that already resolves externally — and copying only `SKILL.md` breaks every support link. Verify the resolved source before the first edit; a version bump is not proof of what loads.
+
+When saving changes across several skills, stage each skill's complete package explicitly and make one commit per skill when requested; keep its version bump and supporting-file changes together. When the user has explicitly chosen to work directly on the local `main`, do not force a feature branch: preserve unrelated dirty work byte-for-byte, stage explicit paths, and report the local commits as unpublished. Where a branch is the chosen isolation — another installation has unpublished work on the shared main — preserve that work rather than rebasing or resetting main. Treat commit, push, and PR creation as separate authorization scopes: confirmation of a remote URL is not permission to publish.
 
 See `references/editing-skills-guide.md` for the multi-installation handoff sequence.
 
@@ -177,14 +179,14 @@ Adjust the path for other repository layouts.
 
 Then verify the target client:
 
-- Hermes: load with `skill_view`, confirm `_source_path`, linked files, metadata, and readiness.
+- Hermes: load with `skill_view`, confirm `_source_path` for the **phase** — the working copy while it is active, the canonical package after close — plus linked files, metadata, and readiness.
 - Other clients: use their current discovery or validation mechanism.
 
 Also verify:
 
 - the directory name equals `name`;
 - every referenced file exists;
-- no duplicate skill shadows the canonical package;
+- no unintended duplicate shadows the canonical package (an explicitly opened working copy is the intended exception);
 - scripts execute successfully when present;
 - changed examples and commands were exercised;
 - repository status contains only intended changes.
@@ -227,7 +229,7 @@ Before finishing:
 - Client extensions are explicitly labeled.
 - Any new profile-local skill declares `metadata.scope: standalone` or `metadata.adapted_from`; no unnamed adaptation was created.
 - No staging, batch, or diary file was created, and any added rule was first searched against its target.
-- Substantive changes to a canonical repository skill were proposed as a delta and approved before the write.
+- Substantive changes to a canonical repository skill went through its development phase and were approved as a reviewed package before publication.
 - The entire changed package is internally consistent.
 - `skills-ref` validation passes.
 - Client loading and source resolution pass.

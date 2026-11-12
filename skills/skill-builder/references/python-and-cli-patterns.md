@@ -62,6 +62,8 @@ result = run(
 print(result.stdout)
 ```
 
+Spawned interpreters write their own `__pycache__` even when the parent set `sys.dont_write_bytecode` — in a test that copies and byte-compares a package tree, run with `PYTHONDONTWRITEBYTECODE=1` or exclude bytecode from the comparison, or the snapshot records files the code under test never wrote.
+
 ## Dependency discipline
 
 - Use the standard library when sufficient.

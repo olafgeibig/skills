@@ -81,7 +81,7 @@ For the full ownership and routing rules, load `skill-governance`.
 
 - Use `skill_manage` for an existing owned skill resolved from the profile or an external directory.
 - For `skill_manage(action='patch')`, name the pair `old_string`/`new_string` and send no other fields on that op: the matcher reads those names, and an op carrying `content` or `old_text` is refused as a missing `old_string` however exact the snippet is.
-- Do not use `skill_manage(create)` unless its configured creation root is the intended canonical repository.
+- Do not use `skill_manage(create)` unless its configured creation root is the intended canonical repository. It is also never the way to start a working copy of an existing skill: it refuses a name that already resolves externally — copy the complete package with filesystem tools instead.
 - When several external repositories exist and `skills.create_dir` cannot select among them, create the new package directly in the chosen canonical repository.
 - Never edit a third-party skill directly.
 
@@ -93,10 +93,10 @@ After portable validation:
 
 1. Load the skill with `skill_view`.
 2. Confirm `description`, `metadata`, tags, and related skills.
-3. Confirm `_source_path` points to the canonical repository.
+3. Confirm `_source_path` points to the expected source for the phase — the working copy while it is open, the canonical repository after close.
 4. Confirm linked files appear and load successfully.
 5. Check required commands, variables, and readiness.
-6. Search configured roots for duplicate skill names.
+6. Search configured roots for duplicate skill names, and treat a declared working copy of an owned skill as the expected exception rather than a defect.
 
 A Hermes advisory linter may prefer Hermes-native top-level metadata even when the portable `skills-ref` validator accepts `metadata.version` and `metadata.author`. Treat that as a convention difference, not evidence that the portable fields are invalid.
 
