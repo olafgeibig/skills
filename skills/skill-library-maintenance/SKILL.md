@@ -3,7 +3,7 @@ name: skill-library-maintenance
 description: "Use when auditing, developing or publishing skills."
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -209,6 +209,8 @@ The background review (`auxiliary.background_review`, on by default) runs after 
 
 - Inspect uncommitted changes before writing.
 - Do not stage unrelated files.
+- `git commit -- <path>` commits the **working-tree** content of every path under that pathspec, not only what the index holds: an unrelated edit under the same directory rides along. Once the index contains exactly the intended files, commit without a pathspec.
+- Verify the boundary afterwards with `git show --name-only <sha>` rather than trusting the staging step — the staging step is what can be wrong.
 - Use `git mv` only for tracked paths.
 - Keep destructive cleanup separate from read-only validation.
 - Do not drop stashes or backups without explicit consent.
