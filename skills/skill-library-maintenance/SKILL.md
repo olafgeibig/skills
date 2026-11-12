@@ -1,9 +1,9 @@
 ---
 name: skill-library-maintenance
-description: "Use when auditing, dissolving or syncing a skill library."
+description: "Use when auditing, developing or publishing skills."
 license: MIT
 metadata:
-  version: "0.23.0"
+  version: "1.0.0"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -112,7 +112,7 @@ Answer questions about a skill's history with evidence from runtime telemetry an
 
 - A Git-backed owned repository is the source of truth for its skills.
 - Profile-local or external discovery paths do not change ownership.
-- A profile-local same-name skill can shadow an external canonical skill.
+- A profile-local same-name skill shadows an external canonical skill. That is allowed only as the explicitly opened, temporary working copy described in `references/skill-development-lifecycle.md` — never as an accidental second copy.
 - Never edit a third-party checkout directly.
 - Do not call a profile-local skill committed merely because it exists on disk.
 
@@ -122,7 +122,7 @@ Answer questions about a skill's history with evidence from runtime telemetry an
 2. At that root, run `git status --short --branch` and `git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}'`. Fetch the upstream remote before comparing; if fetching fails, label the tracking ref as cached rather than claiming current remote state.
 3. Run `git rev-list --left-right --count HEAD...@{upstream}` and `git log --oneline '@{upstream}..HEAD'`. The first count is local-only commits, the second remote-only commits; inspect the commits before attributing them to particular skills.
 4. Report working-tree cleanliness, local commits, and integration separately. A clean tree does not mean pushed; local-only commits do not prove their content is absent remotely, since another branch may have merged or cherry-picked it.
-5. If both counts are nonzero, report divergence and the need for integration. A status question authorizes inspection, not a merge, rebase, commit, or push; use `references/shared-repo-sync.md` only after integration is authorized.
+5. If both counts are nonzero, report divergence and the need for integration. A status question authorizes inspection, not a merge, rebase, commit, or push; integration is a deliberate, user-authorized operation, never a follow-up to a question.
 
 When migrating a skill:
 
@@ -134,19 +134,24 @@ When migrating a skill:
 6. Load the skill and confirm `_source_path` resolves to the destination.
 7. Search all configured roots for remaining duplicates.
 
-## Reviewing Repository Sync Automation
+## Shared Repository Operations
 
-Before installing or enabling skill-repository sync automation:
+A skill repository that more than one profile, machine or program touches needs the same discipline
+whether the operation is a publication, a dissolve or a manual fix:
 
-1. Inspect the active checkout and fetched remote separately; fetching does not update the runtime-loaded skill. Preserve dirty work before integrating upstream changes.
-2. Test the maintainer in disposable repositories with an isolated `HERMES_HOME`; syntax checks alone do not establish safe Git or cursor behavior. Audit what the existing tests assert as required behavior before trusting a green run — a suite can encode unsafe policy as the tested contract.
-3. Require dry-run to leave cursors, configuration, index, commits, and remotes unchanged. Retain blocked or failed ledger entries for retry rather than acknowledging them as integrated.
-4. Check file-level staging against mixed manual and automated edits; ledger membership identifies a path, not ownership of every change inside it.
-5. Verify branch and upstream guards in code, and approve only the exact hook commands needed; documentation does not enforce a branch policy, and global hook auto-accept widens consent beyond the installer. Distinguish configured hooks from approved and healthy hooks: installer success alone does not establish activation.
-6. Verify failures remain observable in unattended execution; do not treat a zero exit code or quiet hook as evidence of a successful pull or integration.
-7. Falsify the single-writer assumption before trusting any hash-chain gate: other writers (audits, manual fixes, merges) make it hold forever — `references/shared-repo-sync.md` → *Diagnosing a stuck sync*.
+- Establish the boundary first: working tree, index, remotes, tracking branch — and identify the
+  other writers (scheduled jobs, the background review, other profiles, manual fixes) before editing
+  shared files.
+- Stage explicit paths. Never `git add .`/`-A` across a shared tree.
+- Probe Git and lifecycle claims in a disposable repository with its own `HERMES_HOME` and a local
+  bare remote. `references/repository-sync-safety.md` has the recipe and the rules for what a green
+  result does and does not prove.
+- Report syntax validation, isolated tests, integration into the checkout and activation in the
+  profile separately. None substitutes for another.
 
-Use `references/repository-sync-safety.md` for the isolation recipe and behavioral acceptance matrix. Record findings against the inspected revision; do not turn a defect in one script version into a permanent claim about the capability.
+There is no unattended integration process in this library. A standing contributor/maintainer
+pipeline that moves unreviewed work into `main` on its own schedule is not part of this workflow:
+skill changes go through the lifecycle in `references/skill-development-lifecycle.md`.
 
 ## Archived Skills
 
@@ -159,63 +164,33 @@ Use `references/repository-sync-safety.md` for the isolation recipe and behavior
 - A record that still reads `state: active` while the directory lives only under `.archive/` is cosmetic: report rows are guarded on a locally resolvable directory, so such a record never re-enters the state machine.
 - Prefer `restore` over re-creation — the archive copy is the complete artifact, a new skill is a thinner duplicate with a new provenance.
 
-## Shared Repositories: Publishing and Sync
+## Developing and Publishing an Owned Skill
 
-A skill repository mounted on more than one installation needs a sync design, or review writes sit
-uncommitted until they collide with the other machines. The design shipped in
-`scripts/skill-repo-sync.py` is **Stage & Integrate**: no machine session writes `main`; each
-installation stages its work onto a transport branch `machine/<hostname>`, and one monitor-gated
-maintainer consumes the transport branches one per pass, landing one `main` commit per
-consumed branch.
+Released owned skills are locked. A change is developed deliberately in one profile, reviewed, and
+published on authorization — not accumulated as an unreviewed sidecar, and not integrated by a
+standing pipeline.
 
-- The background review can write into shared repos too. Correlate unexpected changes with
-  paths, timestamps, and mutation details in `<HERMES_HOME>/skills/.curator_ledger.jsonl`;
-  neither the changed skill's name nor `actor: curator` alone establishes review provenance.
-- Staging (`--stage`) bundles the pending ledger paths **and** the dirty worktree into one commit
-  on `machine/<hostname>`; ledger entry IDs ride in the commit trailers. The ledger
-  holds hashes, not intermediate file contents, so per-run commits cannot be reconstructed — the
-  sweep commits the current content per path, once. Push-gate: the staging sweep bundles locally;
-  the pre-integration run owns the push — what lands on a transport branch is always
-  pre-integrated.
-- `main` has exactly one writer: the monitor-gated maintainer (a scheduled agent run, model-pinned).
-  It processes one candidate per pass through `--pending` → `--capture-source` → `--prepare` →
-  review → `--record-review` → `--render-report`/plain-directory write/`--verify-report` → `--integrate`
-  → `--render-result`/write/`--verify-result`; an uncertain push is resolved by `--reconcile`,
-  never by a second merge. The candidate worktree is the complete native merge index, so clean
-  additions, deletions and empty files are reviewed with the conflicts, not left as an untouched
-  auto-merged remainder. The maintainer wakes on the monitor gate — pending branches only, no
-  idle LLM runs.
-- Review context is bounded: the prepared manifest (`input_paths`, `conflict_paths`), complete
-  changed hunks including deletions, and one focused `read_file` window per file. A normal
-  candidate targets at most 35 assistant turns; that is not a token cap. Usage counters are
-  reported as `measured`, `estimated` or `unavailable` — never invented — and an incomplete review
-  is recorded as such instead of integrating truncated work (`references/shared-repo-sync.md` →
-  *Maintainer run book*).
-- A daily pre-integration run per installation cleans that installation's own pending additions
-  *before* integration: instance-shaped lessons leave the canonical edit and land in the
-  *writing* profile's adaptation (profile-scoped — `skill-governance`), generic content stays for
-  the maintainer (`references/shared-repo-sync.md` → *Instance pre-integration*).
-- A transport branch is a landing strip, not a feature branch: consumption is an ancestry fact
-  (`T` ancestor of `main`) recorded by the integration merge. The transport tip is never reset,
-  rebased or force-pushed, and never merged back into `main` by hand.
-- A new install requires the explicit `--bootstrap-current-ledger` choice, which skips historical
-  entries; global `hooks_auto_accept` is not changed.
-- Long sessions: the skill *index* is a start-of-session snapshot (prompt-cache invariant); skill
-  *bodies* load from disk, so `/skill-name` always yields current content. Never pull mid-session to
-  "fix" an index.
-- Fresh install or version update of the sync on this installation: `references/install-and-update.md` (*Installation* / *Update* sections)
-- Instructing an agent on another installation to install or upgrade: tell it to follow `references/install-and-update.md` (it renders nothing — the values come from its own identity)
-  (Maintainer/Contributor component tables, template rendering, `hermes cron create` wiring,
-  verification checklist, update policy).
-- The cron prompts, the staging and monitor shims and the SOUL identity block ship as templates in `assets/`
-  (`stage-sweep-script.sh.example`, `maintain-monitor-script.sh.example`,
-  `maintainer-cron-prompt.md.example`, `pre-integration-cron-prompt.md.example`,
-  `skill-review-cron-prompt.md.example`, `soul-instance-block.md.example`): `{var}` placeholders,
-  rendered at install time; the rendered prompt is the job payload, the template stays the source.
-- Mechanics, install, cron wiring, the maintainer run book (v3), the report/feedback and periodic
-  whole-skill review procedures, the cross-machine deployment audit, manual fallback and failure
-  diagnosis:
-  `references/shared-repo-sync.md`.
+The model in one line: **develop locally → use and refine → review → publish → consume a stable
+version.**
+
+- The canonical repository stays the source of truth and keeps serving every profile through
+  `skills.external_dirs`. Profiles do not each receive a permanent copy of the whole library.
+- Only the skill currently being developed is copied — as a **complete package**, with the same
+  directory and skill name — into the developing profile's local skills directory. Profile-local
+  resolution shadows that skill's external counterpart only; every other released skill keeps
+  loading from the checkout and keeps receiving updates.
+- That working copy is temporary, and it is neither an adaptation nor a second canonical source: it
+  has an owner, a recorded canonical baseline and an explicit end. After verified publication, or a
+  deliberate abandonment, it leaves active discovery and the profile resolves the released package
+  again.
+- Learning during the phase sharpens the method. It does not append a chronological ledger of
+  pitfalls, and it does not open an adaptation channel.
+- Publication is an explicitly authorized operation: the reviewed bytes, explicit Git paths,
+  validation, a local commit, then a separately authorized push with a read-back. Locks are real
+  guards — a chat authorization does not bypass a content lock.
+
+Opening the phase, the order of operations, the lock/Git interaction, the review questions, the
+close-out procedure and the stable update path: `references/skill-development-lifecycle.md`.
 
 ## Background Review During Library Work
 
@@ -224,12 +199,11 @@ The background review (`auxiliary.background_review`, on by default) runs after 
 - **Before a larger pass — refactoring or splitting a skill, dissolving an adaptation into its canonical owner — disable it and tell the user:** `hermes config set auxiliary.background_review.enabled false`. Say why, so the missing review updates later are not a surprise.
 - **After verifying and committing, turn it back on:** `hermes config set auxiliary.background_review.enabled true`. Leaving it off silently stops the review-driven updates the library otherwise receives.
 - Small, single-file edits do not need the toggle; re-read the file immediately before patching instead.
-- Before a review write into a shared-repository skill, apply `skill-governance`'s adaptation
-  routing at write time: instance-shaped lessons go to the profile's adaptation or the project files. The staging
-  pre-integration scan flags what slipped through, and the maintainer's review pass drops leftovers
-  defensively.
+- Before a review write into a shared-repository skill, apply `skill-governance`'s scope rules at
+  write time: instance-shaped lessons go to the profile's adaptation or the project files, generic
+  ones to the canonical package.
 - If a pass ran with the review on, check `<HERMES_HOME>/skills/.curator_ledger.jsonl` for `actor: curator` entries whose `evidence.session_id` matches the session before treating a change as your own.
-- A missed toggle is diagnosable afterwards: background-pass writes arrive as `actor: curator` ledger entries and ride into the next staging commit — grep the ledger for the session id and review what landed. A hash chain broken by a commit outside the ledger surfaces as provenance evidence in the next candidate review (`validate_review`), not as a blocked transport (`references/shared-repo-sync.md` → *Diagnosing a stuck sync*).
+- A missed toggle is diagnosable afterwards: background-pass writes arrive as `actor: curator` ledger entries. Grep the ledger for the session id and review what landed before committing shared files.
 
 ## Protect Existing Work
 

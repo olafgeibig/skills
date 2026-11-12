@@ -1,10 +1,13 @@
-# Repository Sync Safety Review
+# Shared Repository Safety
 
-Use when reviewing or enabling automation that pulls, commits, or integrates skill repositories.
+Rules for operating on a skill repository that another profile, another machine or another program
+also touches. Applies to any deliberate operation that moves content between working tree, index,
+commit and remote — not only to skill publication.
 
-## 1. Establish the integration boundary
+This is not a sync design. There is no unattended integration process in this library; every write
+here is authorized and reviewed per `skill-development-lifecycle.md`.
 
-Inspect the intended repository with:
+## Establish the boundary before writing
 
 ```bash
 git status --short --branch
@@ -14,55 +17,74 @@ git remote -v
 git branch -vv
 ```
 
-Fetch only the intended remote, then compare the current checkout with its intended integration branch. Read the fetched script and the runtime-loaded skill separately: a fetched revision is not an installed revision. Preserve dirty work before merging or switching branches; do not reset or stash it implicitly.
+Fetch only the intended remote, then compare the checkout with its intended integration branch. A
+fetched revision is not an installed revision — read the runtime-loaded copy separately. Preserve
+dirty work before merging or switching branches; never reset, rebase or stash it implicitly.
 
-Inspect the installer as well as the engine. Identify state files, ledger cursor initialization, hook commands, consent changes, scheduler entries, branch selection, upstream selection, and credential use before executing either component.
+Identify the other writers before editing shared files: scheduled jobs, the background review, other
+profiles and manual fixes. Correlate an unexpected change with paths, timestamps and mutation
+details in `<HERMES_HOME>/skills/.curator_ledger.jsonl` before attributing it — neither the changed
+skill's name nor `actor: curator` alone establishes provenance.
 
-## 2. Build an isolated behavioral probe
+## Commit discipline
 
-1. Create a temporary directory under the session scratch root with `tempfile.TemporaryDirectory(dir=...)`.
-2. Inside it, create a disposable Git repository, a separate Hermes home, and a local bare remote if integration needs testing. Set Git identity repository-locally.
-3. Commit a minimal skill fixture, modify a tracked skill file, and seed the isolated ledger and sync configuration using the inspected implementation's schema. Never guess that schema or use the live profile's state.
-4. Run the engine with `subprocess.run`, passing an explicit environment containing the isolated `HERMES_HOME`. Capture stdout, stderr, and return code.
-5. Compare state-file bytes, ledger cursor, `git status --porcelain`, `git diff --cached`, HEAD, and bare-remote refs before and after. An exit code alone cannot demonstrate non-mutation.
-6. Keep all pushes inside the disposable local remote. Do not run the installer against a live profile merely to discover its side effects.
+- Stage explicit paths. `git add .` and `-A` are how unrelated work gets swept into an authorized
+  commit.
+- A clean tree does not mean pushed, and a local commit does not prove its content is absent
+  remotely — another branch may have merged or cherry-picked it. Report working tree, local
+  commits, and integration separately.
+- Quote commit messages so the shell cannot rewrite them: backticked identifiers inside double
+  quotes are command substitution and vanish. Use single quotes or a heredoc when the message names
+  code.
+- Name the remote in scripted pushes. `git push <sha>:<ref>` parses the sha as an scp-style host and
+  dies on DNS resolution; write `git push origin <sha>:<ref>`.
+- Use `git mv` only for tracked paths. Keep destructive cleanup separate from read-only validation.
+  Do not drop stashes or backups without explicit consent.
 
-A minimal probe needs only one committed file, one appended change, one ledger entry naming that file, and an initial cursor. Run dry-run and compare the cursor, then run `--stage` to prove the sweep bundles the change into one transport-branch commit and advances the cursor.
+## Isolated probes
 
-## 3. Behavioral acceptance matrix
+Any claim that a Git or lifecycle operation behaves safely needs a probe, not a reading.
 
-| Case | Required result |
-|---|---|
-| Dry-run with pending work | Reports intended actions without changing cursor, config, index, HEAD, fetch state, or remote refs. |
-| Missing sync state | Installer refuses unless the operator explicitly chooses `--bootstrap-current-ledger`; that baseline skips all historical entries. |
-| Ledgered file change | `--stage` commits the path's current content with the ledger entry IDs in the commit trailers; the hash chain stays verifiable provenance evidence, never a hold on transport. |
-| Multiple pending runs touch one file | The sweep commits the path's current content once — no per-run reconstruction (the ledger has no intermediate snapshots) and no hold on other paths. |
-| Manual and ledgered edits share a file | Both ride along in the staging commit; attribution names the path and the ledger ids, not each change inside it. |
-| Review gate finding (instance pointer, dangling reference, duplicate rule) | The review records the finding with its path and reason, and `--record-review`/`--verify-report` keep it blocked from `main`; nothing reaches integration unreviewed. |
-| Unexpected branch | `--stage` and `--sync-from-main` refuse every `main` checkout, clean or dirty (exit 12, branch policy); a transport branch runs only as `machine/<hostname>`. |
-| Cursor behind the ledger | The next sweep advances it over the entries it bundles — a stale cursor self-heals instead of replaying old content. |
-| Staging commit made, push fails | The commit is preserved and the retry pushes it without creating a duplicate. |
-| Transport branch consumed upstream | `--sync-from-main` fast-forwards the local branch only when `HEAD` is an ancestor of `origin/main` (integrated main is newer); divergent or dirty work is preserved for a deliberate merge. It never resets or discards worktree content. |
-| Maintainer finds overlapping edits in two transport branches | Resolves to one home per rule and a SemVer increment beyond both; never `-X ours`/`-X theirs`, never a force-push of `main`. A resolution it cannot make stops the run before any `main` commit. |
-| No prior sync cursor exists | Historical path membership never authorizes today's dirty content; bootstrap is an explicit skip-history choice. |
-| Contributor lock held during refresh | Refuse with exit 12 and the lock path before fetching or changing HEAD, index, worktree or state; after owner release, retry can fast-forward. |
-| Engine/core upgrade replacement fails | Stage both new files first, snapshot all old targets, and fault-inject the second replacement; old engine/core bytes and modes must be restored and runnable. Fresh installs must leave neither target behind. |
-| Installed engine/core versions differ | Every operational mode, including a no-op and `--selfcheck`, refuses with exit 12 and a mixed-installation diagnostic; installer `--version` remains read-only. |
+1. Create a temporary directory under the session scratch root with
+   `tempfile.TemporaryDirectory(dir=...)`.
+2. Inside it, create a disposable Git repository, a separate Hermes home, and a local bare remote.
+   Set the Git identity repository-locally.
+3. Seed a minimal fixture — one committed skill, one appended change. Never use the live profile's
+   state, and never guess a state schema.
+4. Run the operation with `subprocess.run` and an explicit environment containing the isolated
+   `HERMES_HOME`. Capture stdout, stderr and the return code.
+5. Compare state files, `git status --porcelain`, `git diff --cached`, `HEAD` and the bare-remote
+   refs **before and after**. An exit code alone cannot demonstrate non-mutation.
+6. Keep every push inside the disposable local remote.
 
-Repeat a blocked case after correcting the fixture to verify actual retry, not just preservation of an integer cursor. For push failure, assert that the retry creates no duplicate commit and the remote reaches the staged local HEAD; for consumption, assert the transport tip is unchanged and the merge-only ancestry check marks it consumed. A review gate must be closable: after a finding is repaired, rerunning the gate must go green. A scan that reads incoming-branch diffs instead of the final worktree stays red forever — separate pre-merge warnings from a post-merge validation of the final artifact.
+## What a green result does and does not prove
 
-Preserve successful disposable-repository probes as bundled regression tests rather than leaving them as scratch commands; retry and cursor defects require a repeatable sequence of runs. Run `python3 -m pytest skills/skill-library-maintenance/tests -q` from the repository root after the final engine or installer edit. Treat the passing suite as behavioral evidence only; run the package validator and library audit separately before declaring the skill change complete.
+- A dry run that changes nothing is the baseline; a successful run is not.
+- A green suite proves its own contract, not the intended one. Read what the tests assert as
+  *required behavior* before trusting them — a suite can encode unsafe policy (automatic stale-lock
+  deletion, blanket hook clearing, silent bootstrap, reset heuristics that discard unpushed work) as
+  correct. When a fix changes that policy, rewrite the affected assertions explicitly with a
+  rationale; deleting or weakening them to keep the suite green leaves the old policy as the tested
+  contract.
+- Prove the worktree, not the scratch: an apply step that writes per-file scratch artifacts can
+  silently omit clean files, deletions or empty files and still exit 0. After every apply step
+  assert `git status --porcelain`, the exact contents of every manifest path, and the remote refs
+  against the expected result. Distinguish a deleted blob from an intentionally empty file by asking
+  Git (`git cat-file -e <rev>:<path>`), never by scratch-file size.
+- A zero exit code, a quiet hook or a present script is not evidence of activation. Read the
+  effective configuration back.
 
-A green suite proves its own contract, not the intended one: read what the existing tests assert as *required behavior* before trusting them. A suite can encode unsafe policy — automatic stale-lock deletion, blanket hook clearing, silent cursor bootstrap, reset heuristics that discard unpushed work — as correct behavior. When a fix changes that policy, rewrite the affected assertions explicitly with a rationale comment; deleting or weakening them to keep the suite green leaves the old policy as the tested contract.
+## Consent and unattended operation
 
-Prove the worktree, not the scratch: an apply step that writes per-file scratch artifacts can silently omit clean files, deletions, or empty files and still exit 0. After every apply step assert `git status --porcelain`, the exact contents of every manifest path, and the remote refs against the expected result. Distinguish a deleted blob from an intentionally empty file by asking Git (`git cat-file -e <rev>:<path>`), never by scratch-file size.
+Inspect the exact hook delta. Prefer consent for individual `(event, command)` pairs over enabling
+global `hooks_auto_accept`; a global opt-in also approves unrelated hooks. Verify the active Hermes
+consent format against current documentation before changing an allowlist.
 
-## 4. Consent and unattended operation
+Do not treat lock state, adoption, pinning and write approval as one permission — they are four.
 
-Inspect the exact hook configuration delta. Prefer consent for individual `(event, command)` pairs over enabling global `hooks_auto_accept`; a global opt-in also approves unrelated hooks. Verify the active Hermes consent format against current documentation before changing an allowlist.
+## Report precisely
 
-Check the installed scheduler and hooks independently. Script presence does not prove either is enabled. After authorized installation, read back the exact configuration, registration, and state targets before claiming deployment success.
-
-## 5. Report precisely
-
-Separate syntax validation, isolated behavioral tests, integration into the checkout, and activation in the profile. State which revision was inspected, which assertions were exercised, and which remain untested. Record durable acceptance rules here, not machine-specific backlog counts or transient defects in a particular release.
+Separate syntax validation, isolated behavioral tests, integration into the checkout, and activation
+in the profile. State which revision was inspected, which assertions were exercised, and which
+remain untested. Record durable acceptance rules here, not machine-specific backlog counts or
+transient defects in a particular release.

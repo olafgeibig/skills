@@ -10,6 +10,14 @@ Two failures this reports:
        skill_view(name) -> "Ambiguous skill name '...': 2 skills match across your
                            local skills dir and external_dirs. Refusing to guess"
 
+   One exception is classified separately instead of as a collision: exactly one
+   local hit plus exactly one external hit of the same name is the temporary
+   working copy from `references/skill-development-lifecycle.md`. Runtime resolves
+   the local package, so this is reported under LOCAL OVERRIDES with both paths,
+   exits 0, and still requires that the development session was actually opened.
+   Two local copies, two external copies, or an ambiguous pair on either side stay
+   collisions — this audit is not a replacement for the loader.
+
 2. **Undeclared local skill** — a skill that does not say what it is: neither
    `metadata.adapted_from` (a delta for a named source skill) nor
    `metadata.scope: standalone`. An undeclared skill that overlaps an external
@@ -34,8 +42,9 @@ Usage:
     python3 audit-skill-declarations.py --all --json
     python3 audit-skill-declarations.py --root ~/some/skills:label
 
-Exit codes: 0 clean, 1 collision, 1 with --strict when an agent-created skill is
-undeclared and overlaps an external skill, 2 no roots.
+Exit codes: 0 clean (overrides alone are not a failure), 1 collision, 1 with
+--strict when an agent-created skill is undeclared and overlaps an external skill,
+2 no roots.
 """
 
 from __future__ import annotations
@@ -300,7 +309,21 @@ def status_of(entry: dict) -> str:
 
 def build_report(index, threshold: float, managed: set[str], created_by: dict,
                  include_managed: bool) -> dict:
-    collisions = {name: hits for name, hits in index.items() if len(hits) > 1}
+    # One local hit plus one external hit of the same name is runtime *precedence*: the
+    # explicitly opened development working copy wins over the released package. That is
+    # not a loader ambiguity and must not be reported as one. Everything else stays a
+    # collision: two local copies, two external copies, or a pair ambiguous on either side.
+    collisions: dict[str, list[dict]] = {}
+    overrides: dict[str, dict] = {}
+    for name, hits in index.items():
+        if len(hits) < 2:
+            continue
+        local_side = [hit for hit in hits if hit["root"] == "local"]
+        external_side = [hit for hit in hits if hit["root"] != "local"]
+        if len(local_side) == 1 and len(external_side) == 1:
+            overrides[name] = {"active": local_side[0], "shadowed": [external_side[0]]}
+        else:
+            collisions[name] = hits
     local_hits = [
         entry for hits in index.values() for entry in hits if entry["root"] == "local"
     ]
@@ -331,10 +354,14 @@ def build_report(index, threshold: float, managed: set[str], created_by: dict,
                 )
         candidates.sort(key=lambda item: -item["score"])
 
+        override = overrides.get(entry["name"])
         record = {
             "name": entry["name"],
             "dir": entry["dir"],
-            "status": status_of(entry),
+            # A working copy is not an undeclared skill; it is the active side of a
+            # recorded override. Never manufacture a declaration to silence the audit.
+            "status": "override" if override and override["active"]["dir"] == entry["dir"]
+            else status_of(entry),
             "adapted_from": entry["adapted_from"],
             "scope": entry["scope"],
             "related_skills": entry["related_skills"],
@@ -348,6 +375,7 @@ def build_report(index, threshold: float, managed: set[str], created_by: dict,
 
     return {
         "collisions": collisions,
+        "overrides": overrides,
         "agent_created": agent,
         "unattributed": unattributed,
         "skipped_managed": skipped_managed,
@@ -384,6 +412,20 @@ def print_report(report: dict, roots, missing) -> None:
             print(f"   {entry['root']:18} {entry['dir']}{link}")
 
     agent = report["agent_created"]
+    overrides = report["overrides"]
+    print(f"\nLOCAL OVERRIDES: {len(overrides)}")
+    for name, pair in sorted(overrides.items()):
+        print(f"\n[{name}]  local package wins at runtime")
+        print(f"   active   {pair['active']['dir']}")
+        for entry in pair["shadowed"]:
+            print(f"   shadowed {entry['dir']}")
+    if overrides:
+        print(
+            "\nRuntime precedence is not proof of an authorized development session."
+            "\nAn override is legitimate only as an explicitly opened working copy"
+            "\n(see references/skill-development-lifecycle.md); otherwise it is an"
+            "\naccidental shadow and the content belongs in the owning skill."
+        )
     agent_gaps = [r for r in agent if r["status"] == "UNDECLARED"]
     agent_risky = [r for r in agent_gaps if r["candidates"]]
     print(
