@@ -95,7 +95,7 @@ Before promotion:
 2. Remove names, local paths, dates, incidents, and environment-only assumptions.
 3. Search the target skill for the rule; a restatement of an existing rule is not a promotion.
 4. Route the delta into the owning skill's development phase — the working copy described in
-   `skill-library-maintenance` → `references/skill-development-lifecycle.md` — and review it there as a
+   `skill-library-maintenance/references/skill-development-lifecycle.md` and review it there as a
    package. See the review gate in `skill-governance`.
 5. Write, validate, and bump the canonical skill's version at the reviewed publication checkpoint.
 6. Remove the duplicated rule from every affected adaptation after verification.

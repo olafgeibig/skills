@@ -67,7 +67,7 @@ and it does not stop the user from deliberately updating the checkout.
   the skill, the whole package is copied (not just `SKILL.md`), and the phase records its canonical
   baseline, its target and its one development owner. It ends with a verified publication or an
   explicit abandonment. Procedure: `skill-library-maintenance` →
-  `references/skill-development-lifecycle.md`.
+  `skill-library-maintenance/references/skill-development-lifecycle.md`.
 - **A same-name local package is allowed only as that working copy.** It is temporary — not an
   adaptation, not a second canonical source, and never an accidental shadow. Directory and
   frontmatter name stay unchanged, and it leaves active discovery after publication is verified.
