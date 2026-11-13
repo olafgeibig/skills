@@ -23,9 +23,9 @@ Use YAML frontmatter followed by Markdown instructions:
 ---
 name: skill-name
 description: "Use when performing a clearly bounded task."
-metadata:
-  author: Example Author
-  version: "1.0.0"
+version: "1.0.0"
+author: Example Author
+license: MIT
 ---
 
 # Skill Name

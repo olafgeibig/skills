@@ -196,3 +196,55 @@ def test_default_config_roots_stop_before_sibling_key(audit, tmp_path, monkeypat
     roots = audit.default_roots()
     assert roots[0] == ("local", str(home / "skills"))
     assert [path for _, path in roots[1:]] == ["/tmp/alpha", "/tmp/beta"]
+
+
+# --------------------------------------------------------------------------- #
+# advice and legacy metadata
+# --------------------------------------------------------------------------- #
+def test_undeclared_overlap_requests_review_not_adaptation_creation(tmp_path):
+    local, external = tmp_path / "local", tmp_path / "external"
+    make_skill(local, "library-audit-helper", "audits a demo skill library")
+    make_skill(external, "demo-skill", "audits a demo skill library")
+    # Without this provenance the helper is unattributed and strict mode never fires.
+    (local / ".usage.json").write_text(
+        json.dumps({"library-audit-helper": {"created_by": "agent"}}), encoding="utf-8"
+    )
+
+    strict = run_cli("--root", f"{local}:local", "--root", f"{external}:ext", "--strict")
+
+    assert strict.returncode == 1, strict.stderr
+    sentence = "An overlap requires review and an explicit development decision."
+    assert sentence in strict.stdout
+    assert "rename it `<source>-adaptation` with the declaration" not in strict.stdout
+    assert "<source>-adaptation" not in strict.stdout
+
+
+def test_existing_adaptation_is_read_as_legacy_metadata(audit, tmp_path, capsys):
+    local, external = tmp_path / "local", tmp_path / "external"
+    make_skill(
+        local,
+        "demo-skill-adaptation",
+        "audits a demo skill library",
+        extra="metadata:\n  adapted_from: demo-skill\n",
+    )
+    make_skill(external, "demo-skill", "audits a demo skill library")
+    roots = [("local", str(local)), ("ext", str(external))]
+
+    report, missing = run_audit(
+        audit, roots, created_by={"demo-skill-adaptation": "agent"}
+    )
+
+    assert missing == []
+    assert report["collisions"] == {}
+    assert report["overrides"] == {}
+    row = next(
+        item for item in report["agent_created"] if item["name"] == "demo-skill-adaptation"
+    )
+    assert row["status"] == "adaptation"
+    assert row["adapted_from"] == "demo-skill"
+
+    audit.print_report(report, roots, missing)
+    rendered = capsys.readouterr().out
+    assert "demo-skill-adaptation" in rendered
+    assert "rename it" not in rendered
+    assert "sidecar" not in rendered.lower()

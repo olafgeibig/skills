@@ -1,7 +1,7 @@
 ---
 name: hermes-provider-setup
 description: Set up Hermes providers, keys, rate limits and model slots.
-version: 0.13.4
+version: 0.13.6
 author: Hermes Agent
 license: MIT
 metadata:
@@ -194,6 +194,7 @@ Rules that survive the next docs update:
 - **A vendor's integration page for your exact tool names the values to plug in** (base URL, api_mode, model id, context length) and is often newer than the vendor's pricing page — but treat it as the second-best source and confirm every value against live `/models`.
 - **Diff the live IDs against the published list and report the delta in both directions.** Curated pages lag: a live-only model exists, and a documented model can already be retired.
 - **A keyed `/models` hit is catalogue evidence, not proof of inference entitlement or protocol support.** Even an authenticated listing marked enabled can contain a model that the same credential cannot invoke; confirm access with a real request using the intended credential and transport. A provider profile carries one `api_mode`, so a model whose serving surface differs from the profile's (e.g. a native Google Responses surface behind an OpenAI-compatible relay) is unreachable through that provider however prominently the picker offers it. The break surfaces only at request time — as a silent fallback to the chain (Pitfall 11), never as an error in the picker — so confirm a candidate with a real `hermes -z -m <id>` and attribute the answer before routing any slot to it.
+- **A served model ID can carry a build/revision suffix the catalogue and picker do not show** (`<slug>:<build>`). Pin the exact ID from the keyed catalogue or from a live session's working report; the bare slug is a hypothesis to verify, never a rename to perform.
 - A model with no documented cap has an **unknown** cap — not zero, not unlimited.
 - **OpenCode's relay rejects bare chat calls.** `POST /chat/completions` on `opencode.ai/zen…` returns `400 MissingSessionID` without an `x-opencode-session` header; Hermes adds it on every OpenCode target (conversation key, else an ephemeral `oneshot-<hex>` — `agent/opencode_affinity.py`). A hand-rolled `curl` that omits it produces a false "provider broken" finding: probe `/models` (200 = auth fine) or go through `hermes -z`, and add the header if you must hit chat directly.
 - Window caps (rolling ≈5 h / weekly / monthly) and per-model dollar caps are two layers that both apply; plan tiers are **not** constant multiples of each other, so never derive one tier's column from the other — and some plans have only one tier (OpenCode Go is not one of them: Go $10 → Go Plus $40, per-model caps growing 2×–8× — `references/opencode-go-plan.md`).
@@ -207,7 +208,7 @@ Symptom: a registered provider "doesn't work" — error at call time, silence, o
 
 1. **Key present?** `grep -c '^<KEY_ENV>' ~/.hermes/.env` plus the `hermes config check` badge (`○ <KEY_ENV>` = missing). A missing key is the most common cause; hand over the Pitfall 6 ingest one-liner — never accept a pasted key.
 2. **Key name collides with a built-in or alias?** `HERMES_OVERLAYS` / `_ALIAS_GROUPS` in `hermes_cli/providers.py` (Headless registration above).
-3. **Keyed `GET $base_url/models`** (probe recipe above): 401 = bad key; 200 without the model ID = wrong model name; 200 with it = auth fine, the fault is routing.
+3. **Keyed `GET $base_url/models`** (probe recipe above): 401 = bad key — unless the 401 body names an account or sign-in requirement, which is a model-level entitlement gate that no config shape fixes (stop and hand it back to the user); 200 without the model ID = wrong model name; 200 with it = auth fine, the fault is routing.
 4. **Probe through Hermes, then attribute.** `hermes -z "..." --provider <key> -m <model>`, then read the ledger row (Pitfall 11): only a row whose `billing_provider` is your provider proves the route — a green answer billed elsewhere is the fallback.
 
 ## Wire Probes: What Hermes Actually Sends
@@ -281,9 +282,10 @@ When comparing a working Hermes Copilot route with another client, distinguish s
 
 ### Standing routing preferences (this user)
 
-- **Same slug on several lanes → the fastest lane wins, measured not assumed** (decode tok/s per lane from a live throughput source, `references/opencode-go-api.md`). The MiMo family in particular runs on the Ollama Cloud lane — never on a shared aggregator lane that serves the same slug slower.
+- **Same slug on several lanes → the fastest lane wins, measured not assumed** (decode tok/s per lane from a live throughput source, `references/opencode-go-api.md`). The MiMo family in particular runs on the Ollama Cloud lane — never on a shared aggregator lane that serves the same slug slower. A long delegated implementation chain is where this binds hardest: child-turn throughput sets the run's wall clock, so for worker lanes the user ranks speed over per-token cost and will name a faster lane mid-run.
 - **Intelligence-heavy side tasks default to `mimo-v2.6-pro`** (Ollama Cloud); for judgment slots (`goal_judge`, `review`) the user ranks `kimi-k3.1-pro` top. Keep "the user's ranking" and "the benchmark's ranking" as separate claims — the newest models often carry no figure in the comparison indexes, so attribute an uncited ranking to the user.
 - **Models that train on prompts/completions are excluded regardless of score** — the privacy filter of `references/model-selection-workflow.md` Step 3 is a standing decision here, not a per-task trade-off.
+- **Acceptance reviews of delegated runs run on `openai-codex` / `gpt-6.1-sol`** — the user's named review route, deliberately separate from the cheap implementation route the workers use. When a review child dies on its own context window, move the identical charge to the large-window sibling of the same model family instead of falling back to the session model.
 
 ## Which Knob Decides Which Model: Session, Subagent, One-Shot
 

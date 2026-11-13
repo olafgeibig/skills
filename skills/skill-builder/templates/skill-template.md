@@ -1,10 +1,10 @@
 ---
 name: skill-name
 description: "Use when performing a clearly bounded task."
+version: "0.1.0"
+author: Example Author
 license: MIT
 metadata:
-  author: Example Author
-  version: "0.1.0"
   source: https://example.com/owner/repository
 ---
 

@@ -1,12 +1,12 @@
 ---
 name: skill-builder
 description: "Use when authoring or validating a skill package."
+version: "1.0.0"
+author: Olaf Geibig
 license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
 metadata:
   source: https://github.com/olafgeibig/skills
-  version: "0.9.0"
-  author: Olaf Geibig
   hermes:
     category: personal
     tags:
@@ -16,11 +16,14 @@ metadata:
       - hermes
     related_skills:
       - skill-governance
+      - skill-library-maintenance
 ---
 
 # Skill Builder
 
-Create and maintain Agent Skills using the portable Agent Skills specification as the base. Apply client-specific conventions only when the target repository or runtime requires them.
+How is a package written and changed? This skill owns the format, frontmatter, versioning, safe
+editing and validation of a skill package. It does not decide where knowledge belongs or who may
+write it (`skill-governance`), and it does not run the release lifecycle (`skill-library-maintenance`).
 
 ## When to Use
 
@@ -42,6 +45,7 @@ Refresh these sources whenever format requirements may have changed:
 Treat these as the portable base. Client-specific behavior belongs in local references:
 
 - `references/hermes-skills.md` — Hermes discovery, extensions, locations, tools, and validation.
+- `references/hermes-frontmatter.md` — this library's frontmatter variant, field placement, description budget, audit and normalize procedures.
 - `references/claude-code-skills.md` — Claude Code-specific locations and agent-to-skill conversion.
 
 Do not present client extensions as fields defined by the base specification.
@@ -54,11 +58,11 @@ Before writing:
 
 1. Identify the owner and canonical repository.
 2. Read its `AGENTS.md` or equivalent local rules.
-3. Load `skill-governance` for ownership, routing, read-before-write, and versioning.
+3. Load `skill-governance` for ownership, routing, permission and the unlock rule.
 4. For an existing skill, load its current `SKILL.md` and every supporting file that will change.
 5. Decide whether the result targets portable Agent Skills, Hermes, Claude Code, or a documented combination.
 
-Do not infer ownership from a frontmatter category. Do not create an accidental or undeclared shadow of a canonical external skill. The narrow exception is an explicitly opened, temporary **working copy** of an owned skill: the complete package, same directory and name, recorded baseline, one owner, and closed by publication or abandonment before it leaves discovery (`skill-library-maintenance/references/skill-development-lifecycle.md`).
+Do not infer ownership from a frontmatter category. Do not create an accidental or undeclared shadow of a canonical external skill. An existing owned skill that has been released is not edited in place: its change happens in an explicitly opened development phase with a complete working copy (whole package, same directory and name, recorded baseline, one owner). Opening, reviewing, publishing and closing that phase is `skill-library-maintenance`: open with `develop-skill.md`, then `review-skill.md`, `publish-skill.md`, `close-development.md`. The working copy is the only legitimate same-name local package; a locked source is not a reason to create an adaptation, a variant name or a second package.
 
 For an external target, verify three independent properties before writing: the directory exists, its Git root is the intended canonical repository, and the target profile actually discovers it. A familiar project shelf is not necessarily a repository or a configured skill source. Resolve conflicting paths from live configuration rather than copying a path from an older skill; use `references/hermes-skills.md` for the checks. If the destination remains a user decision, ask once with the verified alternatives and do not treat a timeout as approval.
 
@@ -72,7 +76,7 @@ Write down:
 - required tools or environment constraints;
 - the concrete verification that proves the workflow works.
 
-Before writing, run the routing gate in `skill-governance`: search for an overlapping skill and pick one of the declared forms — a delta in the owning skill, `<source>-adaptation`, a skill that declares `metadata.scope: standalone`, or, when the target is an existing owned skill, an explicitly opened working copy of it. An undeclared profile-local skill that overlaps an existing one is an unnamed adaptation.
+Before writing, run the routing gate in `skill-governance`: search for an overlapping skill and pick one of the declared forms — a delta in the owning skill, a genuinely standalone skill that declares `metadata.scope: standalone`, or, when the target is an existing owned skill, an explicitly opened working copy of it. A profile-local skill that quietly overlaps or narrows an existing one is a defect, not a new skill.
 
 Keep project facts in project content, not reusable skills.
 
@@ -117,27 +121,36 @@ Use progressive disclosure:
 
 See `references/skill-structure-and-format.md` and `templates/skill-template.md`.
 
-### 5. Write portable frontmatter deliberately
+### 5. Write frontmatter in the Hermes variant
 
-Portable baseline:
+The rule in this library: `version`, `author` and `license` sit at the top level for **every root** — profile-local and repository packages alike — and `metadata` carries the rest.
 
 ```yaml
 ---
 name: skill-name
 description: "Use when performing a clearly bounded task."
+version: "1.0.0"
+author: Example Author
 license: MIT
 metadata:
-  author: Example Author
-  version: "1.0.0"
   source: https://example.com/owner/repository
+  hermes:
+    category: personal
+    tags:
+      - topic
 ---
 ```
 
-The specification defines `name`, `description`, `license`, `compatibility`, `metadata`, and experimental `allowed-tools` at the top level. It shows `author` and `version` under `metadata`.
+- `version` — semantic version string, quoted; bump it whenever the skill or its supporting behavior changes.
+- `author` — the human owner when attribution is maintained; `license` — license name or reference.
+- `metadata.source` — the owning repository URL when one exists; `metadata.hermes.tags` and `related_skills` — block lists.
+- Never duplicate `author` or `version` at both levels.
 
-Do not duplicate `author` or `version` at multiple levels. Use the owning repository's single authoritative convention.
+**The agentskills.io layout is the foreign standard here**: it places `author` and `version` under `metadata`, so a package built that way fails `skills-ref` on exactly those two fields. Field-by-field comparison: `references/hermes-frontmatter.md`.
 
-Hermes-specific nested metadata and Hermes-native top-level fields are documented in `references/hermes-skills.md`.
+Version rules (semantic): **patch** for a typo, wording, metadata-only change or small clarification; **minor** for substantive additive guidance, new sections or new references; **major** for a breaking change in scope, workflow or expected behavior. Every content change bumps the version; inside a development phase bump once, at review time, rather than on every edit.
+
+Field placement detail, the description budget, audit and normalize procedures, and pitfalls: `references/hermes-frontmatter.md`.
 
 ### 6. Write actionable instructions
 
@@ -159,23 +172,43 @@ For existing skills:
 2. Make the smallest coherent change that fixes it.
 3. Update affected references and templates in the same change.
 4. Remove contradictory legacy guidance.
-5. Bump the skill version according to `skill-governance` and the repository convention.
+5. Bump the version per step 5.
 
-**A released skill is not edited in place.** Its change happens in a complete profile-local working copy: a filesystem copy of the whole package (references, scripts, templates, assets), same directory and frontmatter name. `skill_manage(action="create")` is not the copy operation — it refuses a name that already resolves externally — and copying only `SKILL.md` breaks every support link. Verify the resolved source before the first edit; a version bump is not proof of what loads.
+**Hard write rules:**
 
-When saving changes across several skills, stage each skill's complete package explicitly and make one commit per skill when requested; keep its version bump and supporting-file changes together. When the user has explicitly chosen to work directly on the local `main`, do not force a feature branch: preserve unrelated dirty work byte-for-byte, stage explicit paths, and report the local commits as unpublished. Where a branch is the chosen isolation — another installation has unpublished work on the shared main — preserve that work rather than rebasing or resetting main. Treat commit, push, and PR creation as separate authorization scopes: confirmation of a remote URL is not permission to publish.
+- **Read before write (enforced).** `skill_view(name)` before patching an existing `SKILL.md`; `skill_view(name, file_path=...)` before overwriting an existing supporting file. Content quoted earlier in the transcript does not count — a fresh load is required.
+- Use `skill_manage` for existing skills resolved from the profile or an external directory: it patches in place with native validation, ledger, cache invalidation and security hooks. Use `write_file` for supporting files and targeted `patch`/`remove_file` over full rewrites.
+- While a same-name working copy is open, the bare name resolves to that copy — it is not the released package.
+- `skill_manage(action="create")` writes only to the profile-local skills directory or the single configured `skills.create_dir`. Use it when that resolved root is the intended one. A skill destined for the released canonical library is built profile-local and published through the maintenance lifecycle (`skill-library-maintenance` → `develop-skill.md`, `publish-skill.md`); only an unlocked owned repository (a project skill) is written in place.
+- **Reference steps must be literally executable.** Never nest a tool call inside another tool call's argument (`write(content=fetch(url))`); split nested operations into sequential steps.
+- Re-read the saved file and verify its frontmatter.
+- **Never edit a third-party skill's `SKILL.md`** — report the proposed change instead.
 
-See `references/editing-skills-guide.md` for the multi-installation handoff sequence.
+**A released skill changes through the maintenance lifecycle, not by patching the canonical file:** open the phase (`skill-library-maintenance` → `develop-skill.md`), review the complete package (`review-skill.md`), publish the reviewed bytes (`publish-skill.md`), close and re-lock (`close-development.md`). This skill supplies authoring quality; it carries no second handoff or publication runbook.
 
-### 8. Validate both layers
+Ordinary Git safety still applies when you prepare a change: preserve unrelated dirty work byte-for-byte, stage explicit paths, keep one coupled change per commit, and work on local `main` only when the user has explicitly chosen it. Commit, push and PR creation are separate authorization scopes, and there is no autonomous pull/push/transport-branch model.
 
-Run the bundled reference validator from the owning repository root:
+See `references/editing-skills-guide.md` for change classes, structural moves and versioning.
+
+### 8. Validate the two gates
+
+**The Hermes authoring linter is the structural gate.** From the installed source:
+
+```bash
+cd ~/.hermes/hermes-agent && venv/bin/python -c "from pathlib import Path; from tools.skill_linter import lint_skill; print(lint_skill(Path('<package>/SKILL.md')))"
+```
+
+Expect no `missing-metadata` and no `dangling-reference` finding.
+
+**The library audit is the second gate:** the package audit and the declaration audit, with commands and interpretation in `skill-library-maintenance` → `audit-library.md`. It catches cross-package support-file pointers that the linter accepts.
+
+**`skills-ref` is an optional portability check, not a gate:**
 
 ```bash
 bash skills/skill-builder/scripts/skills-ref.sh validate skills/<skill-name>
 ```
 
-Adjust the path for other repository layouts.
+With the Hermes frontmatter variant its expected and accepted finding is exactly `Unexpected fields in frontmatter: author, version`. Any other finding is a defect. If it cannot run, report it as not run — never as a pass.
 
 Then verify the target client:
 
@@ -191,20 +224,20 @@ Also verify:
 - changed examples and commands were exercised;
 - repository status contains only intended changes.
 
-The reference validator proves frontmatter and structural conformance. It does not prove that every instruction in supporting Markdown is current or correct. It also accepts a cross-package support-file pointer that the library audit rejects (resolution rule: `skill-library-maintenance` → Repository Audit), so run the library audit over the repository after editing a skill in a multi-skill repo.
+A validator proves frontmatter and structural conformance; it does not prove that every instruction in supporting Markdown is current or correct. Run both gates over the touched tree after the last edit.
 
 ## Client-Specific Rules
 
 ### Hermes
 
-Load `references/hermes-skills.md` before creating or editing a Hermes skill. It defines:
+Load `references/hermes-skills.md` before creating or editing a Hermes skill, and `references/hermes-frontmatter.md` for the field rules. They define:
 
-- `metadata.hermes` extensions;
-  Hermes-native top-level extensions;
-  profile-local adaptations and `templates/adaptation-skill-template.md`;
-  external-directory and `skill_manage` behavior;
-  runtime validation and source-path checks;
-  discovery gating for a skill that must stay out of the prompt index.
+- `metadata.hermes` extensions and Hermes-native top-level fields;
+- external-directory and `skill_manage` behavior;
+- runtime validation and source-path checks;
+- discovery gating for a skill that must stay out of the prompt index.
+
+Load `references/profile-skill.md` when the deliverable is a profile-local skill: what belongs in it (host and profile facts, paths, external-directory roles, installation settings, pointers to the installation's notes) and what does not.
 
 ### Claude Code
 
@@ -218,6 +251,8 @@ Load `references/claude-code-skills.md` only when Claude Code is the explicit ta
 - Do not impose Node.js, Python, or another language universally; follow the target repository.
 - Do not retain old client documentation URLs as standards authorities.
 - Do not update only `SKILL.md` when its bundled template or references contradict it.
+- Do not treat a `skills-ref` frontmatter finding as a defect to fix by moving fields: the Hermes variant is the rule, and the finding is the accepted portability result.
+- Do not create an adaptation package, a `<source>-adaptation` sibling or a variant name to work around a locked or third-party source.
 
 ## Verification
 
@@ -225,12 +260,12 @@ Before finishing:
 
 - Official Agent Skills references are current.
 - Ownership and canonical location are confirmed.
-- Frontmatter uses one documented convention.
+- Frontmatter follows the Hermes variant: top-level `version`, `author`, `license`.
 - Client extensions are explicitly labeled.
-- Any new profile-local skill declares `metadata.scope: standalone` or `metadata.adapted_from`; no unnamed adaptation was created.
+- Any new profile-local skill declares `metadata.scope: standalone`; no adaptation package and no unnamed local delta was created.
 - No staging, batch, or diary file was created, and any added rule was first searched against its target.
-- Substantive changes to a canonical repository skill went through its development phase and were approved as a reviewed package before publication.
+- A released canonical skill changed only through its development phase, with the reviewed package approved before publication.
 - The entire changed package is internally consistent.
-- `skills-ref` validation passes.
+- The Hermes authoring linter and the library audit pass; `skills-ref` shows only the expected portability finding.
 - Client loading and source resolution pass.
 - Version is bumped and repository state is verified.

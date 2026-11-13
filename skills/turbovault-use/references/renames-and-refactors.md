@@ -32,6 +32,10 @@ After the move:
 
 For several coordinated files, an all-or-nothing batch needs a Git-backed vault; on the Direct backend a batch is sequential and not a transaction, so use bounded passes and verify after each pass.
 
+## Terminology sweep across notes
+
+Renaming a *term* leaves every note path intact, so none of the link machinery sees it — the sweep is text-only and needs its own proof. Decide the mapping and an explicit **keep-list** of tokens that survive (Git vocabulary such as `unpublished`, a foreign subsystem's name) before touching anything. Scope with a case-folded stem grep over the vault root (a partial stem catches inflections and compounds), then apply replacements per note as whole-line `edit_note` SEARCH/REPLACE blocks with `expected_hash` — one block per occurrence, whole lines per the fuzzy tail-concatenation rule in the main skill — and `write_note(mode=overwrite)` only when the note is rewritten wholesale. Reach the notes that merely mention the term in prose: the `links` table and `graph_report` never see prose. Prove the sweep with the leftover grep — it must return exactly the keep-list hits — and read those survivors back as intentional.
+
 ## Delete
 
 `delete_note` requires `confirm_path`, the same vault-relative path again, so a delete cannot be issued by accident. Check `get_links(path)` first. On a plain-folder (Direct) vault `force` defaults to true: the delete goes through and the inbound links stay where they are (`link_sources_updated: []`), so they break. On a Git-backed vault the delete is refused while other notes link to it unless `on_backlinks: "rewrite-stale-callout"` or `force: true` is given. Verify afterwards with `graph_report(kind="broken_links")`, not by assumption.

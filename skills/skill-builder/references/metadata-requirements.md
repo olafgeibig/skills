@@ -30,6 +30,14 @@ A client may accept additional fields or richer metadata values. Those fields ar
 
 For Hermes extensions, use `references/hermes-skills.md`. For Claude Code-specific behavior, use `references/claude-code-skills.md`.
 
+## In this library: the Hermes frontmatter variant
+
+The field matrix above describes the portable standard. This library's packages follow the Hermes
+variant instead: `version`, `author` and `license` are **top-level**, in repository packages and
+profile-local skills alike, and `metadata` keeps `source` plus the `hermes` declarations. Placement,
+the 57-character description budget, audit and normalize procedures are in
+`references/hermes-frontmatter.md`.
+
 ## Name
 
 A valid name:
@@ -92,7 +100,8 @@ metadata:
 - [ ] Name satisfies syntax and length constraints.
 - [ ] Description explains both capability and trigger.
 - [ ] Description fits specification and client budgets.
-- [ ] Portable values are placed under `metadata`.
+- [ ] Portable values are placed under `metadata`, as the base specification defines them.
+- [ ] In this library, `version`, `author` and `license` sit at top level (Hermes variant).
 - [ ] Client extensions are documented as extensions.
 - [ ] `author` and `version` have one authoritative location.
 - [ ] `allowed-tools` is intentional if present.

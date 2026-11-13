@@ -22,8 +22,6 @@ Hermes supports nested metadata such as:
 
 ```yaml
 metadata:
-  author: Example Author
-  version: "1.0.0"
   source: https://example.com/owner/repository
   hermes:
     category: personal
@@ -38,28 +36,16 @@ metadata:
 Hermes bundled skills may also use native top-level fields such as:
 
 ```yaml
-version: 1.0.0
+version: "1.0.0"
 author: Example Author
 platforms:
   - macos
   - linux
 ```
 
-Top-level `version`, `author`, and `platforms` are not fields defined by the portable Agent Skills specification. Use them only when the owning repository explicitly follows Hermes-native conventions.
+Top-level `version`, `author`, and `platforms` are not fields defined by the portable Agent Skills specification. This library uses the Hermes-native placement as its rule: `version`, `author` and `license` are top-level in every package, and `metadata` carries `source` and the `hermes` block. Field detail: `references/hermes-frontmatter.md`.
 
 Do not duplicate `version` or `author` at both levels.
-
-## Profile-local adaptations
-
-Store a Hermes profile adaptation at:
-
-```text
-$HERMES_HOME/skills/adaptations/<source-skill>-adaptation/SKILL.md
-```
-
-Use `templates/adaptation-skill-template.md` and load `skill-governance/references/profile-adaptations.md` for the normative scope and promotion rules. An adaptation contains only local deltas, links the source through `related_skills`, and is not synchronized automatically across profiles.
-
-Simple standing paths or preferences that do not need a reusable multi-step skill belong in a profile-local skill under `$HERMES_HOME/skills/own/`. Do not create an adaptation for an owned generic skill merely to avoid updating its canonical repository.
 
 ## Location and ownership
 
@@ -82,7 +68,7 @@ For the full ownership and routing rules, load `skill-governance`.
 - Use `skill_manage` for an existing owned skill resolved from the profile or an external directory.
 - For `skill_manage(action='patch')`, name the pair `old_string`/`new_string` and send no other fields on that op: the matcher reads those names, and an op carrying `content` or `old_text` is refused as a missing `old_string` however exact the snippet is.
 - Do not use `skill_manage(create)` unless its configured creation root is the intended canonical repository. It is also never the way to start a working copy of an existing skill: it refuses a name that already resolves externally — copy the complete package with filesystem tools instead.
-- When several external repositories exist and `skills.create_dir` cannot select among them, create the new package directly in the chosen canonical repository.
+- When several external repositories exist and `skills.create_dir` cannot select among them, build the package profile-local and publish it into the chosen repository (`skill-library-maintenance` → `publish-skill.md`); a direct create is only for an unlocked project repository.
 - Never edit a third-party skill directly.
 
 After creation or movement, load the skill and inspect `_source_path`.
@@ -98,11 +84,11 @@ After portable validation:
 5. Check required commands, variables, and readiness.
 6. Search configured roots for duplicate skill names, and treat a declared working copy of an owned skill as the expected exception rather than a defect.
 
-A Hermes advisory linter may prefer Hermes-native top-level metadata even when the portable `skills-ref` validator accepts `metadata.version` and `metadata.author`. Treat that as a convention difference, not evidence that the portable fields are invalid.
+The Hermes authoring linter expects top-level `version` and `author` and reports nested ones as missing; `skills-ref` therefore reports the accepted portability finding described in `references/hermes-frontmatter.md`.
 
 ## Prompt budget
 
-Hermes may impose a stricter indexed-description budget than the Agent Skills limit. Keep the first 57 characters self-contained and trigger-focused where profile rules require it.
+Hermes indexes the first 57 characters of the description and shows an ellipsis beyond them, which is stricter than the Agent Skills limit. Author every description so those 57 characters carry the trigger on their own.
 
 ## Discovery gating (on-demand skills)
 

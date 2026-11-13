@@ -12,17 +12,21 @@ Two failures this reports:
 
    One exception is classified separately instead of as a collision: exactly one
    local hit plus exactly one external hit of the same name is the temporary
-   working copy from `references/skill-development-lifecycle.md`. Runtime resolves
+   working copy from `references/develop-skill.md`. Runtime resolves
    the local package, so this is reported under LOCAL OVERRIDES with both paths,
    exits 0, and still requires that the development session was actually opened.
    Two local copies, two external copies, or an ambiguous pair on either side stay
    collisions — this audit is not a replacement for the loader.
 
 2. **Undeclared local skill** — a skill that does not say what it is: neither
-   `metadata.adapted_from` (a delta for a named source skill) nor
+   `metadata.adapted_from` (legacy attribution for a named source skill) nor
    `metadata.scope: standalone`. An undeclared skill that overlaps an external
-   skill is an *unnamed adaptation*: it splits a rule set across two locations
-   while the owning skill stays unaware.
+   skill duplicates a rule set in a second location while the owning skill stays
+   unaware. An overlap requires review and an explicit development decision: the
+   delta belongs in the owning skill, or the second location is a deliberate
+   choice recorded in its own development phase. Renaming a skill into an
+   adaptation is not a repair, and a legacy `adapted_from` marker is metadata to
+   read, not an instruction to create another skill.
 
 Check 2 is scoped by provenance so it stays actionable:
 
@@ -38,7 +42,7 @@ token similarity over name plus description.
 
 Usage:
     python3 audit-skill-declarations.py
-    python3 audit-skill-declarations.py --strict    # unnamed adaptation is fatal
+    python3 audit-skill-declarations.py --strict    # undeclared overlap is fatal
     python3 audit-skill-declarations.py --all --json
     python3 audit-skill-declarations.py --root ~/some/skills:label
 
@@ -423,7 +427,7 @@ def print_report(report: dict, roots, missing) -> None:
         print(
             "\nRuntime precedence is not proof of an authorized development session."
             "\nAn override is legitimate only as an explicitly opened working copy"
-            "\n(see references/skill-development-lifecycle.md); otherwise it is an"
+            "\n(see references/develop-skill.md); otherwise it is an"
             "\naccidental shadow and the content belongs in the owning skill."
         )
     agent_gaps = [r for r in agent if r["status"] == "UNDECLARED"]
@@ -455,8 +459,10 @@ def print_report(report: dict, roots, missing) -> None:
     if agent_risky:
         print(
             "\nUndeclared = neither `metadata.adapted_from` nor `metadata.scope: standalone`.\n"
-            "A candidate hit means it may be an unnamed adaptation: route the delta into the\n"
-            "owning skill, or rename it `<source>-adaptation` with the declaration.\n"
+            "An overlap requires review and an explicit development decision.\n"
+            "Route the delta into the owning skill, or record why a second location\n"
+            "exists in the owning development phase; do not create or rename a skill\n"
+            "into an adaptation to satisfy this audit.\n"
             "A non-standard scope value (e.g. `scope: olaf-personal`) is still undeclared."
         )
 
