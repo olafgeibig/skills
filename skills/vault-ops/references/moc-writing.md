@@ -37,6 +37,16 @@ When you introduce a sub-MoC:
 
 Rationale: nested MoCs are only useful if they are discoverable through the graph.
 
+### Curate an Instance-Specific Sub-MoC
+
+Use for a profile, machine, deployment, or other bounded instance within an existing project.
+
+1. Read the parent MoC, a sibling sub-MoC if available, and the proposed member notes. Search filenames/titles plus body references for the instance identifiers; inspect linked candidates before including them, because a generic dependency or evaluation is not automatically instance-specific documentation.
+2. Keep the member list scoped to notes whose primary subject is the instance. Link existing canonical notes rather than copying their facts into the MoC. Do not pad a small, accurate index with generic background material.
+3. Describe each member's purpose and evidence status. Distinguish an older overview from the latest recorded operational snapshot; say “latest recorded” rather than “live” unless the underlying runtime was actually checked. A navigation change must not silently endorse stale configuration claims or expand into an unsolicited configuration audit.
+4. Create the sub-MoC and register it in the parent. Add the new MoC to each member's frontmatter `topics` and matching body `Topics:` footer, preserving existing parents unless reparenting was requested. Do not add a sub-MoC to the top-level project/area index when no new project/area directory was created.
+5. Read back the created MoC and every edited note. Check its outgoing links against the intended parent and members, and incoming links against the parent registration and member footers; then validate the new note. Report validation at its actual scope, not as a clean bill for the whole vault.
+
 ## Maintenance
 
 - Update continuously.
