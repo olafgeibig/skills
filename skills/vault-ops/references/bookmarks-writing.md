@@ -110,7 +110,7 @@ When a link is dropped with "add this to the <topic> bookmarks":
 3. **Mirror a neighbour** — reuse the adjacent entries' field subset, order, spelling, bold/plain `- description:` style, and entry language (the file's language wins over the chat language). Never "harmonize" the file's other entries.
 4. **Anchor the insert on the next `##` heading.** Two SEARCH/REPLACE blocks in ONE `edit_note` call: (1) replace the following `##` heading with `### new entry` + blank line + that heading again — the entry lands inside the intended section; (2) bump `updated:`. A block anchored on a neighbouring entry can land in the wrong category.
 5. **`Date:` from the system, immediately before writing** — `date +%F`. A session header can be weeks stale, and a stale `Date:` silently reads as authoritative later.
-6. **Read the target back** and confirm the entry sits in the right section — a write response is not proof it landed.
+6. **Verify placement, not arrival** — `blocks_applied`/`total_blocks` and the returned hash prove the bytes landed; read the target back only when the anchor could match more than one section.
 7. **Sync enumerating MoCs.** If the parent MoC or an index line lists what a section holds, add the new name and bump its `updated:` in the same session — otherwise the MoC drifts against the list.
 8. **Report terse:** file + section, entry name, verified numbers, resolved URL — one line per URL the user sent; merged URLs get an explicit "combined into one entry" note.
 

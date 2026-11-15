@@ -35,7 +35,7 @@ Files that document these delimiters themselves (this reference, recipes with ex
 The `patch` tool on vault notes has three recurring whitespace failure modes:
 
 - **Title duplication:** patching a note that already has an H1 can produce a double title. Read the note first and match the title line together with its blank-line separator.
-- **Concatenated lines:** a `new_string` without a trailing newline glues the replacement to the next line (`[[+Agents]][[area/x]]`). Always end inserted text with an explicit trailing newline and re-read the file after every patch.
+- **Concatenated lines:** a `new_string` without a trailing newline glues the replacement to the next line (`[[+Agents]][[area/x]]`). Always end inserted text with an explicit trailing newline — the server writes bytes exactly as sent and adds nothing, so the newline is yours to supply. A read-back after every patch adds no information: read again only when the match came back fuzzy or `blocks_applied` fell short of `total_blocks`.
 - **Section-name mismatch:** an `old_string` written as `## Related` does not match a file with `## See Also`. Verify the actual header first (`read_file`/`search_files`) — seen variants: `## See Also`, `## Related`, `## Related Pages`, `## Verwandte Seiten` — and read the "Did you mean one of these sections?" hint in the tool response.
 
 ## Partial reads
@@ -44,11 +44,11 @@ The `patch` tool on vault notes has three recurring whitespace failure modes:
 
 ## Dry-run and hash-guarded apply
 
-`edit_note` can preview before it writes: `dry_run: true` applies nothing and returns `blocks_applied`/`total_blocks`, `old_hash`/`new_hash`, and a `diff_preview`; the file stays byte-identical. Apply with `dry_run: false` plus `expected_hash: <old_hash from the preview>`, so the write is guarded against a file that changed in between. After the write, confirm `blocks_applied` equals `total_blocks`, then read the target back.
+`edit_note` can preview before it writes: `dry_run: true` applies nothing and returns `blocks_applied`/`total_blocks`, `old_hash`/`new_hash`, and a `diff_preview`; the file stays byte-identical. Apply with `dry_run: false` plus `expected_hash: <old_hash from the preview>`, so the write is guarded against a file that changed in between. After the write, confirm `blocks_applied` equals `total_blocks` — the returned `old_hash`/`new_hash` is the receipt, and a clean match needs no read-back. Read the target only when the match was fuzzy or the block count came up short.
 
 ## Write preconditions and blind overwrites
 
-For writes to existing notes, read the current note and pass its current `expected_hash` when the tool supports it. `edit_note` can use the `old_hash` returned by its dry run. Do not send the removed `force` argument. Never use `expected_hash: "blind"` unless the user explicitly authorizes an intentional blind overwrite.
+For writes to existing notes, read the current note and pass its current `expected_hash` when the tool supports it — that hash is the only protection against clobbering a change made between your read and your write; without it the write is blind. A `dry_run` preview returns the current `old_hash`, so for `edit_note` the preview can stand in for the separate read. Do not send the removed `force` argument. Never use `expected_hash: "blind"` unless the user explicitly authorizes an intentional blind overwrite.
 
 ## Append and prepend modes
 

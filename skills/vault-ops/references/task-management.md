@@ -196,7 +196,7 @@ When the user asks for a note to park a change rather than implement it:
 2. Create or update the requested note in the project's documentation language. Record enough context to resume: the current approach, the proposed change, and the decisions still open. Label proposals as proposals rather than silently adopting them as policy.
 3. Add one actionable open task in that note. Leave due dates, priorities, and schedules unset unless supplied by the user; parking work is not authorization to implement it or schedule automation.
 4. Link the note from its MoC. If a project task overview is requested, reuse or add a `tasks` query with `not done`, `path includes projects/<dir>/`, and `group by filename`; use the trailing slash to avoid matching sibling project names. Do not copy the task line into the MoC.
-5. Read back each changed note and MoC, and verify the new navigation link resolves. Report the saved location and that the underlying change remains open; distinguish verified Markdown/query text from plugin rendering, which a note read cannot prove.
+5. Verify the new navigation link resolves, and read back only the notes whose edit came back fuzzy or short. Report the saved location and that the underlying change remains open; distinguish verified Markdown/query text from plugin rendering, which no read can prove.
 
 ### Create a Task
 
