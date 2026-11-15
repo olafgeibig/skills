@@ -19,8 +19,8 @@ The rare path: a new project of this kind. Ends with a manual, a router, a task 
 1. **Create the directory** `projects/<x>/`. Name it after the subject, in the project's language.
 2. **Write the manual** from `assets/project-AGENTS.md`. It states the shape, the project directory, `Projekttyp: dossier-project`, the language, and the load line that makes this skill apply. Keep the five sections; deviations from the kind go under *Regeln*, and nothing else does.
 3. **Create the router** `+<X>.md`, `type: moc`. Sections: persons (if any), the active cases table, dossiers, master data, a pointer to the task hub. It routes; it does not inventory — an inventory is what the check and the folder tree are for.
-4. **Create the task hub** `<X> Aufgaben.md` from `assets/template-task-hub.md`, `type: utility`, with one `tasks` block scoped to `path includes projects/<x>`. This is the only place that block exists; the router links it.
-5. **Create the chronology** if the project will have more than one case: `<X> Chronologie.md`, `type: utility`. One line per milestone, hand-written, newest first. Do not pre-fill it.
+4. **Create the task hub** `Aufgaben <X>.md` from `assets/template-task-hub.md`, `type: utility`, with one `tasks` block scoped to `path includes projects/<x>`. This is the only place that block exists; the router links it.
+5. **Create the chronology** if the project will have more than one case: `Chronologie <X>.md`, `type: utility`. One line per milestone, hand-written, newest first. Do not pre-fill it.
 6. **Index both ways**: an entry in `projects/INDEX.md` with a routing abstract, and a reciprocal pointer from the thematic area. Both search paths must land.
 7. **Stop.** No `dossiers/`, no `cases/`, no `raw/`. Each folder appears with its first note (`SKILL.md` → Folders).
 

@@ -85,7 +85,10 @@ EVENTS_OK = (
     "- 2026-11-12 · artifact · [[20261112-grundbuch-antrag]] · Antrag\n"
     "- 2026-11-03 · document · [[20261103-bescheid]] · Bescheid\n"
 )
-FAELLE_OK = "## Fälle\n\n" + MARK + "\n\n- [[grundbuch]] · open\n"
+FAELLE_OK = ("## Fälle\n\n" + MARK + "\n\n"
+             "| Fall | Status | Worum es geht |\n"
+             "| --- | --- | --- |\n"
+             "| [[grundbuch]] | open | Grundbuch |\n")
 
 
 class Vault:
@@ -135,6 +138,10 @@ class Vault:
             left = re.findall(r"\{\{[^}]*\}\}", text)
             assert not left, "%s still holds placeholders: %s" % (name, left[:3])
             self.write_note(rel, text)
+        # The case cites its evidence: a document or artifact nothing points at is a finding.
+        self.patch("cases/grundbuch.md", "## Ereignisse\n\n<!-- GENERIERT",
+                   "Belege: [[20261103-bescheid]], [[20261112-grundbuch-antrag]].\n\n"
+                   "## Ereignisse\n\n<!-- GENERIERT")
 
     def close(self):
         shutil.rmtree(self.root, ignore_errors=True)
@@ -174,7 +181,7 @@ def t_clean(v):
     """With the generated sections correct, the report is clean."""
     v.build_templates()
     v.patch("cases/grundbuch.md", "## Ereignisse\n\n" + MARK + "\n", EVENTS_OK.rstrip("\n") + "\n")
-    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n", FAELLE_OK.rstrip("\n") + "\n")
+    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n\n| Fall | Status | Worum es geht |\n| --- | --- | --- |\n", FAELLE_OK.rstrip("\n") + "\n")
     code, out = v.run("--report")
     expect("clean report on the hand-built fixture", code == 0 and "clean" in out, out)
 
@@ -183,7 +190,7 @@ def t_yaml(v):
     """Relations must survive a YAML comment — trailing, inline, and after a list."""
     v.build_templates()
     v.patch("cases/grundbuch.md", "## Ereignisse\n\n" + MARK + "\n", EVENTS_OK.rstrip("\n") + "\n")
-    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n", FAELLE_OK.rstrip("\n") + "\n")
+    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n\n| Fall | Status | Worum es geht |\n| --- | --- | --- |\n", FAELLE_OK.rstrip("\n") + "\n")
     for variant in ("cases:  # der Fall\n- '[[grundbuch]]'\n",
                     "cases:\n- '[[grundbuch]]'   # gehört dazu\n",
                     "cases:\n  - '[[grundbuch]]'\n  # Notiz\n"):
@@ -198,6 +205,34 @@ def t_yaml(v):
         expect("yaml variant: the event is proposed as a row, none removed",
                "+- 2026-11-14 · event · [[20261114-zweites]]" in out
                and "-- 2026-11" not in out, out)
+
+
+def t_dossier_table(v):
+    """`## Fälle` is a table: link, status, and the case's own description."""
+    v.build_templates()
+    v.write_note("cases/zweiter-fall.md",
+                 "---\ndescription: Zweiter Fall — was er ist\ntype: case\nstatus: open\n"
+                 "dossier: '[[nachlass]]'\n---\n\n# Zweiter Fall\n\n## Stand\n\nText.\n\n"
+                 "## Ereignisse\n\n" + MARK + "\n\n## Aufgaben\n")
+    code, out = v.run("--rebuild")
+    expect("a dossier row carries link, status and description",
+           "| [[zweiter-fall]] | open | Zweiter Fall — was er ist |" in out, out)
+
+
+def t_events_are_artefacts(v):
+    """`## Ereignisse` lists what happened; research is cited in ## Stand instead."""
+    v.build_templates()
+    v.write_note("resources/recherche.md",
+                 "---\ndescription: Recherche zum Fall\ntype: research\ncreated: 2026-11-14\n"
+                 "updated: 2026-11-14\ncases: ['[[grundbuch]]']\n---\n\n# Recherche\n\n## Befunde\n\nText.\n")
+    v.write_note("artifacts/20261114-brief.md",
+                 "---\ndescription: Brief an das Amt\ntype: artifact\ncreated: 2026-11-14\n"
+                 "updated: 2026-11-14\ncases: ['[[grundbuch]]']\n---\n\n# Brief\n\nText.\n")
+    code, out = v.run("--rebuild")
+    expect("an artifact naming the case becomes an event row",
+           "+- 2026-11-14 · artifact · [[20261114-brief]]" in out, out)
+    expect("a research naming the case does not",
+           "recherche]]" not in out, out)
 
 
 def t_headings(v):
@@ -275,6 +310,9 @@ def t_readonly(v):
 def t_source(v):
     """Provenance stays optional even if an original is on another machine."""
     v.build_templates()
+    v.patch("cases/grundbuch.md", "## Ereignisse\n\n<!-- GENERIERT",
+            "Belege: [[20261201-url]], [[20261202-pfad]], [[20261203-fern]].\n\n"
+            "## Ereignisse\n\n<!-- GENERIERT")
     v.write_note("raw/20261201-url.md",
                  "---\ndescription: Aus dem Netz\ntype: document\nsource: https://example.org/x\n"
                  "cases:\n- '[[grundbuch]]'\n---\n\n# Aus dem Netz\n\nText.\n")
@@ -296,7 +334,7 @@ def t_sources_render(v):
     """The footer must reproduce `sources:` — anchors kept, URLs not turned into links."""
     v.build_templates()
     v.patch("cases/grundbuch.md", "## Ereignisse\n\n" + MARK + "\n", EVENTS_OK.rstrip("\n") + "\n")
-    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n", FAELLE_OK.rstrip("\n") + "\n")
+    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n\n| Fall | Status | Worum es geht |\n| --- | --- | --- |\n", FAELLE_OK.rstrip("\n") + "\n")
     v.write_note("resources/mit-anker.md",
                  "---\ndescription: Anker\ntype: extract\nsources:\n- '[[20261103-bescheid#Frist|Frist]]'\n"
                  "dossier: '[[nachlass]]'\n---\n\n# Anker\n\n## Kurzfassung\n\nx\n\n## Fakten\n\n- y\n")
@@ -314,7 +352,7 @@ def t_sources_exact(v):
     """Footer comparison must be exact: no substring hits, no unnoticed extras."""
     v.build_templates()
     v.patch("cases/grundbuch.md", "## Ereignisse\n\n" + MARK + "\n", EVENTS_OK.rstrip("\n") + "\n")
-    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n", FAELLE_OK.rstrip("\n") + "\n")
+    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n\n| Fall | Status | Worum es geht |\n| --- | --- | --- |\n", FAELLE_OK.rstrip("\n") + "\n")
     v.write_note("resources/alpha.md",
                  "---\ndescription: Alpha\ntype: extract\nsources:\n- '[[Alpha]]'\ndossier: '[[nachlass]]'\n"
                  "---\n\n# Alpha\n\n## Kurzfassung\n\nx\n\n## Fakten\n\n- y\n\n---\n\nQuellen:\n- [[AlphaExtended]]\n")
@@ -327,7 +365,7 @@ def t_apostrophe(v):
     """An apostrophe in a link target must not break the relation."""
     v.build_templates()
     v.patch("cases/grundbuch.md", "## Ereignisse\n\n" + MARK + "\n", EVENTS_OK.rstrip("\n") + "\n")
-    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n", FAELLE_OK.rstrip("\n") + "\n")
+    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n\n| Fall | Status | Worum es geht |\n| --- | --- | --- |\n", FAELLE_OK.rstrip("\n") + "\n")
     v.write_note("events/20261116-bei-obrien.md",
                  "---\ndescription: Bei O'Brien\ntype: event\ncases:\n- '[[O''Brien]]'\n---\n\n# O'Brien\n\nx\n")
     v.write_note("cases/O'Brien.md",
@@ -350,7 +388,7 @@ def t_bad_child(v):
     """A child with an unknown type must block the preview, never shrink the list."""
     v.build_templates()
     v.patch("cases/grundbuch.md", "## Ereignisse\n\n" + MARK + "\n", EVENTS_OK.rstrip("\n") + "\n")
-    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n", FAELLE_OK.rstrip("\n") + "\n")
+    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n\n| Fall | Status | Worum es geht |\n| --- | --- | --- |\n", FAELLE_OK.rstrip("\n") + "\n")
     v.write_note("events/20261117-tippfehler.md",
                  "---\ndescription: Tippfehler\ntype: even\ncases:\n- '[[grundbuch]]'\n---\n\n# Tippfehler\n\nx\n")
     code, out = v.run("--rebuild")
@@ -362,7 +400,7 @@ def t_dossier_row(v):
     """A hand-written line starting with a link is not a generated row."""
     v.build_templates()
     v.patch("cases/grundbuch.md", "## Ereignisse\n\n" + MARK + "\n", EVENTS_OK.rstrip("\n") + "\n")
-    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n",
+    v.patch("dossiers/nachlass.md", "## Fälle\n\n" + MARK + "\n\n| Fall | Status | Worum es geht |\n| --- | --- | --- |\n",
             FAELLE_OK.rstrip("\n") + "\n- [[Hinweis]] · Bitte zuerst lesen\n")
     code, out = v.run("--rebuild")
     expect("hand-written line in ## Fälle is refused", "REFUSED" in out, out)
@@ -372,8 +410,13 @@ def t_dossier_row(v):
 
 def t_regressions(v):
     """Previously reproduced CLI failures, tested independently of templates."""
+    v.write_note("dossiers/dossier.md",
+                 "---\ntype: dossier\ndescription: Dossier\n---\n# Dossier\n\n"
+                 "## Stand\n\nx\n\n## Wissen\n\nx\n\n## Dokumente\n\nx\n\n"
+                 "## Fälle\n\n" + MARK + "\n\n## Aufgaben\n\nNichts.\n")
     v.write_note("analyses/20261115-netz.md",
-                 "---\ntype: analysis\nstatus: draft\nsources:\n- https://example.org/study\n---\n"
+                 "---\ntype: analysis\nstatus: draft\ndossier: '[[dossier]]'\n"
+                 "sources:\n- https://example.org/study\n---\n"
                  "# Netz\n\n## Kurzfassung\n\nx\n\n## Analyse\n\nx\n\n## Ergebnis\n\nx\n\n"
                  "Quellen:\n- https://example.org/study\n")
     code, out = v.run("--report")
@@ -434,12 +477,12 @@ def t_review_safety(v):
     """Guard wrong dossier children, ambiguous footers and broken frontmatter."""
     v.write_note("dossiers/subject.md",
                  "---\ntype: dossier\n---\n# Subject\n\n## Stand\n\nx\n\n## Wissen\n\n"
-                 "## Dokumente\n\n## Fälle\n\n" + MARK + "\n\n- [[matter]] · open\n\n## Aufgaben\n")
+                 "## Dokumente\n\n## Fälle\n\n" + MARK + "\n\n| Fall | Status | Worum es geht |\n| --- | --- | --- |\n| [[matter]] | open | Grundbuch |\n\n## Aufgaben\n")
     v.write_note("cases/matter.md",
                  "---\ntype: event\ndossier: '[[subject]]'\n---\n# Wrong child type\n")
     code, out = v.run("--rebuild")
     expect("a wrong-type case child blocks its dossier", code != 0 and "REFUSED dossiers/subject.md" in out
-           and "-- [[matter]] · open" not in out, out)
+           and "| [[matter]] | open |" not in out, out)
 
     v.write_note("resources/ambiguous.md",
                  "---\ntype: extract\nsources: ['[[Alpha]]']\n---\n# E\n\n## Kurzfassung\n\nx\n\n"
@@ -472,7 +515,33 @@ def t_crlf(v):
            result.stdout.decode("utf-8", errors="replace"))
 
 
+def t_parents(v):
+    """A case needs a dossier, an event needs a case, a parent link must resolve."""
+    v.write_note("cases/ohne-dossier.md",
+                 "---\ntype: case\nstatus: open\n---\n# X\n\n## Stand\n\nx\n\n"
+                 "## Ereignisse\n\n" + MARK + "\n\n## Aufgaben\n")
+    code, out = v.run("--report")
+    expect("case without dossier is reported", code != 0 and "case without dossier:" in out, out)
+
+    v.write_note("dossiers/dossier.md",
+                 "---\ntype: dossier\ndescription: Dossier\n---\n# Dossier\n\n"
+                 "## Stand\n\nx\n\n## Wissen\n\nx\n\n## Dokumente\n\nx\n\n"
+                 "## Fälle\n\n" + MARK + "\n\n## Aufgaben\n\nNichts.\n")
+    v.patch("cases/ohne-dossier.md", "status: open", "status: open\ndossier: '[[dossier]]'")
+    v.write_note("events/20261115-anruf.md",
+                 "---\ntype: event\ndescription: Anruf\ndossier:\n- '[[dossier]]'\n---\n# Anruf\n")
+    code, out = v.run("--report")
+    expect("event without a case is reported", code != 0 and "event without a case" in out, out)
+
+    v.write_note("cases/tippfehler.md",
+                 "---\ntype: case\nstatus: open\ndossier: '[[gibtesnicht]]'\n---\n# Y\n\n"
+                 "## Stand\n\nx\n\n## Ereignisse\n\n" + MARK + "\n\n## Aufgaben\n")
+    code, out = v.run("--report")
+    expect("a parent link must resolve", code != 0 and "no note of that name exists" in out, out)
+
+
 SCENARIOS = [
+    ("parents", t_parents),
     ("review-safety", t_review_safety),
     ("crlf", t_crlf),
     ("preview-safety", t_preview_safety),
@@ -480,6 +549,8 @@ SCENARIOS = [
     ("templates", t_templates),
     ("clean", t_clean),
     ("yaml", t_yaml),
+    ("dossier-table", t_dossier_table),
+    ("events-are-artefacts", t_events_are_artefacts),
     ("headings", t_headings),
     ("substring", t_substring),
     ("new-section", t_new_section),

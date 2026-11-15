@@ -14,8 +14,8 @@ What is generated, what is curated, and what the check can and cannot see.
 
 | Section | On | Generated from |
 |---|---|---|
-| `## Ereignisse` | case | all notes whose `cases:` names this case, sorted newest first |
-| `## Fälle` | dossier | all `case` notes whose `dossier:` names this dossier |
+| `## Ereignisse` | case | notes whose `cases:` names this case and that record something that happened — `event`, `artifact`, `document`, `transcript`, sorted newest first. An `extract`, `research` or `analysis` naming the case is cited in `## Stand` instead: it is working knowledge, not an event |
+| `## Fälle` | dossier | all `case` notes whose `dossier:` names this dossier — as a table of link, `status:` and `description:` |
 | `Quellen:` footer | extract, analysis | the note's own `sources:` |
 
 | Section | On | Why not generated |
@@ -23,7 +23,7 @@ What is generated, what is curated, and what the check can and cannot see.
 | `## Stand` | case, dossier | prose about the current state |
 | `## Wissen` | dossier | which extraction matters is a judgement |
 | `## Dokumente` | dossier | which document to open first is a judgement |
-| `## Aufgaben` | case, dossier | tasks are decisions |
+| `## Aufgaben` | case | tasks are decisions; a dossier holds a pointer to a case, not a task |
 | chronology | project root | "milestone" is a selection, not a filter |
 | `## Kurzfassung` | every knowledge note | the author's condensation |
 
@@ -100,4 +100,4 @@ The date is parsed from the child's filename prefix only: a child whose folder c
 - Sorting `## Wissen` by date. It is curated: order it by what a reader needs first, not by when it was written.
 - Treating a clean `--report` as a correct project. It proves shape; only `--audit` and a human look at the content prove meaning.
 - Rebuilding before the links are repaired. A rebuild reads bare-name links; a note that is not yet visible to the index may drop out of the list.
-- Writing a proposal with different padding than shown. The proposed bytes include the blank lines an empty section keeps — a write that trims them leaves every later `--rebuild` proposing whitespace noise. Re-run `--rebuild` after writing and expect `nothing to change`: that run is the idempotence check on the write, not a formality.
+- Writing a proposal with different padding than shown. The proposed bytes include the blank lines an empty section keeps — a write that trims them leaves every later `--rebuild` proposing whitespace noise. Apply a proposal as the whole generated section, tail included: a row-level edit of one line never fixes another section's drifted padding. When a note untouched by the current edit shows a whitespace-only hunk, that is drift from an earlier row-level write — normalize that section in the same pass. Re-run `--rebuild` after writing and expect `nothing to change`: that run is the idempotence check on the write, not a formality.

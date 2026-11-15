@@ -17,12 +17,12 @@ that arrived is never an extract, and something you derived never becomes an eve
 ```
 1) Did it arrive, or did I make it?
 
-   arrived — a file came and was converted        → raw/,      type: document
+   arrived — a document (converted file, .eml export, pasted text) → raw/, type: document
    arrived — an app transcript                    → raw/,      type: transcript
-   arrived — the note IS the document             → artifacts/, type: artifact
-             (sent, received or produced: a letter, a contract, a filled form)
    arrived — nothing to show for it               → events/,   type: event
              only if it carries content; a one-line happening belongs in `## Stand`
+   made — a work product held as evidence         → artifacts/, type: artifact
+             a report, a deliverable — never correspondence
    made — from exactly one raw note               → resources/, type: extract
    made — from many external sources, no raw note → resources/, type: research
    made — my own conclusion across several notes  → analyses/,  type: analysis
@@ -36,14 +36,14 @@ that arrived is never an extract, and something you derived never becomes an eve
 
 ## Which of the two is a document?
 
-Ask where the text comes from.
+Ask who authored the text.
 
 | The text is… | Class | Consequence |
 |---|---|---|
-| the markdown a converter made from an arrived file | `document` | folder `raw/`, body verbatim; optional provenance follows `SKILL.md` → Ownership |
-| the document itself — typed, quoted, drafted, agreed | `artifact` | folder `artifacts/`, frozen, no provenance fields |
+| a document from outside the project — converted from a file, exported as `.eml`, or pasted while the original lives elsewhere | `document` | folder `raw/`, body verbatim; provenance per `SKILL.md` → Ownership (`source:` path + `sha256:` when a file is held, prose `source:` when it is not) |
+| a work product this project produced and holds as evidence | `artifact` | folder `artifacts/`, frozen, no provenance fields |
 
-Direction does not decide it. A letter that arrives, a contract both sides signed, a questionnaire you drafted, a decision quoted word for word — all `artifact`. What separates them from `document` is only whether a converted file stands behind the text.
+Direction and file shape do not decide it. A letter that arrives or was sent, an email thread, a contract both sides signed, a court decision quoted word for word — all `document`. What separates `artifact` is who wrote the text: the project itself. *Capturing a document* below says how the original and the note stay connected.
 
 **Nothing is decided yet? Leave it in `inbox/`.** That is a valid state, not a failure: the folder exists so an unclassified file has somewhere to lie without becoming the wrong class. Triage can wait for the session that knows what the thing is.
 
@@ -52,6 +52,20 @@ Direction does not decide it. A letter that arrives, a contract both sides signe
 - An `event` needs content. A half-sentence is not a file; it is a sentence in the `## Stand` of the case or the dossier.
 - No event without a case. Something too small for a case is a `## Stand` sentence, not an event — and a small matter that keeps recurring becomes its own case, which then closes.
 - A value is not knowledge. If the answer is one number other notes will cite, it is `masterdata/`, even when it came out of an `extract`.
+
+## Capturing a document
+
+How the original and the note stay connected. Applies to a document arriving as a file (`.eml` export, PDF, mail attachment) or as pasted text.
+
+1. **File held?** Copy it into the project's original store in the workdir (`documents/`), `cp -n`, then `shasum -a 256`. The note carries `source:` relative to the storage root and `sha256:` of that file.
+2. **`.eml` export:** take the `text/plain` part (`email` + `policy.default`, `get_body(preferencelist=("plain",))`), CRLF→LF. The body is the whole thread — every quoted message in source order, separated by `---`, each keeping its `Von:`/`Gesendet:`/`An:`/`Betreff:` header lines.
+3. **Pasted text:** no file, no checksum. `source:` is prose naming where the original lives; say in the reply that provenance is interim until the original is captured.
+4. **Normalise only annotation noise** — `<mailto:>`, `<tel:>`, map links, `*` bullets, repeated trailing signature blocks — and name every drop in the reply. Everything else stays verbatim.
+5. **Verify the transcription** against the source after normalising: every substantive source line must be present in the note. Report how many lines were checked and what was omitted.
+6. **Link an attachment only on matching checksums.** When the message carried a document that has its own note, the attachment's hash must equal that note's `sha256:` — a plausible filename is not proof.
+
+- A thread trimmed to its newest message, or a body summarised into the note, loses the substance of the exchange — distillation belongs in `resources/`, `analyses/` and the case's `## Stand`, never in the `document` body.
+- When a proper document note supersedes an interim one, create and delete in one `batch_execute` — the Direct backend is sequential, so verify both results — and never leave two notes for one thing.
 
 ## Part 2 — a quick fact from the user
 
@@ -62,7 +76,7 @@ Direction does not decide it. A letter that arrives, a contract both sides signe
 | a value others will cite (date, number, reference) | `masterdata/`, values replaced in place |
 | the current state of a case or the subject | the `## Stand` of that case or dossier |
 | something that happened and left no document | an `event` — if it carries content |
-| a task | `## Aufgaben` of the case or the dossier |
+| a task | `## Aufgaben` of a case — never of a dossier; if no case holds it, the task is the case |
 
 ## Part 3 — a note that is the wrong class
 
@@ -88,6 +102,7 @@ A promotion is not a rename of the class. It creates the target class and decide
 ## Pitfalls
 
 - Two notes for one arrival: the `document` and an `event` saying "it arrived". One thing, one note — the document carries the date and appears in the chronology itself.
+- **The exception is the act, not the arrival.** An act and the paper it produces are two facts: a pickup, a handover at the counter, an application filled in on the spot. Such an event may stand beside the document only if it says what the paper cannot — that the post had failed, that it was handed over in person, that no receipt was given. If it only restates the date the document already carries, it is the first pitfall wearing a different name.
 - An `event` created so the chronology looks complete. The chronology is milestones, chosen by hand; an event is detail, and detail belongs in a case.
 - A `research` that is really an `extract` with a URL in `source:`. Many URLs and no raw note is research; one source with page references is an extract.
 - Reclassifying without the rebuild: the parent still lists the note under its old type, and the audit will not notice a wrong row — it only notices a missing one.

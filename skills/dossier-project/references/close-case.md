@@ -12,7 +12,7 @@ Closing is the only operation that makes a claim about the world. An open case a
 
 1. **Every promised artifact exists.** If the case said "we will write to the court", the letter is in `artifacts/` and linked. A closed case with a missing artifact is a false statement.
 2. **The outcome is in `## Stand`.** What came of it, in one or two sentences: the decision received, the amount, the date. Without an outcome the case is only a pile of documents.
-3. **`## Aufgaben` is empty**, or every remaining task was explicitly dropped — and dropping is a decision, so say so in `## Stand`.
+3. **`## Aufgaben` is empty.** A task that is not done but belongs to another matter is *moved*, not dropped: write its row into the receiving case's `## Aufgaben` with the same stable ID, then delete it here — the task hub aggregates by ID, and a moved task that changes its ID shows up twice. A dropped task is a decision, so say so in `## Stand`.
 4. **What the case changed is propagated.** This is the point of the whole checklist:
    - a value changed → the master data note is updated (on the user's instruction, never on your own judgement)
    - the subject's state changed → the dossier's `## Stand` mirrors it

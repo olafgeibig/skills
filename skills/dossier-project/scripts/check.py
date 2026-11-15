@@ -54,10 +54,12 @@ STATUS_VALUES = {
 
 ALL_TYPES = set().union(*FOLDER_TYPES.values(), ROOT_TYPES)
 CHILD_TYPES = {"event", "artifact", "document", "transcript", "extract", "research", "analysis"}
+EVENT_ROWS = {"event", "artifact", "document", "transcript"}   # what ## Ereignisse lists
 FOCUS_TYPES = set(ALL_TYPES) - {"utility", "moc"}
 
 DATE_PREFIX = re.compile(r"^(\d{4})-?(\d{2})-?(\d{2})")
 UNKNOWN_DATE = "????-??-??"
+LINK_RE = re.compile(r"\[\[([^\]|#]+)")
 
 
 # --- reading ----------------------------------------------------------------
@@ -389,6 +391,26 @@ def vault_basenames(root):
     return {k: v for k, v in seen.items() if len(v) > 1}
 
 
+def link_targets(note):
+    """Every note this one points at — body links and frontmatter links alike.
+
+    Only *notes* count as sources: conventions.md and AGENTS.md are not parsed,
+    so they can never be the reason a raw or artifact note looks reachable.
+    """
+    return [t.strip().split("/")[-1].lower() for t in LINK_RE.findall(note.raw)]
+
+
+def vault_stems(root):
+    """Every note name in the vault, lowercased — what a parent link may resolve to."""
+    seen = set()
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d != ".turbovault"]
+        for f in filenames:
+            if f.endswith(".md") and f not in NOT_NOTES:
+                seen.add(f[:-3].lower())
+    return seen
+
+
 def row(note):
     return "- %s · %s · [[%s]]%s" % (
         note.date or UNKNOWN_DATE,
@@ -417,6 +439,11 @@ def children(note, notes):
         for c in notes:
             if note.stem not in targets(c.fm.get("cases")):
                 continue
+            # Working knowledge is cited in ## Stand, not listed as an event: an
+            # extract, research or analysis has a date, but it is not something
+            # that happened to the matter.
+            if c.type in CHILD_TYPES and c.type not in EVENT_ROWS:
+                continue
             if (c.type not in CHILD_TYPES | {"case"}) or not valid_child_folder(c):
                 odd.append((c.rel, c.type))
             else:
@@ -435,7 +462,10 @@ def children(note, notes):
                 if not valid_child_folder(c) or not isinstance(status, str) or status not in STATUS_VALUES["case"]:
                     odd.append((c.rel, c.type))
                 else:
-                    rows.append("- [[%s]] · %s" % (c.name, status))
+                    desc = c.fm.get("description")
+                    desc = " ".join(desc.split()) if isinstance(desc, str) else ""
+                    desc = desc.replace("|", "\\|") or "—"
+                    rows.append("| [[%s]] | %s | %s |" % (c.name, status, desc))
         return sorted(rows), odd
     return [], []
 
@@ -450,6 +480,9 @@ def current_rows(note):
     sec = section(note.body, head)
     if sec is None:
         return None
+    if head == "Fälle":
+        return [l.strip() for l in note.body[sec[0]:sec[1]].splitlines()
+                if l.strip().startswith("| [[")]
     return [l.strip() for l in note.body[sec[0]:sec[1]].splitlines() if l.strip().startswith("- ")]
 
 
@@ -457,7 +490,13 @@ GEN_MARK = re.compile(r"^<!--\s*generiert\b", re.I)
 ROW_CASE = re.compile(r"^- (?:\d{4}-\d{2}-\d{2}|" + re.escape(UNKNOWN_DATE) +
                       r") · (?:" + "|".join(sorted(CHILD_TYPES | {"case"})) +
                       r") · \[\[[^\]]+\]\](?: · .*)?$")
-ROW_DOSSIER = re.compile(r"^- \[\[[^\]]+\]\] · (?:open|blocked|closed)$")
+ROW_DOSSIER = re.compile(r"^\| \[\[[^\]]+\]\] \| (?:open|blocked|closed) \| .+ \|$")
+TABLE_HEAD = ["| Fall | Status | Worum es geht |", "| --- | --- | --- |"]
+
+
+def gen_prefix(head):
+    """The fixed lines a generated section opens with, after the marker."""
+    return TABLE_HEAD if head == "Fälle" else []
 
 
 def row_re(head):
@@ -478,7 +517,13 @@ def gen_state(note, head):
     lines = [l.strip() for l in note.body[sec[0]:sec[1]].splitlines()[1:] if l.strip()]
     if not lines or not GEN_MARK.match(lines[0]):
         return "unmarked", lines[:3]
-    bad = [l for l in lines[1:] if not row_re(head).match(l)]
+    rest = lines[1:]
+    pre = gen_prefix(head)
+    if pre and rest:
+        if rest[:len(pre)] != pre:
+            return "foreign", rest[:3]
+        rest = rest[len(pre):]
+    bad = [l for l in rest if not row_re(head).match(l)]
     return ("foreign", bad) if bad else ("ok", [])
 
 
@@ -500,6 +545,13 @@ def stale(note, notes):
 
 def report(notes, root, project_dir):
     bad = []
+    known = vault_stems(root)
+    pointed_at = {}
+    for n in notes:
+        for t in link_targets(n):
+            pointed_at.setdefault(t, set()).add(n.rel)
+    # Reachability only says something once the project has an entry point.
+    has_entry = any(n.type == "moc" for n in notes)
 
     for n in notes:
         if n.folder == "inbox":
@@ -538,6 +590,36 @@ def report(notes, root, project_dir):
         if n.type == "masterdata" and "Aufgaben" in headings(n.body):
             bad.append((n.rel, "masterdata must not carry tasks (## Aufgaben) — "
                                "they belong to a case or a dossier"))
+
+        if n.type == "dossier":
+            span = section(n.body, "Aufgaben")
+            if span and any(re.match(r"\s*[-*+]\s*\[[ xX]\]", ln)
+                            for ln in n.body[span[0]:span[1]].splitlines()):
+                bad.append((n.rel, "a dossier must not carry a task — a task is the decision to "
+                                   "act, and the matter it belongs to is a case"))
+
+        if n.type == "case" and not targets(n.fm.get("dossier")):
+            bad.append((n.rel, "case without dossier: — a case belongs to exactly one subject"))
+
+        if n.type in CHILD_TYPES and not targets(n.fm.get("cases")) \
+                and not targets(n.fm.get("dossier")):
+            bad.append((n.rel, "orphan: neither cases: nor dossier: — the parent must be able "
+                               "to find it"))
+
+        if n.type == "event" and not targets(n.fm.get("cases")):
+            bad.append((n.rel, "event without a case — a happening too small for a case is a "
+                               "sentence in ## Stand, not an event"))
+
+        for key in ("cases", "dossier"):
+            for t in targets(n.fm.get(key)):
+                if t.lower() not in known:
+                    bad.append((n.rel, "%s: names [[%s]], and no note of that name exists in "
+                                       "the vault" % (key, t)))
+
+        if has_entry and n.type in ("document", "transcript", "artifact") \
+                and not pointed_at.get(n.stem.lower()):
+            bad.append((n.rel, "evidence nothing points at — a document or artifact no note "
+                               "refers to is invisible; cite it from its case"))
 
         if n.type in ("masterdata", "dossier"):
             for h in headings(n.body):
@@ -606,11 +688,16 @@ def audit(notes, project_dir):
     out = []
     root_name = os.path.basename(os.path.abspath(project_dir))
 
+    pointed_at = {}
     for n in notes:
-        if n.type == "case" and not targets(n.fm.get("dossier")):
-            out.append((n.rel, "case without dossier: — which subject does it belong to?"))
-        if n.type in CHILD_TYPES and not targets(n.fm.get("cases")) and not targets(n.fm.get("dossier")):
-            out.append((n.rel, "orphan: neither cases: nor dossier: — file it or delete it"))
+        for t in link_targets(n):
+            pointed_at.setdefault(t, set()).add(n.rel)
+
+    for n in notes:
+        if n.type not in ("document", "transcript", "artifact") \
+                and not pointed_at.get(n.stem.lower()):
+            out.append((n.rel, "no incoming link — nothing in the project points here; link it "
+                               "from its case, its dossier or the router"))
         if n.type == "case" and n.fm.get("status") == "blocked":
             out.append((n.rel, "blocked — confirm that ## Stand names the blocker"))
         if n.type == "dossier":
@@ -653,8 +740,9 @@ def plan(notes, blocked=None):
         if n.type in ("case", "dossier"):
             rows, odd = children(n, notes)
             head = "Ereignisse" if n.type == "case" else "Fälle"
+            block = "\n".join(gen_prefix(head) + rows)
             new = ("## %s\n\n<!-- GENERIERT — nicht von Hand bearbeiten. -->\n\n%s\n\n" % (
-                head, "\n".join(rows))).replace("\n", newline)
+                head, block)).replace("\n", newline)
             state, bad = gen_state(n, head)
             if odd:
                 blocked.append((n.rel, head,

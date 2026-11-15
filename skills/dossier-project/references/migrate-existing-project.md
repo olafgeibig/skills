@@ -17,11 +17,13 @@ The rare second path: a stock project with notes in the old layout (an `akte`/`v
 
 Decide every target name and class first; a note is visited once (Phase 3).
 
+- **The dossier cut is the user's division of the subject, in their own words.** Ask how they see the subject before proposing a cut; one derived from the note inventory or from a tidy ontology is the wrong axis, and the user feels a mis-cut at once.
 - Apply the class **test question** to the legacy note's content, not its old `type:`. An `akte` is not automatically a `dossier` — ask "does this ever end?": a sale ends, an estate does not. A `vorgang` is usually one `case`. An `arbeitsergebnis` splits by provenance: sent or frozen → `artifact`, unsent or synthesised → `analysis`, URLs and findings → `research`, one source distilled → `extract`.
-- A legacy note whose facts belong to three classes dissolves into three notes — that is what the migration is for. The home of a fact is decided by the kind's *Where a fact belongs* table: values others cite → `masterdata`, state → `## Stand`, a happening with content → `event`, an arrived text → `raw/`.
+- A legacy note whose facts belong to three classes dissolves into three notes — that is what the migration is for.
+- The reverse happens too: several legacy notes may be one matter. When one matter was absorbed by another — a proceeding consumed by the case that superseded it — the absorbed note dies and its history entries take the Phase 2 verdicts; two notes for one matter is the defect the migration removes. The home of a fact is decided by the kind's *Where a fact belongs* table: values others cite → `masterdata`, state → `## Stand`, a happening with content → `event`, an arrived text → `raw/`.
 - Case names name the matter and carry no date prefix; date prefixes live only in `raw/`, `artifacts/`, `events/`, `analyses/`. Several versions of one document need distinct basenames — `raw/` freezes all of them.
 - Check every target name against the **whole vault**, case-insensitively (SKILL.md → Verification). A case named like a wiki concept (`grundbuchberichtigung`) resolves to the wrong note on a case-insensitive filesystem while a string-exact name check passes.
-- Put the grid and the history verdicts in a plan note — and write planned note names as **code spans, not `[[…]]`**: a plan that links to notes which do not exist yet inflates the broken-link count the migration later has to prove.
+- Put the grid and the history verdicts in a plan note **outside the project subtree** — a drafts folder; inside, the plan is a note without a class and litter after the migration — and write planned note names as **code spans, not `[[…]]`**: a plan that links to notes which do not exist yet inflates the broken-link count the migration later has to prove.
 
 ### Source-kind mapping: `casefile`
 
@@ -60,7 +62,7 @@ Then most entries are documents and drops, and the migration yields far fewer ne
 
 ## Phase 3 — Order of operations
 
-1. **Spec first**: rewrite the project manual to the target kind (classes, folder list, load line) before any note moves — a note validated against a schema that does not exist yet is validated against nothing. A hybrid project keeps its work-tree section: `assets/project-AGENTS.md` assumes shape B, and dropping the work tree during the rewrite is a defect.
+1. **Spec first**: rewrite the project manual to the target kind before any note moves — a note validated against a schema that does not exist yet is validated against nothing. Fill `assets/project-AGENTS.md` and stop there: the kind's classes, folder table and section rules live in the skill and are restated nowhere else — a manual repeating them is maintained twice and reads as noise. A hybrid project keeps its work-tree section: `assets/project-AGENTS.md` assumes shape B, and dropping the work tree during the rewrite is a defect.
 2. **Evidence leaves first** (`raw/`, then `artifacts/`): nobody writes into them and they only link forward.
 3. **The dossier**, then **the cases** — a case rewrites its own body anyway, so it can link the new names directly.
 4. **Derived notes** (`extract`, `research`, `analysis`, `event`, `masterdata`), then the three root notes, then the generated sections.

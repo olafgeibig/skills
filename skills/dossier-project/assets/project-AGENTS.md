@@ -11,6 +11,7 @@ Ein Absatz. Keine Notizliste, keine Zahlen.}}
 ## Setup
 
 Shape: notes only (B) — kein Arbeitsbaum
+<!-- Hybrid (C): Workdir je Maschine als eigene Zeile (`- **Workdir** (per machine): `maschine` → /pfad`); Belegpfade in Notizen bleiben relativ zur Originalablage -->
 Projektverzeichnis: dieses Verzeichnis — Einstieg `+{{Projekt}}.md`
 Projekttyp: `dossier-project`
 
@@ -25,8 +26,8 @@ Seine Notiztypen und Pflegeregeln gelten; Abweichungen stehen nur hier.
 <!-- Drei bis sieben Zeiger, jeder mit Grund („vor ... öffnen"). Der Vollbestand steht im MoC. -->
 
 - `+{{Projekt}}.md` — Router; hier beginnt die Einordnung
-- `{{Projekt}} Aufgaben.md` — Task-Hub, alle offenen Aufgaben des Projekts
-- `{{Projekt}} Chronologie.md` — die eine Zeitleiste: nur Meilensteine
+- `Aufgaben {{Projekt}}.md` — Task-Hub, alle offenen Aufgaben des Projekts
+- `Chronologie {{Projekt}}.md` — die eine Zeitleiste: nur Meilensteine
 - {{wichtigste Stammdatum-Notiz}} — {{wofür nachschlagen, statt ein Dokument zu lesen}}
 
 ## Regeln
@@ -38,5 +39,5 @@ Notizklassen, Ordnertabelle, Routing und Pflichtabschnitte: Skill `dossier-proje
 
 ## Regeln erweitern
 
-Es gelten die Regeln und note types des skill `dossier-project`; Vault-Konvention → Vault-`AGENTS.md`; Methodik → `project-{{x}}`;
-Wichtiger Kontext steht in `conventions.md` und muss immer gelesen werden
+Vault-Konvention → Vault-`AGENTS.md`; Methodik → `project-{{x}}`.
+Wichtiger Kontext und Basisfakten stehen in `conventions.md` — die Datei entsteht mit ihrer ersten Regel, nicht vorher; sobald sie existiert, gilt sie und muss gelesen werden
