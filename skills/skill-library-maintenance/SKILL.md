@@ -1,7 +1,7 @@
 ---
 name: skill-library-maintenance
 description: "Use when auditing, developing or publishing skills."
-version: "2.0.0"
+version: "2.0.1"
 author: Olaf Geibig
 license: MIT
 metadata:
