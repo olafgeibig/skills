@@ -20,7 +20,7 @@ If a request is ambiguous, treat it as interpretive; one short clarifying questi
 
 ## Pre-write checklist (before the first change)
 
-1. **Project skill loaded** — the skill owning the affected notes' conventions (for `projects/<dir>/` or `area/<dir>/` paths: the `project-<dir>` skill, if it exists).
+1. **Project manual read** — for `projects/<dir>/` read that project's `AGENTS.md` and `conventions.md`, plus the Projektskill its `AGENTS.md` names; `area/<dir>/` paths have no project layer, only the vault's rules.
 2. **Search before write** — `search_files` for the filename the user named before the first change: it often already exists under a different scope. Read the target file and check its section headings before any patch/write.
 3. **Template/sibling check** — missing template → derive the shape from siblings, only after (1), which may already document the de facto template.
 4. **Patch-scope class** — sort every old-value hit into class 1/2/3 (below).

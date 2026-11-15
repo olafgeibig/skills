@@ -94,7 +94,7 @@ When a bookmark file turns out to belong to another area (the collection is real
 
 - List the destination area's `*-bookmarks.md` names first. A near-duplicate name in one folder (`agent-tool-bookmarks` next to `agent-tools-bookmarks`) defeats triage — rename by scope, or merge the entries verbatim into the existing file and retire the source.
 - Take the chance to fix the file-level `description:` and the scope line under the H1. They are the file's routing filter, and one that still says "browser automation tools" on a file covering MCP clients, research CLIs and vault tooling sends the next entry to the wrong file.
-- Update `tags` (`area/<old>` → `area/<new>`), frontmatter `topics`, the body `Topics:` footer, the old MoC (remove), the new MoC (add), and both `updated:` dates.
+- Update `tags` (`area/<old>` → `area/<new>`) and frontmatter `topics`; a body `Topics:` footer, where present, follows., the old MoC (remove), the new MoC (add), and both `updated:` dates.
 - Leave a footer `Related:` line to the neighbouring bookmark file when the two overlap, so the split looks deliberate rather than like an accidental duplicate — a plain footer label beside `Topics:`, not a new field inside an entry.
 
 ## Tasks in Bookmark Files

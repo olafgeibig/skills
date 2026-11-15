@@ -17,7 +17,7 @@ If the selected vault's root `AGENTS.md`, `README.md` or files referenced by it 
 
 Do not omit required sections or invent new structural layouts unless the vault-local instructions allow it.
 
-**Template missing? Derive from siblings.** A vault `AGENTS.md` may cite a template that was never written to disk — that is normal, not exceptional. When no template file exists for a note type (and the project skill's `references/` has no derived shape yet), read 2–3 sibling notes with the same `doc:` value (or the same directory-sublocation) and derive the de-facto structure — the union of frontmatter fields, H1 shape, lead paragraph, footer, and standing section headings — then apply it. Never invent a layout from scratch. Do not recreate the missing template file mid-task. Document the derived shape in the project skill's `references/` so the next agent doesn't have to re-derive it.
+**Template missing? Derive from siblings.** A vault `AGENTS.md` may cite a template that was never written to disk — that is normal, not exceptional. When no template file exists for a note type (and the project's `conventions.md` links no derived shape yet), read 2–3 sibling notes with the same `doc:` value (or the same directory-sublocation) and derive the de-facto structure — the union of frontmatter fields, H1 shape, lead paragraph, footer, and standing section headings — then apply it. Never invent a layout from scratch. Do not recreate the missing template file mid-task. Document the derived shape in the project's `conventions.md` so the next agent doesn't have to re-derive it.
 
 Before adding a markdown construct the vault has not used yet (callout, table, admonition), search the vault for existing instances (e.g. `grep -rn '> [!' --include=*.md .`) and adopt the vault's own placement — not the Obsidian default.
 
@@ -64,7 +64,7 @@ Related:
 - [[related-note]] — description
 ```
 
-`Topics:` matches the `topics:` frontmatter (bidirectional consistency; always at least one). `Related:` is optional — include it when related notes exist (`— description` suffixes optional but recommended).
+Where a note has a `Topics:` footer, it matches the `topics:` frontmatter; the footer is optional — `topics` alone carries the edge. `Related:` is optional — include it when related notes exist (`— description` suffixes optional but recommended).
 
 ## Importing Legacy Notes
 
@@ -85,7 +85,7 @@ For a straight copy-in-place import, follow this procedure:
 3. **Clarify before editing.** Ask about unclear terms/abbreviations/typos, tasks possibly completed since export, and naming/scope decisions. Do not auto-interpret ambiguous content — user confirmation prevents rework.
 4. **Add frontmatter** per vault `AGENTS.md`: `description` (~150 chars, no period), `type`, `created`, `tags` matching the directory, and `topics` as `"[[+<MoC>]]"`.
 5. **Convert legacy task formats:** inline `#topic` tag → `🆔 <topic-id>`; `@completed(...)` → `✅ YYYY-MM-DD`; a plain `✅ YYYY-MM-DD` stays valid.
-6. **Add the body footer** — `---` separator plus a `Topics:` wikilink to the parent MoC (see Note Footer Format above).
+6. **Add the footer only if the vault asks for it** — `topics:` already links the note to its MoC; where the footer exists it repeats the same link after a `---` separator (see Note Footer Format above).
 7. **Update the project MoC** — add an entry for each new note under the MoC's core-notes section.
 8. **Verify zero unprocessed files** — re-run the discovery SQL; every file must have `type IS NOT NULL` and `tags IS NOT NULL`, otherwise return to step 2.
 

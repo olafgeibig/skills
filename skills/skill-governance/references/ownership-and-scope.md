@@ -1,7 +1,7 @@
 # Ownership and Scope
 
 Load this when a routing question needs more than the decision matrix: a third-party skill might be
-maintained as a fork, a standing rule needs a home, a profile-local or project skill is being
+maintained as a fork, a standing rule needs a home, a profile-local skill is being
 placed, or a rule seems ready to leave the scope where it was found.
 
 ## Taking a third-party skill over as a maintained fork
@@ -58,28 +58,28 @@ re-creating a package under that path. Existing `metadata.adapted_from` records 
 by the declaration audit — readability, not permission to create another skill. A local delta that is
 still needed belongs in the owning skill's development phase, not in a new adaptation.
 
-## The project route: one skill per project
+## The project route: the project's own files
 
-A project skill is the route that is easiest to get wrong, because "project" is not a scope you can
-feel — either the project has an anchor or it does not.
+A project's specifics do not get a skill. The route that used to be `project-<folder>` is the project's
+manual: `AGENTS.md` plus the `conventions.md` beside it — both travel with the vault or the workdir, so
+every environment can read them, and the manual is the file that loads on entry.
 
-- **One skill per project, named after the project folder.** `project-<folder>` mirrors the project's
-  canonical folder (vault project folder, work tree) one-to-one. No project skill without a project to
-  anchor it; no actively used project without a skill.
-- **Confirm the naming bundle before the first write.** Before creating a project skill, confirm in one
-  message: the skill name (`project-<folder>`), the project folder, and the naming elements derived
-  from the same root (folder path, display name, note prefix, tag, MoC filename, language). The values
-  are downstream-coupled — correcting the root after the write means rewriting every file that mirrored
-  it, so bundle the checks; never create first and correct later.
-- **No note inventory.** The project's MoC is the single source for what exists and what is open. A
-  skill that lists notes, tasks or contacts duplicates the MoC and drifts from the first rename.
-- **What the skill does carry:** location and naming conventions, the load triggers, the stable
-  situation (who/what, and which open decision shapes the work), the working rules for that project,
-  and the methodology developed inside it.
-- **Methods discovered inside a project stay inside that project skill** as `references/` or
-  `scripts/` until a second, independent consumer exists.
-- **A method is not generic because it is method-shaped.** A source ladder, checklist or analysis
-  script written while working one project is that project's procedure, not a shared capability.
+- **One manual per project, named with the project.** The naming bundle is still worth confirming in one
+  message before the first write: folder path, display name, note prefix, tag, MoC filename, language.
+  The values are downstream-coupled — correcting the root afterwards means rewriting every file that
+  mirrored it.
+- **What the manual carries:** location and naming conventions, the load triggers, the stable situation
+  (who/what, and which open decision shapes the work), the working rules for that project, and the
+  methodology developed inside it.
+- **No note inventory.** The project's MoC is the single source for what exists and what is open; a
+  manual that lists notes, tasks or contacts duplicates it and drifts from the first rename.
+- **Methods discovered inside a project stay inside that project** — in its `conventions.md`, or in a file
+  the manual links — until a second, independent consumer exists.
+- **A method is not generic because it is method-shaped.** A source ladder, checklist or analysis script
+  written while working one project is that project's procedure, not a shared capability.
+- **A Projektskill is something else.** It governs a *Projekttyp* — a class of projects — and is named
+  after the type (`dossier-project`, `authoring-project`). One per type, never one per project; the split
+  is owned by `hermes-projects`.
 
 ## Promotion needs a second, independent occurrence
 
@@ -87,7 +87,7 @@ A method, checklist or script developed for one project is not evidence of a gen
 is evidence of one use. Promote it into an owned canonical skill when a **second, independent**
 consumer appears (another project, another domain, another profile), not on the first occurrence: a
 rule promoted on a guess lands in the shared artifact and has to be maintained there forever. Until
-then it lives in the project skill that uses it. Promotion itself is not a continuous process: the
+then it lives in that project's `conventions.md`. Promotion itself is not a continuous process: the
 delta enters the owning skill's development phase and is published with that phase's reviewed bytes,
 not written straight into a locked source.
 
@@ -121,5 +121,5 @@ not written straight into a locked source.
 - Standing rule placed in an always-discovered zone; identity kept in `SOUL.md`, not duplicated.
 - Profile-local skill is a real directory under `own/`, declares `metadata.scope: standalone`, and no
   new package was created under the legacy `adaptations/` path.
-- Project skill mirrors exactly one project folder, carries no note inventory, and any method it holds
+- A project's `AGENTS.md` mirrors exactly one project folder, carries no note inventory, and any method it holds
   has not been promoted on its first occurrence.

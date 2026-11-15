@@ -98,7 +98,7 @@ Personen laufen über **Tags und Dateinamen**, nie über Ordner — ein Personen
 1. `projects/<x>/` anlegen mit `+<x>.md` (Router) und `AGENTS.md` (Projektfakten, Abweichungen, Verweis auf diesen Skill).
 2. Klassen-Ordner erst beim ersten Beleg anlegen, nicht auf Vorrat.
 3. Eintrag in `projects/INDEX.md` plus reziproker Zeiger aus der thematischen Area — beide Suchpfade müssen landen.
-4. Personen-Kurzkarte und Tasks-Query in den Router. Ein `project-<x>`-Skill entsteht erst, wenn eine wiederkehrende Methode da ist.
+4. Personen-Kurzkarte und Tasks-Query in den Router.
 
 ## Migration und Modelländerung
 

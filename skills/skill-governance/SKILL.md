@@ -1,7 +1,7 @@
 ---
 name: skill-governance
 description: "Use when the skill concept decides a change."
-version: "2.0.0"
+version: "2.1.0"
 author: Olaf Geibig
 license: MIT
 metadata:
@@ -20,7 +20,7 @@ metadata:
 
 Where does this knowledge belong, and may the agent write there? Routing, skill kinds and permission — not how a package is written (`skill-builder`), not the development procedure (`skill-library-maintenance`).
 
-The four kinds: **canonical** (owned, git-versioned repository), **profile-local** (one profile's own skill under `$HERMES_HOME/skills/`), **project** (`project-<folder>`), **third-party** (read-only).
+The three kinds: **canonical** (owned, git-versioned repository), **profile-local** (one profile's own skill under `$HERMES_HOME/skills/`), **third-party** (read-only). Project-specific content is not a kind of skill — it lives in the project's own `AGENTS.md` and `conventions.md`.
 
 ## When to Use
 
@@ -39,7 +39,7 @@ The four kinds: **canonical** (owned, git-versioned repository), **profile-local
 
 ## Released Skills Are Locked
 
-A lock guards content — `skill_manage` cannot patch the package and the file-write guard refuses the same targets — but it neither pins a Git revision nor stops the user updating the checkout. **Released means locked:** a locked owned skill changes only through a **complete working copy** (whole package, same name, recorded baseline, one owner): `skill-library-maintenance` → workflow selector. A project skill outside the release boundary is ordinary authoring, edited where it lives. A skill that is or will be released stays inside the lifecycle even while its phase is open: the unlock opens the **working copy**, not the canonical package, and during a phase only `publish-skill.md` writes that package.
+A lock guards content — `skill_manage` cannot patch the package and the file-write guard refuses the same targets — but it neither pins a Git revision nor stops the user updating the checkout. **Released means locked:** a locked owned skill changes only through a **complete working copy** (whole package, same name, recorded baseline, one owner): `skill-library-maintenance` → workflow selector. A skill that is not released — profile-local, or in a repository outside the release boundary — is ordinary authoring, edited where it lives. A skill that is or will be released stays inside the lifecycle even while its phase is open: the unlock opens the **working copy**, not the canonical package, and during a phase only `publish-skill.md` writes that package.
 
 - **Unlocking is the user's action.** The agent states the exact skill name and waits; `hermes curator unlock <name>` is the user's command — no wrapper, relocated command or lock-record edit.
 - **A same-name local package is legitimate only as that working copy** — temporary, never a second canonical source or accidental shadow; it leaves discovery once publication is verified.
@@ -53,12 +53,12 @@ Classify by **generality** and **ownership**; route to exactly one target.
 |---|---|---|
 | **Generic** (true for any user of the skill) | Own | **The skill itself**, through its development phase |
 | **Generic** | Third-party | **Report, do not write** — state the proposed change; never the source tree |
-| **Project-specific** | Own | **A project skill** (`project-<folder>`) holding that project's context |
+| **Project-specific** | Own | **The project's own files** — `AGENTS.md` and the `conventions.md` beside it. A *Projektskill* governs a type of project, never one project |
 | **Agent-/environment-specific** | Any | **A profile-local skill** in a real directory under `$HERMES_HOME/skills/` |
 | **A project fact or a design draft** | Any | **Project repository content** — never a skill; a rule enters a skill only when extracted and approved |
 | **A narrowing or extension of an existing skill** | Own / third-party | **The owning skill** (owned only) — a delta inside it, never a parallel sibling; a third-party source is only reported |
 
-A rule discovered while working is routed in the session it arises (see Capture Discipline): generic → the owning skill at its development checkpoint, project-only → the project skill, profile/environment → a profile-local skill. When no phase is open and the target is a released skill, report the finding and propose opening one (`skill-library-maintenance` → `develop-skill.md`); never park it in another skill, memory or a diary. A new original skill is created only for an explicitly intended method with its own owner — not because a review is expected to write something. **`Nothing to save` is a valid outcome.**
+A rule discovered while working is routed in the session it arises (see Capture Discipline): generic → the owning skill at its development checkpoint, project-only → the project's `AGENTS.md`/`conventions.md`, profile/environment → a profile-local skill. When no phase is open and the target is a released skill, report the finding and propose opening one (`skill-library-maintenance` → `develop-skill.md`); never park it in another skill, memory or a diary. A new original skill is created only for an explicitly intended method with its own owner — not because a review is expected to write something. **`Nothing to save` is a valid outcome.**
 
 ## Routing Gate Before Creating a Skill
 
@@ -81,7 +81,7 @@ A substantive generic change is reviewed before it is written — as the **packa
 
 - **Classify and route in the session where the finding arises.** No staging file, batch diary or "collect now, sort later" pile: a pile has no owner, outlives its context and is never reviewed.
 - **Search before writing, and keep one home per rule.** A rule stated twice is a defect, not redundancy insurance; search the target for the imperative verb plus domain nouns, repeat before each later write in a series, and verify that a "see X" pointer resolves to a file that carries the content.
-- **Write the rule, not the incident.** Dates, IDs, handles and session narration are not knowledge; a finding that only makes sense with its story is project content → the project skill.
+- **Write the rule, not the incident.** Dates, IDs, handles and session narration are not knowledge; a finding that only makes sense with its story is project content → the project's files.
 - **Profile boundaries are trust boundaries.** Setup knowledge goes to the writing profile's own profile-local skill or its project files, never pooled across profiles or into a shared skill.
 - **Keep the shape.** `SKILL.md` carries always-on rules, depth goes to `references/`; respect the runtime budget.
 
@@ -108,7 +108,7 @@ Prices, caps, model lists, quota snapshots and dated probe results are volatile 
 - Do not store project facts, dated prices or environment quirks in a skill or its `references/`, and do not create a staging area, batch diary or dated pitfall file.
 - Do not invent a substitute skill, memory entry or diary when no writable target is in scope: report the useful proposed change instead.
 - Do not treat a locked skill as an obstacle: bulk-unlocking, editing `.usage.json` or the ledger, relocating the command or hiding the write in a helper are bypasses, not solutions.
-- Do not treat `skill_manage(action="create")` as a routing decision, create a project skill without a project, or promote a project-born method on its first occurrence.
+- Do not treat `skill_manage(action="create")` as a routing decision, invent a skill for a single project (its specifics belong in its `AGENTS.md` and `conventions.md`), or promote a project-born method on its first occurrence.
 - Do not answer a request for a capability that "used to exist" by creating a new skill.
 
 ## Verification

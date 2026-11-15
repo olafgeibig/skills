@@ -2,7 +2,7 @@
 name: vault-ops
 description: "Use when managing Obsidian vault structure and notes."
 metadata:
-  version: "0.24.0"
+  version: "0.25.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
@@ -153,7 +153,7 @@ topics: ["[[+related-moc]]"]
 ```
 - The `topics` property always contains links to MoCs (not tags and not notes — only MoCs) that link to this note. It can be more than one MoC. It serves as a **token‑efficient parent/related link** — the agent reads it from frontmatter (~100 tokens, no extra call). Values MUST be wikilink‑shaped strings, e.g. `"[[+Dataflows]]"` not `"+Dataflows"`.
 - For non‑wiki notes, use the MoC file name as the wikilink target (e.g. `[[+DFT]]`), not a full vault path; the `[[wiki/...]]` full‑path convention is reserved for vault‑wiki pages under `wiki/`.
-- **Hybrid navigation rule (MANDATORY):** Every note must have BOTH `topics` in frontmatter AND a body `Topics:` section after a horizontal rule with the same MoC links as real `[[wikilinks]]`:
+- **Navigation rule:** `topics` in frontmatter carries the MoC link *and* creates the graph edge — a note whose only `[[+MoC]]` sits in `topics` still appears in the MoC's incoming links; verify with `get_links` on the MoC instead of assuming. A body `Topics:` section is therefore **optional**; where a note keeps one (older notes do), it must not contradict the frontmatter. Where the vault's `AGENTS.md` still asks for the footer, follow it — the vault wins:
   ```
   ---
   topics: ["[[+agents]]", "[[+vault-ops]]"]
@@ -174,7 +174,7 @@ topics: ["[[+related-moc]]"]
 
 ### Common mistakes (avoid)
 - Writing bare names in frontmatter: `topics: ["+Dataflows"]` ❌ — must be `topics: ["[[+Dataflows]]"]` ✅
-- Forgetting the body `Topics:` footer or letting it drift out of sync with frontmatter.
+- Letting a body `Topics:` footer contradict the `topics` frontmatter — the footer is optional, but where it exists it must not point elsewhere.
 - Putting tags or paths into `topics` (e.g., `interfaces`, `analysis`, `analysis/+Dataflows`) — only MoC wikilinks belong there.
 - Descriptions that just restate the filename (e.g., `Analysis: Foo`) — write a one‑sentence content summary that adds value.
 - When curating an instance-specific MoC (profile, machine, deployment), distinguish documentation about that instance from generic notes it merely references; label older snapshots as historical rather than implying that adding navigation revalidated their contents. Follow `references/moc-writing.md` for the scoped discovery and linking procedure.

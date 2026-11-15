@@ -41,7 +41,7 @@ Steps:
 1. Read `topics` from frontmatter.
 2. Extract `[[+MoC]]` entries.
 3. Navigate directly to those MoCs.
-4. If graph correctness matters, verify that the same MoCs also appear as body links in the note's `Topics:` section.
+4. Where a note keeps a `Topics:` footer, verify it agrees with the `topics` frontmatter — the frontmatter alone carries the edge.
 
 ### MoC → Child Notes
 

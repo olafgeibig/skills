@@ -10,8 +10,8 @@ open yet. Load it for the opening steps only; review and publication are separat
 
 ## Preconditions
 
-- Ownership is settled per `skill-governance`: an owned canonical skill, a profile-local skill, a
-  project skill, or a third-party source. A third-party checkout is read-only — stop and report.
+- Ownership is settled per `skill-governance`: an owned canonical skill, a profile-local skill, or a
+  third-party source. A third-party checkout is read-only — stop and report.
 - You know the canonical repository and package path, or you know that this is a new skill with no
   canonical existence yet.
 - The current lock state is read before you ask anything (`hermes curator status`, or the refusal

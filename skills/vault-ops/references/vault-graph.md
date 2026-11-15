@@ -10,9 +10,9 @@ Vault Ops uses two complementary link layers:
    - Used by `mcp_turbovault_get_links(direction="outgoing")`, `mcp_turbovault_get_links`, `mcp_turbovault_get_related_notes`, the `links` SQL table, hub detection, centrality, and Obsidian graph view.
 2. **Frontmatter `topics`** — token-efficient parent/related MoC hints.
    - Used for quick Note → MoC routing and structured filtering.
-   - `topics` values are YAML strings, not real wikilinks; they do not create backlinks by themselves.
+   - `topics` values are YAML strings, but a `"[[+MoC]]"` value does create a graph edge — a note whose only MoC link is in `topics` shows up in the MoC's incoming links.
 
-Because `topics` does not create graph edges, every note that belongs to a MoC must include the same MoC links in the body `Topics:` section as real wikilinks.
+Frontmatter `topics` is enough for the edge; a body `Topics:` section is optional and, where a note has one, must agree with the frontmatter.
 
 ## Root And Scope
 
@@ -29,7 +29,7 @@ By default, Vault Ops operates on `area/`, `projects/`, `inbox/`, `sources/`, `s
 
 - Regular notes and MoCs in `area/` and `projects/` should be reachable from the relevant INDEX/MoC path.
 - A note should have at least one parent/related MoC in `topics` unless `AGENTS.md` defines another rule.
-- A note should also contain the same MoC links as body wikilinks in its `Topics:` section.
+- A note may repeat its MoC links in a body `Topics:` section; that is optional, and when present it must match the frontmatter.
 - MoCs should link to their curated child notes through body wikilinks.
 - Bidirectional links are required for navigation relationships (MoC ↔ child note, INDEX ↔ MoC). For ordinary semantic links, add reverse links only when they help navigation or retrieval.
 

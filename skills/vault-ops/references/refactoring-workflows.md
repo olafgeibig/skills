@@ -24,7 +24,7 @@ Use when a sub-MoC nested under a parent project accumulates enough notes to war
 **Pitfalls:**
 
 - `move_note` without `update_backlinks: true` strands every inbound link, and even with it `topics:`, aliases and canvas cards do not follow → `get_links` before and after, then targeted SEARCH/REPLACE.
-- `topics` is not a real wikilink — `get_links` won't find notes by it → keep real body `[[wikilinks]]` + a `Topics:` footer.
+- `topics` does create a graph edge: `get_links` on the MoC lists a note whose only MoC link sits in frontmatter. A body `Topics:` footer is a readable duplicate, not a requirement.
 - `update_frontmatter` merge behavior can clear fields → `merge=true` for targeted updates.
 - Stale INDEX `updated:` → set it manually after structural changes.
 

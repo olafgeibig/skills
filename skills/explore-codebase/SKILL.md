@@ -2,13 +2,13 @@
 name: explore-codebase
 description: "Use when exploring a codebase for evidence."
 metadata:
-  version: "0.3.2"
+  version: "0.3.3"
 ---
 
 ## When to use
 
 - Use this skill when exploring a repository under `./repos/` in a security analysis project.
-- Use the project's authoritative repo inventory, as identified by local `AGENTS.md` or a project skill, to determine repository paths and software-vs-infrastructure classification. Do not assume a filename or serialization format.
+- Use the project's authoritative repo inventory, as identified by local `AGENTS.md`, to determine repository paths and software-vs-infrastructure classification. Do not assume a filename or serialization format.
 
 ## Required / companion skills
 
@@ -419,7 +419,7 @@ Pitfall:
 - `references/repos-search-crosscheck.md` — why `search_files` may yield false negatives under `./repos/` and when to cross-check with `rg --no-ignore`.
 - `references/repo-inventory-format-gotcha.md` — verify inventory serialization before parsing; do not assume strict JSONL.
 - `references/reflog-based-change-sets.md` — reconstruct multi-repo change sets after batch `git pull` (use reflog-based baselines; avoid `--since` traps).
-- Project-specific interface, dataflow, and document-impact procedures belong in the matching project skill or local project guidance.
+- Project-specific interface, dataflow, and document-impact procedures belong in the project's `AGENTS.md` or `conventions.md`.
 - `references/reviewing-and-patching-agents-md.md` — checklist/workflow for keeping `AGENTS.md` consistent with the actual repo layout and toolchain.
 - `references/reviewing-agents-md-during-layout-changes.md` — session notes: directory drift, `read_file` dedupe bypass, and skill-name gotchas.
 

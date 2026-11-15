@@ -2,7 +2,7 @@
 name: authoring-project
 description: "Use when running an authoring-project: notes to publish."
 metadata:
-  version: "2.6.0"
+  version: "2.6.1"
   author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
   hermes:
@@ -82,7 +82,7 @@ At initialization, create the four scaffold directories listed above (`notes/`, 
 - `INDEX.md` is the main MoC: purpose, scope, working version, current state, and curated links with short descriptions. Distinguish active and deferred material when useful.
 - Start with INDEX as the only parent. Add `+Topic` MoCs for aspects that benefit from them; each has a parent that explicitly links back to it.
 - Every content note must be reachable from INDEX through curated MoC links. MoCs organize, not synthesize.
-- Every non-root content note has at least one MoC in `topics` as quoted wikilink strings, mirrored exactly in a body `Topics:` footer after a horizontal rule. The root uses `topics: []` and no footer or self-link. Instructions, templates, and other support files are exempt unless deliberately maintained as content notes.
+- Every non-root content note has at least one MoC in `topics` as quoted wikilink strings. A body `Topics:` footer is optional; where it exists it repeats the same link after a horizontal rule. The root uses `topics: []` and no footer or self-link. Instructions, templates, and other support files are exempt unless deliberately maintained as content notes.
 - Use unique basenames where possible; disambiguate collisions with vault-relative wikilink targets and optional aliases. Use relative attachment links and preserve case. No machine-specific absolute internal paths.
 - Keep semantic/dependency links in the body, not duplicated in frontmatter. Only MoC membership requires dual representation.
 - No Dataview or other plugin requirement. Do not overwrite `.obsidian` settings or require a preconfigured `.obsidian` directory. Content must remain understandable without the publication vault.
