@@ -1,5 +1,7 @@
 # TurboVault Troubleshooting
 
+Read this when TurboVault **exists but misbehaves** — a tool missing from the session, a spawn that fails or is parked, stale UI, reconnect churn, a server the session cannot reach. When the wiring has to be *changed* (first setup, a new vault, profile isolation, an upgrade), that is `references/vault-configuration.md`; when the vault's *content* is the problem, it is neither file.
+
 ## Runtime availability versus session exposure
 
 Distinguish two layers:

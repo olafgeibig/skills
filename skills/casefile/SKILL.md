@@ -29,7 +29,7 @@ Projektkind (Kind) für Knowledge-Work-Projekte, in denen reale Angelegenheiten 
 - Eine Note in einem casefile-Projekt klassifizieren, anlegen oder pflegen
 - Einen Vorgang beginnen, fortschreiben oder schließen
 
-Nicht für Reise-Projekte (`travel-planning`), Deliverable-Arbeit (`authoring-vault`) oder Code-Projekte (`hermes-projects`).
+Nicht für Reise-Projekte (`travel-planning`), Deliverable-Arbeit (`authoring-project`) oder Code-Projekte (`hermes-projects`).
 
 ## Die sechs Dokumentenklassen
 
@@ -103,6 +103,8 @@ Personen laufen über **Tags und Dateinamen**, nie über Ordner — ein Personen
 ## Migration und Modelländerung
 
 Zwei Strukturmaßnahmen mit festem Ablauf, beide in `./references/migration.md`: **Klassenmigration** (Altbestand aus flachen `zettel`-Notizen in die Klassenstruktur: Inventar → Entscheidungen → Verschieben → Link-Reparatur → Vorgangs-MoCs → Prüfung gegen die Baseline) und **Modelländerung** (die Shape der Klassen ändert sich, ein klassifiziertes Projekt zieht nach: Spec zuerst, dann Akten → Stammdaten → Zeitleiste → Vorgänge → Router → Prüfung gegen die Baseline).
+
+Der **Wechsel des Projektkinds** auf das `dossier-project`-Modell ist kein Fall dieser Referenz — sein Ablauf liegt im Ziel-Kind: `dossier-project` → `references/migrate-existing-project.md`.
 
 ## Betrieb mit TurboVault
 

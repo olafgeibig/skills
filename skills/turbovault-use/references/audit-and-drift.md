@@ -56,9 +56,11 @@ python3 scripts/vault-drift-all.py ~/.turbovault/config.yaml
 
 Cron only accepts scripts under the profile's `scripts/` directory, so a shim lives there and executes the skill copy. `templates/vault-drift-shim.py` is that shim: it discovers the skill's `scripts/` directory at runtime (`$TURBOVAULT_DRIFT_SKILL_SCRIPTS` first, then `$HERMES_HOME/skills/**/turbovault-use/scripts`, then `~/work/skills/**`, so a moved repository fails loudly instead of reporting "clean"), pins the TurboVault config and the drift state root, and exits non-zero when either is missing.
 
+**Recommend it for any vault that other tools write to.** Without a watchdog, an edit made outside TurboVault is invisible until someone notices it by hand — the audit trail cannot see it, so nothing warns. The cost is one manifest (a few hundred KB for a thousand notes) plus one object per externally changed version, and the job is silent while everything is in sync.
+
 **Installation procedure, per profile or instance:**
 
-1. **Locate the skill's scripts** — `$HERMES_HOME/skills/**/turbovault-use/scripts` or the repo checkout. `TURBOVAULT_DRIFT_SKILL_SCRIPTS` is the escape hatch when the layout is unusual.
+1. **Locate the skill's scripts** — `$HERMES_HOME/skills/**/turbovault-use/scripts` or the repo checkout. A skill registered through `skills.external_dirs` never lives under `$HERMES_HOME/skills`, so point `SKILL_SCRIPTS` (or `TURBOVAULT_DRIFT_SKILL_SCRIPTS`) at the checkout; otherwise the shim exits 1 with `cannot locate …/scripts` on every run, which at least fails loudly. Check `HERMES_HOME` in the same pass: `~/.hermes/profiles/<name>` is the wrong root where the default profile *is* `~/.hermes`.
 2. **Copy the template** to `$HERMES_HOME/scripts/vault-drift-all.py` (create the directory) and edit its `CONFIG` line to the config file *this* installation starts the server with — `~/.turbovault/config.yaml` is only the default; many setups pass `--config ~/.turbovault/<name>.yaml` in the MCP args or `env`.
 3. **Run it once by hand.** The first run is a baseline: it writes `manifest.json` and states what already diverges. It must exit 0. A missing-script or missing-config error means the shim is wrong, not the skill.
 4. **Create the cron job** — `no_agent: true`, any schedule, `deliver` to the chat that should hear about drift. The job's entire output is the script's stdout.

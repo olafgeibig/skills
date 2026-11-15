@@ -2,7 +2,7 @@
 name: vault-ops
 description: "Use when managing Obsidian vault structure and notes."
 metadata:
-  version: "0.23.0"
+  version: "0.24.0"
   source: https://github.com/olafgeibig/skills
   requires: turbovault (https://github.com/Epistates/turbovault)
   hermes:
@@ -20,7 +20,7 @@ Use this skill to manage a navigable notes-graph built from MoCs (Maps of Conten
 
 Use this skill as the default workflow for working with markdown note vaults. Vault Ops provides an opinionated approach to managing vaults using Obsidian-oriented best practices for top-level directory structure and note types. Vault specifics can be defined in the vault's AGENTS.md. The skill works best with TurboVault to interact with the vault safely.
 
-> **CSL vaults (security and compliance documentation):** The generic `area/`/`projects/`/`wiki/` layout below is the default. If a project adopts a **CSL vault** (lifecycle directories such as `analysis/`, `compiled/`, `evidence/`, `references/`, …), load the `csl-vault` skill — a separate package, installed only where CSL work is set up — for the CSL layout, lifecycle MoC, frontmatter-normalization, and template-sync conventions. This skill stays generic.
+> **Projektskills override or extend the defaults below.** The `area/`/`projects/`/`wiki/` layout is the default. A vault whose `AGENTS.md` names a **Projektskill** follows that skill for layout, lifecycle, note types and templates, and this skill's conventions apply only where it is silent. A project inside a vault is governed by its Projektskill too — but only inside `projects/<x>/`. Which types exist, which Containertyp each requires and how a manual declares them: `hermes-projects`.
 
 ## Basic mandatory rules
 
@@ -28,7 +28,7 @@ Use this skill as the default workflow for working with markdown note vaults. Va
 - Read VAULT.md when deeper understanding of the vault is needed. It contains context for understanding vault content, such as a glossary of vault-specific terms or additional structure notes.
 - Load the reference file that matches the user intent before acting.
 - Load `./references/source-verification.md` when the source is claim-heavy (headline numbers, availability claims, model cards).
-- Before creating, editing, or moving notes under `projects/<dir>/` or `area/<dir>/`, load the project skill (`project-<dir>`) if one exists. When none exists, read the project directory's `AGENTS.md` and the long-form file it links (typically `conventions.md`) before improvising project conventions.
+- Before creating, editing or moving notes under `projects/<dir>/`, read that project's `AGENTS.md` and the long-form file it links (typically `conventions.md`); the **Projektskill** named there governs the layout in that subtree. Notes under `area/<dir>/` follow this skill and the vault's `AGENTS.md` only — no project-level rule reaches into an area. Without a manual, read the MoC and ask before improvising project conventions.
 - When asked to park work for later, create the requested contextual note with an actionable open task; do not execute the deferred change or invent a due date. Keep the task in that note and link it from the MoC; a MoC may aggregate tasks with a query, not duplicate their checkbox lines. Follow `references/task-management.md` for the capture and verification sequence.
 - Before deleting an allegedly obsolete note, resolve the exact target and test whether its whole purpose is superseded; a replacement for one mechanism does not retire independent requirements. Treat “this note” as ambiguous when multiple recent notes fit, and clarify before deletion rather than explaining the assumption afterwards. Follow the retirement procedure in `references/refactoring-workflows.md`; keep related-note cleanup limited to links and directly invalidated claims.
 - **“Analyse this first” means analyse.** When the user asks for an analysis, a comparison, or an assessment, deliver that and stop — do not implement, refactor, or write files until they ask, and do not treat a follow-up question inside a design discussion as a work order. Give the options and the recommendation, then wait.
@@ -48,15 +48,27 @@ Read additionally `VAULT.md`
 
 ## Instruction Precedence
 
-- **Which skill governs a vault is the vault's `AGENTS.md`'s decision, not the session's.** This skill plus that vault's specific skill is the default whenever the `AGENTS.md` names no skill. Apply a working-vault skill (`authoring-vault` for `authoring`-kind deliverable vaults, `csl-vault` for CSL where that package is installed) only where the vault's `AGENTS.md` declares that kind or names that skill — never because the subject matches the topic, the session is about it, or the skill menu offers it.
-- The selected vault's root `AGENTS.md` overrides this skill.
-- Files referenced by that vault `AGENTS.md` also override this skill.
+**Two scopes, because a vault can be a project itself and contain projects.**
+
+*Vault scope — applies everywhere in the vault*
+
+1. The root `AGENTS.md` and the files it names.
+2. The **Projektskill** that `AGENTS.md` names, when the vault is itself a project — one at its own root, or one that sits in a project's workdir.
+3. This skill and its `references/*.md` — the default wherever the vault declares nothing.
+
+*Project scope — inside `projects/<x>/`*
+
+1. That project's `AGENTS.md` and its `conventions.md`.
+2. The Projektskill it names — or none, for a `flat` project.
+3. The vault scope above, for everything the project does not decide.
+
+**Which skill governs a vault is the vault's `AGENTS.md`'s decision, not the session's.** Apply a Projektskill only where that file names it — never because the subject matches the topic, the session is about it, or the skill menu offers it. In the project scope, a project rule may narrow or extend the vault's conventions inside its own subtree; where it contradicts a vault invariant — type vocabulary, language policy, sync — surface it with an amendment proposal.
 - `./references/*.md` contains default conventions to use only when the vault does not define a more specific rule.
 - **A vault rule that contradicts the requested shape is surfaced, not silently overridden.** When the vault's own `AGENTS.md` says project conventions belong in a `project-*` skill and the user asks for project files (or the reverse), build what was asked and report the contradiction in the same reply with a concrete amendment proposal. Otherwise the next agent reads the vault rule first and either flags the new files as a defect or ignores them.
 
 ## Project context
 
-Project structure is not this skill's business. The project shapes (worktree only, notes only, hybrid), where a project's `AGENTS.md` lives and what it contains, the machine table, working vaults and the publication path are owned by **`hermes-projects`** — load it whenever a request touches a project's structure, its `AGENTS.md`, a work tree or a second vault.
+Project structure is not this skill's business. **Projektform** (`workdir` / `vault` / `hybrid`), **Projekttyp** and **Containertyp**, where a project's `AGENTS.md` lives and what it contains, the machine table and the publication path are owned by **`hermes-projects`** — load it whenever a request touches a project's structure, its `AGENTS.md`, a workdir or a vault of its own.
 
 What stays here, because it is about the notes themselves: the vault's root `AGENTS.md` as the constitution that overrides everything else, the `INDEX.md` hierarchy, note types and frontmatter, and the writing conventions below.
 
@@ -177,7 +189,7 @@ topics: ["[[+related-moc]]"]
 - Descriptions:
   - Non‑empty, one sentence, content‑based (no trailing period preferred), not filename echoes.
 
-> **Bulk normalization of CSL analysis notes** (domain tags, `analysis` manifest snapshot, MoC-derived topics): see the `csl-vault` skill (where installed) and its `csl-analysis-frontmatter-normalization` reference.
+> **Bulk normalization of a specialised vault's notes** (domain tags, manifest snapshots, MoC-derived topics): the rules are the ones the vault's Projektskill defines — read them there first, and apply this skill's checklist only where that skill is silent.
 
 ## Improvement Routing
 
@@ -230,4 +242,4 @@ See the `turbovault-use` skill for complete `edit_note` syntax, format requireme
 - Default note template: `./assets/note-template.md`
 - Default MoC template: `./assets/moc-template.md`
 
-> **CSL vault template sync** (e.g. `assets/*` → `csl/system/templates/`): see the `csl-vault` skill (where installed).
+> **Templates come from the Projektskill or the vault's `AGENTS.md`.** Where either defines templates, they take precedence over the `assets/*` here, and the sync target is declared, not assumed.

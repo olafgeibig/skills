@@ -6,14 +6,21 @@ with `no_agent: true` that runs it. The cron runner only accepts scripts under
 the profile's `scripts/` directory, which is why the shim exists at all — the
 logic lives in the `turbovault-use` skill.
 
-Two things are installation-specific and belong in the copy, not in the skill:
+Four things are installation-specific and belong in the copy, not in the skill:
 
-  CONFIG      the TurboVault config file this installation actually runs (it is
-              not always `~/.turbovault/config.yaml`; a machine that starts the
-              server with `--config ~/.turbovault/<name>.yaml` needs that path
-              here)
-  STATE_ROOT  the drift state directory, kept under this profile so scheduled
-              runs share the baseline with manual ones
+  CONFIG        the TurboVault config file this installation actually runs (it is
+                not always `~/.turbovault/config.yaml`; a machine that starts the
+                server with `--config ~/.turbovault/<name>.yaml` needs that path
+                here)
+  HERMES_HOME   the profile root. `~/.hermes/profiles/<name>` is wrong wherever
+                the default profile *is* `~/.hermes` — there a scheduled run
+                without this pins itself to a directory that never existed
+  STATE_ROOT    the drift state directory, kept under this profile so scheduled
+                runs share the baseline with manual ones
+  SKILL_SCRIPTS the skill's `scripts/` directory. A skill registered through
+                `skills.external_dirs` never appears under `$HERMES_HOME/skills`
+                and a repo outside `~/work/skills` is not found either, so the
+                shim would die with `cannot locate …/scripts` on every run
 
 Everything else is discovered at runtime, so moving the skill repository does
 not silently break the job: the shim fails loudly instead of reporting "clean".

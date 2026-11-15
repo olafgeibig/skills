@@ -7,27 +7,29 @@ are produced, say where they are produced and where they end up.}}
 
 ## Setup
 
-Shape: {{notes only | notes + work tree | notes + work tree + skill <name>}}
-Project directory: {{this directory | the work tree — its AGENTS.md is the operating manual}}
+Projektform: {{workdir | vault | hybrid}}
+Projekttyp: {{flat | dossier-project | authoring-project | csl-project}}
+Containertyp: {{vault | workdir | standalone}} — only where the project has a vault
+Projektverzeichnis: {{this directory | the workdir — its AGENTS.md is the operating manual}}
 
 - **Notes:** this directory — entry `{{+MoC}}`
-- **Work tree** (per machine): `{{machine}}` → `{{/absolute/path}}` · `{{machine}}` → not present
-- **Working vault:** `{{subdirectory}}`, kind `{{knowledge-base|authoring|csl}}` — or `none`
+- **Workdir** (per machine): `{{machine}}` → `{{/absolute/path}}` · `{{machine}}` → not present
+- **Own vault:** `{{subdirectory}}`, Containertyp `{{workdir}}` — or `none`
 
-Work inside a working vault starts with its skill, not with this file: load `{{authoring-vault|csl-vault|none}}`, then read `{{subdirectory}}/AGENTS.md` before the first write there. Inside that directory the vault's own manual governs — layout, metadata, navigation, project-specific overrides; out here this file does. Never drive the vault from this manual alone, and do not treat the skill as a substitute for the vault's local rules: the skill carries the reusable conventions for its kind, the vault file carries the decisions this vault made.
+Work inside the project's own vault starts with its skill, not with this file: load `{{authoring-project|csl-project|none}}`, then read `{{subdirectory}}/AGENTS.md` before the first write there. Inside that directory the vault's own manual governs — layout, metadata, navigation, project-specific overrides; out here this file does. Never drive the vault from this manual alone, and do not treat the skill as a substitute for the vault's local rules: the skill carries the reusable conventions for its type, the vault file carries the decisions this vault made.
 
-{{With a work tree this file is the router: purpose, where the project lives per machine, and
+{{With a workdir this file is the router: purpose, where the project lives per machine, and
 what the notes here are for — knowledge source, and publication target when they are one. The
 manual lives next to the code, because AGENTS.md loads from the working directory and every other
-agent working in that repo reads it there. Without a work tree this directory is the project
+agent working in that repo reads it there. Without one this directory is the project
 directory, so this file is the manual itself.}}
 
 Machines are logical names; resolve `hostname` against the machine table in the `hermes-projects`
 skill — that table is the one place to edit when an installation changes, so never restate its
 hostnames or roles here. Unknown hostname → ask. Never write an OS hostname here, and never reuse
 another machine's path.
-Paths go one way: this file names the work tree's path per machine (nothing else can discover a
-checkout location); the work tree's file names the vault by **name** and resolves it with
+Paths go one way: this file names the workdir's path per machine (nothing else can discover a
+checkout location); the workdir's file names the vault by **name** and resolves it with
 `list_vaults`, because a vault path differs per machine.
 
 ## Important resources
@@ -40,7 +42,7 @@ checkout location); the work tree's file names the vault by **name** and resolve
 - {{Where content is produced, and where it is published.}}
 - {{Publication needs an explicit yes; never copy a file in place of writing a note.}}
 - {{Never mirror: one artefact, one home.}}
-- {{No vault guarantees in a work tree: no hash guard, no audit, no rollback, no drift check.}}
+- {{No vault guarantees in a workdir: no hash guard, no audit, no rollback, no drift check.}}
 - {{Commit after project work — or state plainly that nothing is versioned.}}
 
 ## Extending the rules
@@ -49,7 +51,7 @@ Read and extend [conventions.md](conventions.md) — never grow this file. It ho
 the verification standard and the quirks that are too detailed for a page. Create it with the
 first rule that does not fit here, and link it from this section in the same change: a dangling
 link is worse than a short manual. In a vault it is a note (frontmatter, `topics`, body `Topics:`
-footer, MoC entry); in a work tree it is a plain markdown file.
+footer, MoC entry); in a workdir it is a plain markdown file.
 
 Keep this file to about a page: it is read on every entry, the rest only on demand. Where a
 project skill holds the method instead, name it here and keep the facts in this file.

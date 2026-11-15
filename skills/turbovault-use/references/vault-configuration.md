@@ -1,6 +1,19 @@
-# Vault Configuration
+# TurboVault Configuration Guide
 
-turbovault-use requires an available TurboVault MCP server.
+`turbovault-use` requires an available TurboVault MCP server. This guide is where the wiring is made and repaired; it is not where the vault is operated.
+
+## When to read this
+
+Read it when **TurboVault** is the problem, never when a **vault** is:
+
+| The question | Where |
+|---|---|
+| "It is missing, unreachable, or a tool vanished" | §Detect TurboVault below, then `references/troubleshooting.md` for the symptom |
+| "The wiring must change" — first setup, a new vault, a new machine, profile isolation, an upgrade | this file, end to end |
+| "Something misbehaves although it is there" — parked spawn, stale UI, reconnect churn | `references/troubleshooting.md`, not here |
+| "How do I edit, move, query, delete?" | the tool reference for that task; neither of these files |
+
+The always-on checks stay in `SKILL.md` §Establish Availability (`list_vaults` first; an empty list after a restart is a registry reset, not an empty vault; a missing tool does not prove the server is down). Read this guide when those checks report something wrong that has to be fixed.
 
 ## Detect TurboVault
 
@@ -73,9 +86,11 @@ Register only the vaults needed for the task. If none are discoverable, ask for 
 
 The registry is not one global list. In 4.0 registration combines these sources (configured entries take precedence over cached entries with the same name; this is not a guarantee of execution order):
 
-1. vaults declared in `~/.turbovault/config.yaml` (auto-read) or the file passed with `--config`;
+1. vaults declared in the file passed with `--config` — the only source of a `vaults:` list: without the flag the default path `~/.turbovault/config.yaml` is opened for its `tool_visibility` section alone, so no vault declaration and no per-vault setting is read, and the registry comes from the project cache;
 2. vaults restored from the per-project cache `~/.cache/turbovault/projects/<hash>/vaults.yaml`;
 3. `--vault <path>`, registered as `default` if that name is free.
+
+**A listed advanced-tool set proves the file was found, never that its `vaults:` were applied.** The `config` echo of `list_vaults(name: …)` is the proof for that half: compare it field by field with the YAML — `is_default`, `reconcile_external_changes`, `max_file_size`, `allowed_operations`. A stale cache entry produces a plausible-looking echo in which every declared value is missing (`is_default: false`, `reconcile_external_changes: null`) while `tool_visibility` and the tool count look perfectly healthy. When the values are missing: put `--config <path>` into the launch entry, rename the project cache directory aside — renamed, not deleted, it is the evidence — then restart and re-read the echo.
 
 Treat the configured `is_default`, runtime default flags, and active selection as separate observations. Do not promise active selection from the YAML alone: a v4 startup with restored cache state can select a different vault. Because the cache is keyed by the server's **working directory**, two Hermes processes (dashboard, gateway) can report different vault lists on the same machine. Declare intended entries explicitly, then verify the complete live registry and active selection after startup; cached names absent from the config may also be restored. Test both a clean cache and a disposable copy of the relevant existing cache under the intended working directory before claiming restart behavior. Keep all probe cache writes isolated from production.
 
