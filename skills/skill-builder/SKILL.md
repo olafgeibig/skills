@@ -179,7 +179,7 @@ For existing skills:
 - **Read before write (enforced).** `skill_view(name)` before patching an existing `SKILL.md`; `skill_view(name, file_path=...)` before overwriting an existing supporting file. Content quoted earlier in the transcript does not count — a fresh load is required.
 - Use `skill_manage` for existing skills resolved from the profile or an external directory: it patches in place with native validation, ledger, cache invalidation and security hooks. Use `write_file` for supporting files and targeted `patch`/`remove_file` over full rewrites.
 - While a same-name working copy is open, the bare name resolves to that copy — it is not the released package.
-- `skill_manage(action="create")` writes only to the profile-local skills directory or the single configured `skills.create_dir`. Use it when that resolved root is the intended one. A skill destined for the released canonical library is built profile-local and published through the maintenance lifecycle (`skill-library-maintenance` → `develop-skill.md`, `publish-skill.md`); only an unlocked owned repository (a project skill) is written in place.
+- `skill_manage(action="create")` writes only to the profile-local skills directory or the single configured `skills.create_dir`. Use it when that resolved root is the intended one. A skill destined for the released canonical library is built profile-local and published through the maintenance lifecycle (`skill-library-maintenance` → `develop-skill.md`, `publish-skill.md`); only an unlocked owned repository is written in place.
 - **Reference steps must be literally executable.** Never nest a tool call inside another tool call's argument (`write(content=fetch(url))`); split nested operations into sequential steps.
 - Re-read the saved file and verify its frontmatter.
 - **Never edit a third-party skill's `SKILL.md`** — report the proposed change instead.
@@ -196,7 +196,7 @@ See `references/editing-skills-guide.md` for change classes, structural moves an
 
 ```bash
 cd ~/.hermes/hermes-agent && venv/bin/python -c "from pathlib import Path; from tools.skill_linter import lint_skill; print(lint_skill(Path('<package>/SKILL.md')))"
-```
+```selber editiert und schon alles committed jetzt nochmal eine Frage das frage ich mich auch dieses read before write und auch irgendwo in diesem ganzen skill ah
 
 Expect no `missing-metadata` and no `dangling-reference` finding.
 
