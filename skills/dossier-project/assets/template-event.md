@@ -15,7 +15,7 @@ topics:
 
 <!-- KOPF: Datei `events/YYYYMMDD-<case-slug>-<was>.md`, Datum = Tag des Geschehens.
      NUR für Vorgänge OHNE Dokument: Telefonat, Auskunft am Tresen, mündliche Zusage, Zahlung.
-     Ein Brief ist ein `document`, ein Schreiben von dir ein `artifact` — mit Datum, also im Verlauf.
+     Ein empfangener oder versandter Brief ist ein `document`, kein Event.
      Nichts mit Inhaltlosem: ein Halbsatz gehört in den `## Stand` des Falls.
      Kein Event ohne Fall. Einmal geschrieben, nie mehr geändert. -->
 

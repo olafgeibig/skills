@@ -14,6 +14,7 @@ preview that could not be reviewed, a hand-written line proposed for deletion.
 """
 
 import os
+import json
 import re
 import shutil
 import subprocess
@@ -32,6 +33,7 @@ VALUES = {
     "{{Dossier}}": "nachlass",
     "{{Fall}}": "grundbuch",
     "{{x}}": "demo",
+    "{{Projektpfad-RegEx}}": r"projects\/demo",
     "{{action}}": "@computer",
     "{{kurz-id}}": "a1",
     "{{YYYY-MM-DD}}": "2026-11-14",
@@ -67,7 +69,7 @@ PLACEMENT = [
     ("template-research.md", "resources/recherche-wohnrecht.md"),
     ("template-analysis.md", "analyses/20261114-verkehrswert.md"),
     ("template-masterdata.md", "masterdata/versicherung.md"),
-    ("template-task-hub.md", "Demo Aufgaben.md"),
+    ("template-task-hub.md", "Aufgaben Demo.md"),
 ]
 
 ROUTER = """---
@@ -95,7 +97,7 @@ class Vault:
     def __init__(self):
         self.root = tempfile.mkdtemp(prefix="dossier-selftest-")
         self.write("AGENTS.md", "# vault\n")
-        self.write("projects/demo/AGENTS.md", "Shape: notes only (B)\n")
+        self.write("projects/demo/AGENTS.md", "Projektform: vault\n")
         self.write("projects/demo/+Demo.md", ROUTER)
 
     def write(self, rel, text):
@@ -319,13 +321,13 @@ def t_source(v):
     code, out = v.run("--report")
     expect("URL source needs no sha256", "20261201-url" not in out, out)
     v.write_note("raw/20261202-pfad.md",
-                 "---\ndescription: Vom Rechner\ntype: document\nsource: /home/olaf/original.pdf\n"
+                 "---\ndescription: Vom Rechner\ntype: document\nsource: documents/original.pdf\n"
                  "cases:\n- '[[grundbuch]]'\n---\n\n# Vom Rechner\n\nText.\n")
     code, out = v.run("--report")
     expect("a path without a checksum is accepted", "20261202-pfad" not in out, out)
     v.write_note("raw/20261203-fern.md",
                  "---\ndescription: Auf anderer Maschine\ntype: document\n"
-                 "source: /home/olaf/remote/x.pdf\nsha256: abc\ncases:\n- '[[grundbuch]]'\n---\n\n# Fern\n\nText.\n")
+                 "source: documents/remote/x.pdf\nsha256: abc\ncases:\n- '[[grundbuch]]'\n---\n\n# Fern\n\nText.\n")
     code, out = v.run("--report")
     expect("an unreachable path with a checksum is fine", "20261203-fern" not in out, out)
 
@@ -540,7 +542,92 @@ def t_parents(v):
     expect("a parent link must resolve", code != 0 and "no note of that name exists" in out, out)
 
 
+def t_review_fixes(v):
+    project = v.path("")
+    v.build_templates()
+    v.patch("events/20261114-grundbuch-telefonat.md", "[[grundbuch]]", "[[GRUNDBUCH]]")
+    v.patch("cases/grundbuch.md", "[[nachlass]]", "[[NACHLASS]]")
+    _, out = v.run("--rebuild")
+    expect("case-insensitive parent matching", "[[20261114-grundbuch-telefonat]]" in out
+           and "| [[grundbuch]] | open |" in out, out)
+    v.write("wiki/GRUNDBUCH.md", "# Other\n")
+    v.write_note("masterdata/versicherung.md", "---\ntype: masterdata\n---\n- [/] Aufgabe\n")
+    _, out = v.run("--report")
+    expect("case-insensitive duplicate and masterdata checkbox", "duplicate basename" in out
+           and "masterdata must not carry tasks" in out, out)
+    _, out = v.run("--audit")
+    expect("shipped task hub passes scope audit", "task hub" not in out, out)
+    v.write_note("Aufgaben Demo.md", "---\ntype: utility\n---\n```tasks\npath includes projects/demo\n```\n")
+    _, out = v.run("--audit")
+    expect("task hub must use the exact cases subtree", "cases/" in out, out)
+
+    def search(mode, *args):
+        return subprocess.run([sys.executable, "-B", os.path.join(HERE, "search.py"), mode,
+                               project, *args], capture_output=True, text=True)
+
+    v.write_note("resources/retrieval.md", "---\ntype: analysis\nstatus: [draft]\n"
+                 "sources: ['[[raw/Beleg#Abschnitt|Beleg]]', https://example.org/a]\n"
+                 "misc: '[[Sonstiges]]'\n---\n## Kurzfassung\n\nGebu\u0308hren\n\n[[Textziel]]\n")
+    r = search("topic", "--query", "unrelatedxyz", "--json")
+    expect("unrelated topic has no results, malformed note status does not crash",
+           r.returncode == 0 and r.stdout.strip() == "[]", r.stdout + r.stderr)
+    r = search("topic", "--query", "Gebühren", "--json")
+    expect("decomposed German query match", r.returncode == 0 and "resources/retrieval.md" in r.stdout,
+           r.stdout + r.stderr)
+    r = search("chain", "--note", "wrong/retrieval.md", "--json")
+    expect("bad qualified path does not resolve by basename", r.returncode != 0, r.stdout)
+    r = search("chain", "--note", "projects/demo/resources/retrieval.md", "--json")
+    expect("chain keeps URLs, anchors, labels and separate metadata fields", r.returncode == 0
+           and "[[raw/Beleg#Abschnitt|Beleg]]" in r.stdout and "https://example.org/a" in r.stdout
+           and '"misc"' in r.stdout and '"body"' in r.stdout, r.stdout + r.stderr)
+    r = search("topic", "--query", "test", "--limit", "-1")
+    expect("negative limit rejected", r.returncode != 0 and "Traceback" not in r.stderr, r.stderr)
+    v.write_note("cases/vergleich.md", "---\ntype: case\n---\nGrundbuch\n")
+    r = search("similar", "--note", "cases/grundbuch.md", "--json")
+    expect("similar returns another case, not the reference or evidence", r.returncode == 0
+           and [row["path"] for row in json.loads(r.stdout)] == ["cases/vergleich.md"], r.stdout + r.stderr)
+    questions = v.write("questions.json", '[{"q":"Gebühren","expect":["retrieval"]}]')
+    r = search("calibrate", "--questions", questions, "--json")
+    expect("calibrate emits JSON evaluation", r.returncode == 0
+           and json.loads(r.stdout)["variants"][0]["hit_rate"] == 1, r.stdout + r.stderr)
+    bad = v.write("bad.json", '{"lexical":NaN}')
+    r = search("topic", "--query", "test", "--weights", bad)
+    expect("nonfinite weight is rejected", r.returncode != 0 and "Traceback" not in r.stderr, r.stderr)
+    r = search("calibrate", "--questions", bad)
+    expect("invalid calibration schema is rejected", r.returncode != 0 and "Traceback" not in r.stderr, r.stderr)
+
+
+def t_eml(v):
+    from email.message import EmailMessage
+    import hashlib
+
+    m = EmailMessage()
+    m["Subject"] = "Test"
+    m.set_content("Nachricht\n<https://example.org/beleg>\nperson@example.org <mailto:person@example.org>")
+    m.add_attachment(b"", maintype="application", subtype="octet-stream", filename="leer.bin")
+    m.add_attachment(b"inline", maintype="image", subtype="png", filename="bild.png",
+                     disposition="inline", cid="<bild>")
+    m.add_attachment(EmailMessage(), filename="weitergeleitet.eml")
+    raw = m.as_bytes()
+    path = v.write("test.eml", raw.decode("ascii"))
+    r = subprocess.run([sys.executable, os.path.join(HERE, "eml_to_md.py"), path],
+                       capture_output=True, text=True)
+    expect("attachment hashes cover actual zero-byte and inline payloads", r.returncode == 0
+           and hashlib.sha256(b"").hexdigest() in r.stderr
+           and hashlib.sha256(b"inline").hexdigest() in r.stderr
+           and hashlib.sha256(raw).hexdigest() in r.stderr and "bild.png" not in r.stdout,
+           r.stdout + r.stderr)
+    expect("no empty hash fabricated for non-byte MIME attachment", "weitergeleitet.eml" in r.stderr
+           and hashlib.sha256(b"").hexdigest() not in next(
+               (line for line in r.stderr.splitlines() if "weitergeleitet.eml" in line), ""), r.stderr)
+    expect("standalone evidence link preserved, duplicate annotation removed",
+           "<https://example.org/beleg>" in r.stdout and "person@example.org" in r.stdout
+           and "mailto:" not in r.stdout, r.stdout)
+
+
 SCENARIOS = [
+    ("review-fixes", t_review_fixes),
+    ("eml", t_eml),
     ("parents", t_parents),
     ("review-safety", t_review_safety),
     ("crlf", t_crlf),

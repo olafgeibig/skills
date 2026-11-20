@@ -1,5 +1,9 @@
 # Editing and Batch Operations
 
+## Hermes payloads
+
+Pass `tool_call.calls` as a real array of `{name, arguments}` objects, not JSON nested in a string. Serialize `content` and `edits` once as ordinary JSON strings; preserve literal quotes, backslashes, and Unicode in the note. A malformed envelope or wrong key is rejected before MCP runs; correct the structure and reissue the same tool. If a write is too large for the client, split it at section boundaries, sequence the writes with fresh hashes, and append any footer last.
+
 ## Targeted edits
 
 `edit_note` uses SEARCH/REPLACE blocks:
@@ -19,32 +23,28 @@ Rules:
 - Use the complete delimiters, including `REPLACE` on the closing line. **Each block needs its own opening `<<<<<<< SEARCH` and closing `>>>>>>> REPLACE`** — two edits written as one block with two `=======` dividers is a parse error (`block contains 3 `=======` divider lines`), not two blocks.
 - End the `edits` string exactly at the `>>>>>>> REPLACE` line — no trailing XML-style closing tag. A stray `</edits>` is parsed as more block content and fails with `Parse error: Incomplete SEARCH/REPLACE block (state: InReplace). Expected >>>>>>> REPLACE`.
 - No wrapper tags around the block (`<edits>`, `<search>`, `<replace>`) and no quote-escaping of the delimiters — the parser reads them as content and fails with `Parse error: No SEARCH/REPLACE blocks found`.
-- After a parse error, do not retry the same shape: rebuild the call correctly, or fall back to `write_note` with the full content in overwrite mode.
+- On a parse error, fix the payload and retry `edit_note`; none of the blocks apply. On an apply error, read back and reconcile before retrying (see Verification).
 - Do not assume a partial match or regex interpretation.
 - For a large insert, use the next heading as the SEARCH anchor and place the new section before it — the following heading stays stable while content above the insertion point changes, and short heading anchors are far less fuzzy-prone than long bullet lines with quotes or em dashes.
 - After the patch, read the section back and check that no blank line sits before the inserted bullet; a SEARCH/REPLACE anchored before a heading otherwise leaves a gap.
-- Catalog lines may use non-ASCII separators (Unicode em dash); match on stable prefixes (e.g. up to the `|` in `- [[path|alias]]`) or rewrite whole sections, verify after the write, and never assume ASCII ` - ` separators in SEARCH blocks.
+- For catalog lines with typographic separators (e.g. em dashes), copy the full line exactly from `read_note`; do not use a prefix as the SEARCH block.
 - Through `tool_call`, `edit_note` takes `{path, edits}`; a SEARCH/REPLACE block passed under a wrong argument name returns "missing required argument(s): edits" — retry with `edits`, do not rebuild the content.
 
 Complex YAML, tables, brackets, backticks, and multiline lists can make targeted replacement fragile. If parsing or matching fails, read the complete note, modify it, and use `write_note` with explicit overwrite mode.
 
 Files that document these delimiters themselves (this reference, recipes with example fences) trip `read_file`'s merge-conflict heuristic: an "unresolved block" report there is a false positive when the markers sit inside example fences and `git status` shows no real conflict.
 
-## Patch whitespace traps
+## Note write path
 
-The `patch` tool on vault notes has three recurring whitespace failure modes:
-
-- **Title duplication:** patching a note that already has an H1 can produce a double title. Read the note first and match the title line together with its blank-line separator.
-- **Concatenated lines:** a `new_string` without a trailing newline glues the replacement to the next line (`[[+Agents]][[area/x]]`). Always end inserted text with an explicit trailing newline — the server writes bytes exactly as sent and adds nothing, so the newline is yours to supply. A read-back after every patch adds no information: read again only when the match came back fuzzy or `blocks_applied` fell short of `total_blocks`.
-- **Section-name mismatch:** an `old_string` written as `## Related` does not match a file with `## See Also`. Verify the actual header first (`read_file`/`search_files`) — seen variants: `## See Also`, `## Related`, `## Related Pages`, `## Verwandte Seiten` — and read the "Did you mean one of these sections?" hint in the tool response.
+Use `edit_note` for localized changes, or `write_note` with the current hash and explicit mode for a full rewrite. For index or catalog entries, anchor on unique complete lines and read back the edited section to catch duplicates or joined lines. Use the note tools for both operations; filesystem writes are reserved for non-note artifacts.
 
 ## Partial reads
 
-`read_note` accepts `path` plus at most one selector — `head_lines`, `tail_lines`, `heading_equals`, `heading_level`, `last_sections`. Combining two selectors is a validation error. A partial read returns `truncated`, `total_lines`, and `returned_lines`/`sections` metadata but **no `hash`**, so it cannot supply `expected_hash`; use a full read or an `edit_note` dry run for that. Use a selector to locate or verify one section instead of pulling a multi-KB note whole.
+`read_note` takes `path` and either one line selector (`head_lines` or `tail_lines`) or section selectors (`heading_equals`, `heading_level`, `last_sections`). In 4.0.2 the section selectors can be combined, e.g. `heading_level: 2`, `heading_equals: "Match"`, `last_sections: 1`; check the live schema before combining. `heading_equals` is case-sensitive: on no match, inspect the actual H1–H6 headings and retry with their exact text, or read the full note. A partial read has **no `hash`**; use a full read or an `edit_note` dry run for `expected_hash`.
 
 ## Dry-run and hash-guarded apply
 
-`edit_note` can preview before it writes: `dry_run: true` applies nothing and returns `blocks_applied`/`total_blocks`, `old_hash`/`new_hash`, and a `diff_preview`; the file stays byte-identical. Apply with `dry_run: false` plus `expected_hash: <old_hash from the preview>`, so the write is guarded against a file that changed in between. After the write, confirm `blocks_applied` equals `total_blocks` — the returned `old_hash`/`new_hash` is the receipt, and a clean match needs no read-back. Read the target only when the match was fuzzy or the block count came up short.
+`edit_note` can preview before it writes: `dry_run: true` applies nothing and returns `blocks_applied`/`total_blocks`, `old_hash`/`new_hash`, and a `diff_preview`; the file stays byte-identical. Apply with `dry_run: false` plus `expected_hash: <old_hash from the preview>`, so the write is guarded against a file that changed in between. After the write, confirm `blocks_applied` equals `total_blocks`, then follow the read-back checks below. A fuzzy warning requires reading the whole touched region.
 
 ## Write preconditions and blind overwrites
 
@@ -53,14 +53,6 @@ For writes to existing notes, read the current note and pass its current `expect
 ## Append and prepend modes
 
 `mode: prepend` keeps the frontmatter block first (the note still starts with `---`) and puts the new content at the top of the body — the right mode for newest-first logs. `mode: append` adds to the end. Use either only when the new content unambiguously belongs there. Do not append tasks or content blindly when placement affects semantics or section structure.
-
-## Write-file chunk assembly
-
-Assembling a note from multiple `read_file` chunks by concatenation glues content when a chunk's trailing newline is missing (`## See Also\n- foo+- [[+Agents]]`). After any multi-chunk `write_file`, read the file back and scan for `+[[`, `+##`, `+-` artifacts; prefer reading the source in one `read_file(offset/limit)` call, and for large files append chunks via `patch` instead of overwriting with `write_file`.
-
-## Index.md duplicates after patch
-
-`patch` on an Index.md can leave both the old and the new line in place. Prefer `write_file` for Index.md; when patching, read the file first and target a unique occurrence.
 
 ## Batch operations and transaction guarantees
 

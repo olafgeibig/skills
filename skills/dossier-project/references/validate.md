@@ -76,7 +76,7 @@ prefix. Neither an unavailable original nor a missing checksum is a hard finding
 | a child with neither `cases:` nor `dossier:` | an orphan: file it, or delete it if it was never meant to stay |
 | a `blocked` case | confirm `## Stand` names the blocker — the script cannot read meaning |
 | a `dossier` with empty `## Wissen`/`## Dokumente` while material exists | propose the entries; the user confirms |
-| no task hub at the project root | create it from `assets/template-task-hub.md` |
+| missing, duplicate or mis-scoped task hub | keep one root `utility` with one Tasks block using the anchored `cases/` filter in `assets/template-task-hub.md` |
 | no note carries a kind type | the project is not on the model yet |
 
 ## When to rebuild
@@ -85,6 +85,7 @@ prefix. Neither an unavailable original nor a missing checksum is a hard finding
 - after moving or reclassifying a note
 - after closing a case (its last rows land in the chronology, not in the list)
 - after a bulk edit of `cases:`/`dossier:`/`sources:`
+- after editing a child's `description:` or `status:` — the parent's row renders exactly these two fields, and the staleness surfaces only in `--report`, not in any tool error
 
 Not after editing `## Stand` or a curated section: nothing generated depends on prose, so a rebuild proves nothing and rewrites rows the user may be mid-way through reviewing.
 

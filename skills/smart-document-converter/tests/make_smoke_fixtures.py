@@ -1,11 +1,12 @@
 """Generate synthetic smoke fixtures for the smart converter.
 
 Test tooling, not production parsing: synthetic text only, no originals and
-no network. Base fixtures need nothing beyond the stdlib; --extended uses
-Pillow and python-docx, which ship inside docling's tool venv:
+no network. Base fixtures need nothing beyond the stdlib. On macOS,
+--extended uses a macOS system font, Pillow and python-docx; the Python
+packages ship inside Docling's tool venv:
 
     env -u PYTHONPATH -u PYTHONHOME \
-        ~/.local/share/uv/tools/docling/bin/python make_smoke_fixtures.py RUN --extended
+        "$(uv tool dir)/docling/bin/python" make_smoke_fixtures.py RUN --extended
 """
 import argparse
 from pathlib import Path

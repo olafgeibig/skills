@@ -10,7 +10,7 @@ Closing is the only operation that makes a claim about the world. An open case a
 
 ## Pre-flight — all six, or say which one you skipped and why
 
-1. **Every promised artifact exists.** If the case said "we will write to the court", the letter is in `artifacts/` and linked. A closed case with a missing artifact is a false statement.
+1. **Every promised record exists and is linked.** A dispatched letter is a `document` in `raw/`; a non-correspondence work product held as evidence is an `artifact`. Verify dispatch or receipt against its own evidence if the outcome depends on it; a draft does not prove dispatch.
 2. **The outcome is in `## Stand`.** What came of it, in one or two sentences: the decision received, the amount, the date. Without an outcome the case is only a pile of documents.
 3. **`## Aufgaben` is empty.** A task that is not done but belongs to another matter is *moved*, not dropped: write its row into the receiving case's `## Aufgaben` with the same stable ID, then delete it here — the task hub aggregates by ID, and a moved task that changes its ID shows up twice. A dropped task is a decision, so say so in `## Stand`.
 4. **What the case changed is propagated.** This is the point of the whole checklist:
@@ -30,11 +30,11 @@ Each writes a different sentence into `## Stand`. Pick one before touching `stat
 | **abandoned** | why it is not pursued, and what that leaves | "Nicht weiterverfolgt: Kosten stehen außer Verhältnis zum Streitwert. Anspruch verjährt 2029." |
 | **superseded** | by what, from when | "Übergegangen in [[hausverkauf]], weil Verkauf und Berichtigung zusammen abgewickelt werden." |
 
-`resolved` is the only kind that lets the matter drop out of the active table without a trace. `abandoned` and `superseded` stay visible, because someone will ask later why nothing happened.
+All three remain visible as `closed` in the dossier's generated `## Fälle`; the case's `## Stand` explains the outcome.
 
 ## Then
 
-1. `status: closed`. The router's active table is hand-written and does **not** update itself — check it and remove or move the row.
+1. Set `status: closed`. The router has no case table.
 2. Rebuild the generated sections: `check.py --rebuild <project>`, read the diff, and write it through TurboVault once it is approved.
 3. If the chronology has no line for the outcome, add one. The milestone is the outcome, not the closing.
 4. Leave the folder alone. A closed case is not archived, moved or trimmed: it is the archive.
@@ -45,7 +45,7 @@ An authority reopens what was closed — say so in a new line under `## Stand` w
 
 ## What a closed case forbids
 
-- Editing its artifacts. They are evidence of what was sent.
+- Editing its evidence to change what it records.
 - Removing `## Ereignisse` rows to make it look tidy.
 - Reusing the dossier's `## Stand` as the place to park its outcome: the outcome belongs to the case, the *state* it produced belongs to the dossier.
 

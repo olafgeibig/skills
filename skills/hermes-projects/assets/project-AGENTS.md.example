@@ -24,13 +24,11 @@ manual lives next to the code, because AGENTS.md loads from the working director
 agent working in that repo reads it there. Without one this directory is the project
 directory, so this file is the manual itself.}}
 
-Machines are logical names; resolve `hostname` against the machine table in the `hermes-projects`
-skill — that table is the one place to edit when an installation changes, so never restate its
-hostnames or roles here. Unknown hostname → ask. Never write an OS hostname here, and never reuse
-another machine's path.
-Paths go one way: this file names the workdir's path per machine (nothing else can discover a
-checkout location); the workdir's file names the vault by **name** and resolves it with
-`list_vaults`, because a vault path differs per machine.
+{{For machine-dependent paths, link the existing machine inventory if the profile guidance does
+not already name it. Use its logical machine names; resolve the current machine as described in
+`hermes-projects`. Declare checkout paths in the workdir manual, or here if this is the vault
+router, never both. Name a registered vault in the workdir manual; resolve its path with
+`list_vaults`. Omit this block if the project has no machine-dependent paths.}}
 
 ## Important resources
 

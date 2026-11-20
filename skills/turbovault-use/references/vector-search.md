@@ -32,11 +32,8 @@ Treat `--help` and binary strings as capability hints, not proof of a working pl
 2. Three tools appear namespaced: `vector_search_search` (`query`, `limit` ≤ 100, `hybrid`
    default true), `vector_search_reindex`, `vector_search_status`.
 3. In Hermes the server is started from `mcp_servers.turbovault.args`. Add the flag with
-   `hermes config set mcp_servers.turbovault.args '[...]'` (the tool refuses this file
-   directly). A running process keeps its old tool list, and a new session does not help —
-   the connection is cached per registry scope and a fresh session adopts the live one.
-   Reload with `/reload-mcp`; the pre-reload `ps`-vs-config diff and the verification steps
-   are in `references/vector-search-setup.md` §5.
+   `hermes config set mcp_servers.turbovault.args` while preserving the other arguments.
+   Verify the launch arguments and reload the owning connection per `references/vector-search-setup.md` §5.
 
 ## Model: a local directory, never a download
 
@@ -103,25 +100,6 @@ Write `<vault>/.turbovault/plugins/vector_search/config.json` — omitted fields
 `vector_search_status` resolves and returns this configuration without loading the model —
 call it first when diagnosing, instead of reading the JSON and guessing which defaults apply.
 
-## Measured on a Pi 5 (4 cores, 8 GB), 999 notes / 20,759 chunks
-
-| | potion-base-8M | potion-multilingual-128M |
-|---|---|---|
-| Process RSS after first search | 232 MB | 1,236 MB |
-| Index dir (one JSON per note) | 75 MB | 75 MB |
-| Full `reindex` | — | 22 s |
-| Warm query (hybrid / dense) | 8–19 ms | 8–15 ms |
-| First search after process start | ~21 s | ~21 s |
-
-The first search in a process rebuilds the engine from the JSON snapshots; after that queries
-are single-digit milliseconds.
-
-Quality check that matters for a German vault: with `hybrid: false` on `potion-base-8M` every
-German query returned scores flat at ~0.70 in unrelated notes — the dense side is noise, and
-hybrid results are then just BM25 plus noise. `potion-multilingual-128M` spreads scores over
-~0.30–0.66 and returns topically related notes, though exact-wording queries are still served
-better by the core `search`.
-
 ## Assess a model or setup transferred from another machine
 
 1. Establish the destination's live memory budget, server invocation and intended registered vault before adapting another machine's instructions. Keep the comparison read-only until downloads, configuration changes and restarts are approved.
@@ -138,12 +116,9 @@ better by the core `search`.
 4. Record baseline process memory and system memory pressure, then measure again after the first real search/reindex and after indexing completes. Capture indexing time and note/chunk counts through the intended connection. Keep downloads and model preparation local; do not upload corpus text for pruning or evaluation.
 5. Compare lexical and hybrid results on the same small, representative query set, noting useful additional hits, missed expected notes and latency. Report measured memory alongside retrieval benefit; expand only if the pilot earns its cost. Do not present configuration or a successful status call as a completed retrieval evaluation.
 
-## Config file
-
 ## Shrink a multilingual model: prune the vocabulary
 
-The 512 MB of `potion-multilingual-128M` is almost entirely vocabulary — 500,353 Unigram
-tokens x 256 dims x 4 bytes — and a German+English vault touches only ~29k of them.
+The multilingual model stores most of its weights in the token embedding table. Inspect the vocabulary size and `hidden_dim` of the exact artifact; corpus token coverage depends on the workload.
 `scripts/prune-model2vec-vocab.py` keeps every token the corpus uses, pads to a target with the
 highest-scoring Latin-script tokens and slices the embedding table. Pure Python (tokenizers,
 safetensors, numpy — no torch):
@@ -156,20 +131,7 @@ m2v/bin/python scripts/prune-model2vec-vocab.py \
   --target 45000 --corpus '~/vaults/<name>/**/*.md'
 ```
 
-Measured on a 1,000-note bilingual vault (20,759 chunks):
-
-| | multilingual-128M | pruned to 45k |
-|---|---|---|
-| model directory | 513 MB | 47 MB |
-| process RSS (start / after first search) | 1,164 / 1,225 MB | 211 / 273 MB |
-| full `reindex` | 22.2 s | 21.6 s |
-| German query results | reference | same paths, same dense scores |
-
-Embedding drift: cosine 1.0000 between original and pruned over Latin-script sentences (rare
-German compounds and made-up words included), 0.93 for a rare English word whose subword piece
-fell out of the target, ~0 for Cyrillic/CJK, which become `[UNK]`. Re-prune with a higher
-`--target` if the vault starts holding notes in other scripts. Switching `model_path` requires
-`vector_search_reindex` because the token ids change.
+Pruning can remove tokens needed by other scripts or future queries. Include representative text and queries in each target language and compare retrieval against the unpruned model or lexical baseline. Switching `model_path` requires `vector_search_reindex` because the token IDs can change.
 
 ## Index
 

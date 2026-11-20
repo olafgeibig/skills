@@ -1,7 +1,7 @@
 ---
 name: dossier-project
 description: "Use when running a dossier-project: dossiers and cases."
-version: "0.5.5"
+version: "0.6.0"
 author: Olaf Geibig
 license: MIT
 metadata:
@@ -52,7 +52,7 @@ derivation    arrived document ─→ raw ─→ resources → analyses
 
 **The division the model rests on:** a document becomes a note (`document`, `transcript`, `artifact`); a happening that leaves no document becomes an `event`. One real-world thing, one note. A letter is never recorded twice — once as the document and once as "it arrived".
 
-**`document` or `artifact`?** Ask who authored the text. Correspondence and other arrived documents — a letter, an email thread, a court document, sent or received — are `document` in `raw/`, whatever shape the original has: a file that reached the vault (a converted PDF, an `.eml` export) carries `source:` as a path and `sha256:`; text pasted from an original that lives elsewhere (a cloud doc, a mailbox) carries `source:` as prose naming that place and no checksum. `artifact` is a work product the project itself produced and holds as evidence — never a message anyone sent. A `document` may carry `document_type:` (letter, email, judgment, …).
+**`document` or `artifact`?** Distinguish correspondence from a separate project work product; authorship alone does not decide. Correspondence and other arrived documents — a letter, an email thread, a court document, sent or received — are `document` in `raw/`, whatever shape the original has: a file that reached the vault (a converted PDF, an `.eml` export) carries `source:` as a path and `sha256:`; text pasted from an original that lives elsewhere (a cloud doc, a mailbox) carries `source:` as prose naming that place and no checksum. `artifact` is a work product the project itself produced and holds as evidence — never a message anyone sent. A `document` may carry `document_type:` (letter, email, judgment, …).
 
 ## Folders and the types allowed in them
 
@@ -69,7 +69,7 @@ derivation    arrived document ─→ raw ─→ resources → analyses
 | `masterdata/` | `masterdata` | a free-form collection of values on one subject, the user's | no |
 | root or `utility/` | `utility` | task hub, project chronology, other tools | no |
 
-Three notes live at the project root: the router `+<X>.md` (`moc`), the task hub `Aufgaben <X>.md` (`utility`, one `tasks` block scoped to the project path) and the chronology `Chronologie <X>.md` (`utility`, milestones across all cases). Hub names read head-first in the project's language — `Aufgaben Dieter.md`, never `Dieter Aufgaben.md` — while the router keeps its `+<X>.md` shape. Everything else lives in a class folder. The task hub owns the block — a router rendering the same query again is the same five lines maintained twice.
+Three notes live at the project root: the router `+<X>.md` (`moc`), the task hub `Aufgaben <X>.md` (`utility`, one `tasks` block scoped exactly to this project's `cases/` subtree) and the chronology `Chronologie <X>.md` (`utility`, milestones across all cases). Hub names read head-first in the project's language — for example `Aufgaben <X>.md`, not `<X> Aufgaben.md` — while the router keeps its `+<X>.md` shape. Everything else lives in a class folder. The task hub owns the block — a router rendering the same query again is the same five lines maintained twice.
 
 **The router is a map of the dossiers, not of the cases.** It carries one line per dossier — name plus what it holds — plus the two hub notes and one sentence saying where the cases live. A case table in the router duplicates what the dossier's `## Fälle` already generates and is maintained twice — the first list to rot.
 
@@ -83,7 +83,7 @@ Three notes live at the project root: the router `+<X>.md` (`moc`), the task hub
 | `case` | can I close this? | `## Stand` replaced; `status: open \| blocked \| closed` |
 | `event` | did it leave a paper of its own? | written once, never edited; a one-line happening belongs in `## Stand`, not in `events/` |
 | `artifact` | did the project produce it? | frozen; a correction is a new artifact |
-| `document` | did it arrive? | the body is the conversion, verbatim — a thread keeps its quoted history, trimmed to the newest message it loses the substance; a deadline runs from delivery, so the delivery date belongs to the case |
+| `document` | did it arrive? | the body is the conversion, verbatim — a thread keeps its quoted history, trimmed to the newest message it loses the substance; record receipt or delivery in the case when relevant and verify which event starts the deadline |
 | `transcript` | was it spoken? | as `document`; no original file ever exists |
 | `extract` | is it one source, distilled? | replaced in place when the source changes |
 | `research` | many sources, no `raw` note? | appended; opens with its Prüftiefe — checked at which primary texts, what explicitly not; URLs under `Quellen:` |
@@ -121,7 +121,7 @@ A dossier is the subject, and it reads like a map of that subject:
 
 `## Wissen` and `## Dokumente` are selections — which extraction answers the question, which document to open first. A generated list would be complete and useless. The agent proposes an entry, the user confirms it, and no rebuild ever writes into those two.
 
-**A dossier carries no tasks.** A task is the decision to act, and a decision to act has a matter; a matter is a case. So `## Aufgaben` in a dossier names which case holds the next step — a pointer, never a checkbox. If work appears and no case holds it, the work is the case, and it gets opened. A dossier is a map; maps do not carry the walking.
+**A dossier carries no tasks.** A task is the decision to act, and a decision to act has a matter; a matter is a case. So `## Aufgaben` in a dossier names which case holds the next step — a pointer, never a checkbox. When work appears and no case holds it, look for the matter it serves before opening a new one: **a single task is not a matter.** A task with a result of its own — a decision, a Bescheid, a repaired thing — earns a case; administrative residue (a registration, a review appointment, a request to an office) hangs in the nearest case that serves it, or gathers in one running case per subject that closes when its task list is empty. A dossier is a map; maps do not carry the walking.
 
 **There is no history on a dossier.** What was done lives in the case, what changed lives in `## Stand`, the milestones live in the chronology. A `## Verlauf` or `## Erledigt (Historie)` is the fourth telling of the same thing and the first to go stale.
 
@@ -135,20 +135,20 @@ Every class has a template in `assets/`. Read the one for the class you create �
 | case → dossier | `dossier: '[[…]]'` | the dossier's `## Fälle` |
 | Derived note → evidence | `sources: ["[[…]]"]` on `extract`/`analysis` | the `Quellen:` footer |
 | mail → the document it carried | `attachment: ["[[…]]"]`, a list | whoever needs the enclosure; the checksums in `source:`/`sha256:` of both notes prove identity |
-| final analysis → the evidence it used | `sources:` includes the frozen `raw` version instead of its mutable extract, plus other evidence | a revised extract does not invalidate the reference |
+| final analysis → the evidence it used | `sources:` includes the frozen `raw` version instead of its mutable extract, plus other evidence; for a growing thread also pin the exact original export | a revised extract does not invalidate the reference |
 | any note → MoC | `topics: ["[[+Router]]"]` | vault navigation |
 
 - `cases:` is a list because an artifact may serve two cases. It cannot be `topics:` — that property holds MoC links only, and a case is not a MoC.
 - **`source:` and `sources:` are different fields.** `source:` is the external origin — a relative file path or a URL, never a wikilink. `sources:` names evidence by wikilink; an analysis without a raw note can name its actual external URLs there. It never holds a file path.
 - **`source:` is optional, per document, regardless of shape.** It names where an original is — a path, a URL, or prose naming a place only the user can reach (a cloud doc, a mailbox) — and the original may sit on another machine. An unreachable path is recorded, not deleted or repaired; nothing local has to exist. Record `sha256:` when it is known; an unavailable checksum is not a defect. A path is recorded **relative to the original storage root**, never absolute: a work tree synced between machines sits at a different absolute path on each, and an absolute one is wrong on every machine but one. Each machine's location is one line in the manual's setup section.
-- **Master data belong to the user.** The agent reads and cites them, creates a note on instruction, and never rewrites a value. Tasks and histories do not belong there either — they go to `## Aufgaben` of a case or a dossier.
+- **Master data belong to the user.** The agent reads and cites them, creates a note on instruction, and never rewrites a value. Keep tasks in cases and milestones in the chronology, not in master data.
 - **No mirrored footers.** A link lives in its property, once. Every note is read many times, and a footer repeating `topics:` / `cases:` / `dossier:` costs tokens on every read without adding a graph edge — TurboVault indexes frontmatter wikilinks. The one footer that earns its place is `Quellen:`: it is where a reader looks for the evidence, and for `research` it is the only place the URLs exist. (This deliberately deviates from the hybrid-navigation rule in `vault-ops`.)
 - **Generated is not curated.** `## Ereignisse`, `## Fälle` and the `Quellen:` footers are rebuilt from properties. `## Stand`, `## Wissen`, `## Dokumente`, `## Aufgaben` and the chronology are never written by the rebuild.
 - **A generated section must say so.** Its first line is `<!-- GENERIERT — nicht von Hand bearbeiten. -->`, and everything under it is a row. Without the marker the author is unknown and nothing is proposed; a line that is not a row makes the section refused, not rewritten — that is how hand-written content survives a rebuild.
 
 ## Creating a note
 
-Four steps; the template carries the rest.
+The template carries the details.
 
 1. Pick the class from the table above — uncertain? `references/triage.md`.
 2. Copy that class's template from `assets/` into its folder, named by that folder's rule.
@@ -172,7 +172,7 @@ current state in prose        → ## Stand       values cited by link
 
 ## What stays German
 
-The schema is English; the human surface is not. Headings, note titles, slugs and all body prose follow the vault's language policy.
+Property keys and type/status values are English. The headings below, the `Quellen:` label and the generated marker are fixed parser tokens; keep them as shown even in a non-German vault. Free headings, note titles, slugs and prose follow the vault's language policy.
 
 | Class | Required headings |
 |---|---|
@@ -194,18 +194,9 @@ The `Quellen:` footer mirrors `sources:` — the one footer the kind keeps, beca
 | Rebuild what is generated, audit what is missing | `references/validate.md` |
 | A case is resolved, abandoned or superseded | `references/close-case.md` |
 | Set up a new project of this kind | `references/init-project.md` |
-| Correspondence without mailbox access — one note per thread, `.eml` exports · the channel a German authority receives on | `references/correspondence.md` |
-| Adopt an existing project onto this kind | `references/migrate-existing-project.md` |
-
-## Writing to an authority
-
-What the agent drafts for the user to send: a request, a Nachfrage, a notice. The recurring shape, in the project's language:
-
-1. **One page, essentials first.** The opening names the matter and the request; the facts follow in dated order, each tied to its evidence. Cut everything the authority does not need to act — side stories, speculative clauses, reassurances about other channels ("I am sending a fax as well because I am not sure this arrives"). A letter states facts and one request.
-2. **State the reply channel, with fallback.** The closing says where the answer goes: the electronic mailbox where one exists, else the sender's postal address written out in full. Authorities answer by post even when the request arrived electronically — the address in the letter is what makes that work. Never leave the reply path implicit; it is a standing user expectation.
-3. **Every norm citation verified** at the source before it enters the letter (see the pitfalls in `SKILL.md`).
-4. **Send on the channel the authority receives on.** Which German authority receives how — no published e-mail for case matters, Justizbehörden over the Justizpostfach, file numbers marked “unbekannt” — is in `references/correspondence.md`.
-5. **After dispatch:** date and channel go to the case's `## Stand`, the milestone to the chronology, and the follow-up — checking for the answer, on a fixed rhythm — to the task.
+| File mail without mailbox access, draft correspondence, verify an authority’s channel or request records | `references/correspondence.md` |
+| Adopt an existing `flat` project onto this kind | `references/migrate-existing-project.md` |
+| Retrieve candidates, inspect link chains or evaluate ranking | `references/search.md` |
 
 ## Pitfalls
 
@@ -219,21 +210,24 @@ What the agent drafts for the user to send: a request, a Nachfrage, a notice. Th
 - Never carry a document-existence claim (Eingangsbestätigung, Bescheid, Nachweis) — or a claim about how and when something was submitted — from curated prose into a letter or a new note without opening the evidence. A sentence in a `## Stand` is not proof: check `raw/` or the original storage root, and when nothing is there the user's account settles it. Curated prose can repeat a claim no evidence ever supported, and a letter to the authority is where an invented receipt does the damage.
 - Never judge note existence by a content grep, and never read `????-??-??` in `## Ereignisse` as a missing note. A note's body need not contain its own title, so grepping for the title reports an existing note as absent and invites a duplicate — and that date is simply what every generated row from a folder without date prefix (`resources/`, `masterdata/`) carries. Match by basename (`search_files` target=files, `find -iname`) before concluding anything is a ghost.
 - Never cite a law, paragraph or deadline from memory into a letter, a task or a `## Stand`. Law names and numbering change — a paragraph cited under its former law's name misleads exactly the reader who checks. Verify name and number in the current consolidated text at the source (for German federal law: gesetze-im-internet), and let the `research` note record where and when.
+- Never send a numeric criticism of a counterpart's figure before recomputing the derivation programmatically from the counterpart's own inputs and tracing the divergent figure to its origin — including one's own earlier sent documents. Two derivations of one value can differ by a rounding convention without either being wrong, and a letter built on a self-inflicted arithmetic error costs the mail round that was meant to settle the matter.
 - Never correct a false claim at one site only. The same fact lives in the case's `## Stand`, the dossier, the task hub and the chronology; search every occurrence and fix all before reporting the correction done.
-- Never put a task in a dossier: a task is a decision to act, and a decision to act deserves a case. `## Aufgaben` there is a pointer to the case that holds it — a checkbox means a case is missing.
-- Never edit a `document`, `transcript`, `artifact` or `event` to correct it. New note, or a `## Stand` that says what is wrong with it, names the corrected note and states that it stands unchanged but is superseded.
+- Name the exact source version used in an extract. After changing the source, recheck every carried value, not only the apparent changes.
+- Never put a task in a dossier: a task is a decision to act, and a decision to act belongs in a case. `## Aufgaben` there is a pointer to the case that holds it — a checkbox means the task has no case, not that every task earns one (see *The two hubs*).
+- Never let a document become a task source. A converted form document — a contract, an application, a checklist — carries checkbox lines that are document content; the hub query matches them and the task list then shows two kinds of thing at once. Limit the query to `cases/` (`assets/template-task-hub.md` carries the exact scope); never edit the document to silence it.
+- Never edit a `document`, `transcript`, `artifact` or `event` to correct the evidence. Keep it and link the correction or superseding note from `## Stand`. A growing email thread is the explicit exception: update the thread note from a complete newer export, retain older exports, and pin the exact export used by a final analysis (see `references/correspondence.md`).
 - Never let a case close with an open task nobody decided about, and never let `blocked` become a label without a reason.
 - Never invent a folder. A folder appears with its first note; an empty class folder is a defect, not preparation.
 - Never rename a class folder or a `type:` value in one project only. The folder belongs to the type, vault-wide.
-- Never swap the generated-section scan in `check.py` for a TurboVault query. A query only fetches rows into the agent's context — the section is still written through `edit_note` — while adding a dependency on a running server that the selftest's unregistered fixture vaults do not have, and list-valued `cases:` cannot be queried at all (equality silently returns nothing). The filesystem scan is the mechanism, not a shortcut awaiting an upgrade.
+- Never swap the generated-section scan in `check.py` for a TurboVault query. A query only fetches rows into the agent's context — the section is still written through `edit_note` — while adding a dependency on a running server that the selftest's unregistered fixture vaults do not have, and scalar SQL equality does not test membership in list-valued `cases:`. The filesystem scan is the mechanism, not a shortcut awaiting an upgrade.
 
 ## Verification
 
 Run `check.py` from this skill's `scripts/` directory with the project path as its argument — `--report`, `--audit`, `--rebuild`. `--report` and `--audit` must be clean or reviewed.
 
-After touching `check.py` or any template, run `python3 scripts/selftest.py`: it instantiates the note templates and exercises the parser, the marker rule and the preview without dependencies.
+After changing a script or template, run `python3 scripts/selftest.py`: it exercises note templates, validation and read-only preview, search, and `.eml` conversion with temporary fixtures and no external dependencies.
 
-When the row format or the row selection of a generated section changes — a new row shape, or which note classes it lists — migrate the existing notes through TurboVault right after the script change and before anything else. A format change makes the rebuild refuse the old rows (it never overwrites content it did not write); a selection change makes it propose their removal — and until the migration lands, the notes lag the script. Pin the changed shape or selection with a selftest case in the same change, and afterwards normalize whitespace-only rebuild leftovers in one pass: a proposal that always carries noise gets skimmed, and the real change hides in it.
+When generated row format or selection changes, add a regression case and test the preview on fixtures. Before updating existing projects, agree on the rollout and review the proposed diff; edit project notes only after approval.
 
 **The script never writes.** `--rebuild` prints a diff of every generated section that would change and stops; the write happens through TurboVault (`edit_note`) after the user approves exactly those bytes. A generated section holding anything that is not a row is refused, never proposed for overwriting — hand-written content in `## Ereignisse` or `## Fälle` is a defect to move, not to delete. A proposal must be reviewable on its own: a new section shows where it is inserted and its full content, a changed section shows the exact bytes.
 
@@ -243,14 +237,5 @@ When the row format or the row selection of a generated section changes — a ne
 - `Quellen:` lists exactly what `sources:` names.
 - `masterdata/` contains no tasks and no history.
 - `source:` and `sha256:` are recorded when known; an original need not be reachable locally.
-- The vault-wide broken-link count is unchanged after a move.
+- Compare the vault-wide broken-link `(source_file, target)` pairs before and after a move. A stable count alone does not rule out new breaks.
 - A clean `--report` is not link health: it proves classes, folders and generated sections. Link resolution is its own gate — `graph_report(kind="broken_links")` plus the raw-text sweep for old basenames.
-
-## References
-
-- `references/triage.md` — what an arriving thing is, and how an existing note is reclassified.
-- `references/validate.md` — generated vs curated, the three validation layers, when to rebuild.
-- `references/close-case.md` — the pre-flight and the three ways a case ends.
-- `references/init-project.md` — setting up a dossier-project.
-- `references/migrate-existing-project.md` — adopting an existing project onto this kind.
-- `references/correspondence.md` — mail and letters without mailbox access: one note per thread, `.eml` provenance, attachments by checksum; the channel a German authority receives letters on.

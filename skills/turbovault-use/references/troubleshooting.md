@@ -9,7 +9,7 @@ Distinguish two layers:
 1. Profile/runtime availability: the MCP server is configured and reachable.
 2. Session exposure: the current chat has callable TurboVault tools.
 
-If `list_vaults` is unavailable, check the current Hermes MCP configuration and connection before declaring TurboVault disconnected. If runtime checks pass, reload the MCP/session binding or start a fresh session.
+If `list_vaults` is unavailable, check the current Hermes MCP configuration and connection before declaring TurboVault disconnected. If runtime checks pass, reload the owning MCP binding as described in `references/upgrading.md` §7; a fresh session can reuse the same connection.
 
 ## A failed spawn is parked, not retried
 
@@ -19,7 +19,7 @@ The usual reason a spawn never gets off the ground is the `env` block: Hermes va
 
 ## A tool the skill names is missing
 
-`tools/list` is the whole contract: a tool that is not listed cannot be called in that session, even though the server has it. TurboVault 4.0 leaves 22 advanced tools unlisted by default (`inspect_frontmatter`, `query_frontmatter_sql`, `audit_log`, `export`, `compare_notes`, `find_duplicates`, `find_stale_notes`, `suggest_links`, `note_quality`, `analyze_grounding`, `rollback_*`, `move_file`, `diff_notes`, `fanout`, …). Enable them with `tool_visibility.show_advanced_tools: true` in `~/.turbovault/config.yaml` (or `--show-advanced-tools`). A running session picks the change up through the MCP config watcher; surfaces differ in whether a manual reload command exists (the canonical `/reload_mcp` has no Desktop surface), so verify the new surface with `tool_search`/`list_vaults` instead of hunting for a reload. Do not conclude the server is old or broken before checking that setting.
+`tools/list` is the whole contract: a tool that is not listed cannot be called in that session, even though the server has it. TurboVault 4.0 leaves 22 advanced tools unlisted by default (`inspect_frontmatter`, `query_frontmatter_sql`, `audit_log`, `export`, `compare_notes`, `find_duplicates`, `find_stale_notes`, `suggest_links`, `note_quality`, `analyze_grounding`, `rollback_*`, `move_file`, `diff_notes`, `fanout`, …). Enable them with `tool_visibility.show_advanced_tools: true` in `~/.turbovault/config.yaml` (or `--show-advanced-tools`). Apply the change to the owning MCP connection using the client-specific steps in `references/upgrading.md` §7, then verify with Tool Search and `list_vaults`. Do not conclude the server is old or broken before checking that setting.
 
 ## Reaching the server when the session has no TurboVault tools (mcporter bridge)
 
@@ -57,9 +57,7 @@ Do not guess among multiple vaults.
 
 ## Empty vault registry after a restart or model switch
 
-If `list_vaults` returns an empty list (or `set_active_vault` reports "not found") although the vault worked earlier in the session, the server's in-memory registry was reset — the files on disk are untouched. Re-register immediately with `add_vault(name, path)` (the path must be absolute) instead of waiting out a cooldown; then `set_active_vault(name)` and verify with one read.
-
-Do not fall back to terminal file access, and do not tell the user the vault is broken. If `add_vault` fails with a server-unreachable error, the server is still initializing — wait ~50s and retry (reconnect backoff).
+An empty `list_vaults` response or an unknown vault name does not establish a reset. Compare the owning process, its launch config and its registry/cache with the intended profile. Keep inspection read-only. If registration is authorized and the intended absolute path is confirmed, register it and confirm the mapping with `list_vaults`; prefer scoped calls over changing the shared active vault.
 
 ## Reconnect churn and subprocesses
 

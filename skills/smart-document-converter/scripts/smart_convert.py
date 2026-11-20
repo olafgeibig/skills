@@ -7,7 +7,7 @@ or HTML file:
   1. probe the text layer and the image inventory per sampled page (poppler)
   2. pick a conservative OCR mode from that evidence, never from a model
   3. sample first on long documents, verify, optionally retry one backend
-  4. convert into staging, validate the staged bytes, then publish atomically
+  4. convert into staging, validate the staged bytes, then publish
 
 The script reports what it measured and never certifies meaning: every
 report carries ``semantic_validation: "not_performed"``. Amounts,
@@ -19,6 +19,7 @@ probing and the docling CLI for conversion.
 Exit codes: 0 clean · 2 usable output with warnings · 1 failed.
 """
 import argparse
+from contextlib import contextmanager
 import json
 import math
 import os
@@ -38,6 +39,11 @@ SUPPORTED_SUFFIXES = (".pdf", ".docx", ".html", ".htm")
 STAGES = ("usage", "preflight", "probe", "sample", "convert", "verify", "publish")
 
 # --- red-flag patterns (seen in real broken text layers) -----------------
+# A citation-shaped context is required; an uppercase word after $100 is not evidence.
+SECTION_MIMIC = re.compile(
+    r"(?<![\w§])(?:8\s+|(?:&(?:amp;)?)?\$\s*)[0-9]+[a-z]?\s+"
+    r"(?:(?:Abs\.?|Satz|Nr\.?)\s+[0-9]|(?:AO|BGB|EStG|UStG|StGB|SGB|ZPO|VwGO|VwVfG)\b)"
+)
 PUA = re.compile(r"[\ue000-\uf8ff]")                        # symbol-font bullets
 SALAD = re.compile(r"[A-ZÄÖÜ]{2,}[a-zäöüß][A-ZÄÖÜ]")        # WEERTEwÖE
 AMOUNT_AMPERSAND = re.compile(r"\d[.,]\d{1,2}\s*&")         # 300,00&
@@ -47,8 +53,9 @@ HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
 PAGE_SIZE = re.compile(r"Page(?:\s+\d+)?\s+size:\s+([\d.]+)\s+x\s+([\d.]+)\s+pts")
 PAGE_COUNT = re.compile(r"^Pages:\s+(\d+)\s*$", re.M)
 
-# only these three suggest a broken text layer; private-use is a cleanup hint
-SCAN_SUSPECT = ("replacement-character", "case-salad", "amount-ampersand")
+# A section-sign mimic triggers review but never counts toward forced re-OCR.
+AUTO_OCR_FLAGS = frozenset(("replacement-character", "case-salad", "amount-ampersand"))
+SCAN_SUSPECT = AUTO_OCR_FLAGS | {"section-sign-mimic"}
 
 _STAGE = {"value": "usage"}
 
@@ -75,6 +82,15 @@ class JobError(Exception):
 class ReportParser(argparse.ArgumentParser):
     def error(self, message):
         raise JobError("usage", "invalid_arguments", message)
+
+
+class HelpRequested(Exception):
+    pass
+
+
+class ReportHelp(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        raise HelpRequested(parser.format_help())
 
 
 def _as_text(value):
@@ -168,7 +184,7 @@ def run(cmd, *, timeout=PROBE_TIMEOUT, stage="probe"):
     return done
 
 
-def convert(cmd, log, *, online=False, timeout=DEFAULT_TIMEOUT):
+def convert(cmd, log, *, online=False, timeout=DEFAULT_TIMEOUT, stage="convert"):
     """Run one Docling invocation; returns (returncode, seconds)."""
     env = docling_env(online)
     started = time.perf_counter()
@@ -176,18 +192,18 @@ def convert(cmd, log, *, online=False, timeout=DEFAULT_TIMEOUT):
         done = subprocess.run(cmd, capture_output=True, text=True,
                               env=env, timeout=timeout)
     except subprocess.TimeoutExpired as exc:
-        log(f"[convert] TIMEOUT after {timeout}s")
-        raise _timeout_error(cmd, "convert", exc)
+        log(f"[{stage}] TIMEOUT after {timeout}s")
+        raise _timeout_error(cmd, stage, exc)
     except OSError as exc:
-        raise _spawn_error(cmd, "convert", exc)
+        raise _spawn_error(cmd, stage, exc)
     elapsed = time.perf_counter() - started
     if done.returncode != 0:
         tail = "\n".join((done.stderr or done.stdout or "").strip().splitlines()[-6:])
-        log(f"[convert] FAILED (exit {done.returncode}, {elapsed:.1f}s):\n{tail}")
-        raise JobError("convert", "tool_failed", "docling failed",
+        log(f"[{stage}] FAILED (exit {done.returncode}, {elapsed:.1f}s):\n{tail}")
+        raise JobError(stage, "tool_failed", "docling failed",
                        command=cmd, returncode=done.returncode,
                        stdout=done.stdout or "", stderr=done.stderr or "")
-    log(f"[convert] exit 0 in {elapsed:.1f}s")
+    log(f"[{stage}] exit 0 in {elapsed:.1f}s")
     return done.returncode, elapsed
 
 
@@ -201,6 +217,8 @@ def detect_text_flags(text):
         flags.append("case-salad")
     if AMOUNT_AMPERSAND.search(text):
         flags.append("amount-ampersand")
+    if SECTION_MIMIC.search(text):
+        flags.append("section-sign-mimic")
     if PUA.search(text):
         flags.append("private-use")
     return sorted(flags)
@@ -309,9 +327,10 @@ def decide(probe):
     categories = sorted({flag for r in suspect_pages for flag in _page_suspicion(r)})
 
     if suspect_pages:
-        if pages == 1 and fullpage_pages and len(categories) >= 2:
+        auto_categories = sorted(AUTO_OCR_FLAGS.intersection(categories))
+        if pages == 1 and fullpage_pages and len(auto_categories) >= 2:
             return ("scan-suspect-layer", ["--ocr-mode", "full_page"],
-                    "single-page scan with " + ", ".join(categories)
+                    "single-page scan with " + ", ".join(auto_categories)
                     + " over a full-page image — heuristic, not proof")
         return ("suspect-layer", [],
                 "text layer looks suspect on sampled page(s): "
@@ -337,15 +356,18 @@ def decision_warnings(probe, label):
     categories = sorted({flag for r in _sampled(probe) for flag in _page_suspicion(r)})
     if label == "scan-suspect-layer":
         warnings.append("heuristic re-OCR selected (--ocr-mode full_page) from "
-                        + ", ".join(categories)
+                        + ", ".join(sorted(AUTO_OCR_FLAGS.intersection(categories)))
                         + "; review identifiers and tables against the page image")
     elif label == "suspect-layer":
         warnings.append("suspicious text layer (" + ", ".join(categories)
-                        + ") but re-OCR is not forced; inspect the pages or pass "
-                        "--ocr-mode full_page explicitly")
+                        + ") but re-OCR is not forced; inspect the sampled pages")
     elif label == "unknown":
         warnings.append("sampled pages show neither text nor a full-page image; "
                         "inspect the input before trusting the output")
+    if any("section-sign-mimic" in (r.get("flags") or ()) for r in _sampled(probe)):
+        warnings.append("possible misread § in the text layer (section-sign-mimic); "
+                        "check citations against the page image and, for scans, compare "
+                        "--ocr-mode layout_regions with full_page before choosing")
     if any("private-use" in (r.get("flags") or ()) for r in _sampled(probe)):
         warnings.append("private-use glyphs in the text layer — strip them with "
                         "--strip-pua before import; they are not evidence of bad OCR")
@@ -374,8 +396,9 @@ def verify_md(md_path, pages_hint, *, profile="general"):
         issues.append("output is empty (whitespace or image placeholders only)")
     elif words < 10:
         warnings.append(f"short output: {words} word(s) — check the source and the OCR mode")
+    missing_headings = profile == "structured" and not levels and (pages_hint or 1) >= 3
     if profile == "structured":
-        if not levels and (pages_hint or 1) >= 3:
+        if missing_headings:
             warnings.append(f"no headings in a {pages_hint}-page document — "
                             "check the nesting or A/B the backend")
         if jumps:
@@ -385,7 +408,8 @@ def verify_md(md_path, pages_hint, *, profile="general"):
         warnings.append(f"{pua} private-use glyph(s) — strip before import (--strip-pua)")
     tables = sum(1 for line in lines if line.lstrip().startswith("|"))
     return {
-        "headings": len(levels), "level_jumps": jumps, "words": words,
+        "headings": len(levels), "missing_headings": missing_headings,
+        "level_jumps": jumps, "words": words,
         "table_lines": tables, "pua_glyphs": pua,
         "issues": issues, "warnings": warnings, "profile": profile,
     }
@@ -408,7 +432,7 @@ def prepare_markdown(path, pages, profile="general", strip_pua=False, log=None):
 
 def quality(result):
     """Lower is better. More headings alone do not prove quality."""
-    return (len(result["issues"]), result["level_jumps"])
+    return (len(result["issues"]), result["missing_headings"], result["level_jumps"])
 
 
 # --- artifacts -----------------------------------------------------------
@@ -418,6 +442,40 @@ def publish_file(staged, target, overwrite=False):
         os.replace(staged, target)
     else:
         os.link(staged, target)
+
+
+def file_identity(path):
+    stat = path.lstat()
+    return stat.st_dev, stat.st_ino
+
+
+def rollback_entry(target, identity, log, *, directory=False):
+    """Best effort: skip replaced entries and never remove foreign children."""
+    try:
+        if file_identity(target) != identity:
+            return
+        if directory:
+            target.rmdir()
+        else:
+            target.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        log(f"[rollback] could not remove {target}: {exc}")
+
+
+@contextmanager
+def staging_directory(parent, warnings, log):
+    temp = tempfile.TemporaryDirectory(prefix=".smart-convert-", dir=parent)
+    try:
+        yield Path(temp.name)
+    finally:
+        try:
+            temp.cleanup()
+        except OSError as exc:
+            warning = f"could not remove staging directory {temp.name}: {exc}"
+            warnings.append(warning)
+            log(f"[warn] {warning}")
 
 
 def validate_chunks(path):
@@ -448,21 +506,22 @@ def validate_chunks(path):
     return objects
 
 
-def publish_bundle(entries, target_dir):
+def publish_bundle(entries, target_dir, log):
     """Exclusively created directory; chunks first, Markdown last."""
-    created = False
+    directory_id = None
     linked = []
     try:
-        Path(target_dir).mkdir(parents=False, exist_ok=False)
-        created = True
+        target_dir.mkdir()
+        directory_id = file_identity(target_dir)
         for staged, target in entries:
+            identity = file_identity(staged)
             publish_file(staged, target, overwrite=False)
-            linked.append(target)
+            linked.append((target, identity))
     except (OSError, JobError) as exc:
-        for target in reversed(linked):
-            Path(target).unlink(missing_ok=True)
-        if created:
-            shutil.rmtree(target_dir, ignore_errors=True)
+        for target, identity in reversed(linked):
+            rollback_entry(target, identity, log)
+        if directory_id is not None:
+            rollback_entry(target_dir, directory_id, log, directory=True)
         if isinstance(exc, JobError):
             raise
         code = "output_exists" if isinstance(exc, FileExistsError) else "io_error"
@@ -497,7 +556,8 @@ def cmd_for(args, inp, target, extra, backend, *, page_range=None, chunks=False)
 
 
 def build_parser():
-    ap = ReportParser(description=__doc__.splitlines()[0])
+    ap = ReportParser(description=__doc__.splitlines()[0], add_help=False, allow_abbrev=False)
+    ap.add_argument("-h", "--help", action=ReportHelp, nargs=0, help="show this help message and exit")
     ap.add_argument("input", type=Path)
     ap.add_argument("--out", type=Path, help="output .md file (or dir with --chunks)")
     ap.add_argument("--chunks", action="store_true",
@@ -623,6 +683,9 @@ def check_targets(args, inp, paths):
         return
     _check_target(paths["final_md"], source_id, "output", overwrite=args.overwrite)
     if args.keep_sample:
+        if paths["sample_md"].name.casefold() == paths["final_md"].name.casefold():
+            raise JobError("preflight", "output_collision",
+                           "sample and final output need distinct filenames")
         _check_target(paths["sample_md"], source_id, "sample output", overwrite=False)
 
 
@@ -704,9 +767,7 @@ def run_job(args, report, logs):
     stage_sample = None
     sample_verify = None
     set_stage("convert")
-    with tempfile.TemporaryDirectory(prefix=".smart-convert-",
-                                     dir=str(paths["parent"])) as staging_root:
-        staging = Path(staging_root)
+    with staging_directory(paths["parent"], report["warnings"], log) as staging:
         if do_sample:
             trigger = ("--sample-only requested" if args.sample_only
                        else f"{pages} pages > {args.sample_threshold}")
@@ -715,7 +776,7 @@ def run_job(args, report, logs):
             set_stage("sample")
             rc, _ = convert(cmd_for(args, inp, stage_sample, extra, used_backend,
                                     page_range=sample_range),
-                            log, online=args.online, timeout=args.timeout)
+                            log, online=args.online, timeout=args.timeout, stage="sample")
             if rc != 0:
                 raise JobError("sample", "tool_failed", "sample conversion failed",
                                returncode=rc)
@@ -727,9 +788,7 @@ def run_job(args, report, logs):
             log(f"[verify:sample] headings={sample_verify['headings']} "
                 f"jumps={sample_verify['level_jumps']} words={sample_verify['words']}")
 
-            structure_suspect = (
-                (not sample_verify["headings"] and sample_pages >= 3)
-                or sample_verify["level_jumps"])
+            structure_suspect = sample_verify["missing_headings"] or sample_verify["level_jumps"]
             if (args.profile == "structured" and not args.pdf_backend
                     and structure_suspect and not sample_verify["issues"]):
                 log("[sample] structure suspicious → one bounded retry with pypdfium2")
@@ -737,7 +796,7 @@ def run_job(args, report, logs):
                 try:
                     rc2, _ = convert(cmd_for(args, inp, alt, extra, "pypdfium2",
                                              page_range=sample_range),
-                                     log, online=args.online, timeout=args.timeout)
+                                     log, online=args.online, timeout=args.timeout, stage="sample")
                     if rc2 != 0:
                         raise JobError("sample", "tool_failed",
                                        "alternate backend failed", returncode=rc2)
@@ -758,7 +817,9 @@ def run_job(args, report, logs):
                     else:
                         log("[sample] tie/regression on the sample → default backend kept")
                 except JobError as exc:
-                    diagnostic = exc.detail.get("stderr_tail") or exc.detail.get("message")
+                    report["sample_retry_error"] = exc.detail
+                    diagnostic = (exc.detail["stderr_tail"].strip() or exc.detail["stdout_tail"].strip()
+                                  or exc.detail["message"])
                     report["warnings"].append(
                         "alternate backend unavailable: "
                         f"{exc.detail.get('code')} — {diagnostic.strip()[:200]}")
@@ -830,6 +891,7 @@ def run_job(args, report, logs):
 
         set_stage("publish")
         published_sample = None
+        sample_identity = None
         try:
             if paths["kind"] == "chunks":
                 entries = []
@@ -837,24 +899,25 @@ def run_job(args, report, logs):
                     entries.append((stage_sample, paths["sample_md"]))
                 entries.append((staged_chunks, paths["chunks"]))
                 entries.append((staged_md, paths["final_md"]))
-                publish_bundle(entries, paths["bundle"])
+                publish_bundle(entries, paths["bundle"], log)
                 if args.keep_sample and stage_sample is not None:
                     published_sample = paths["sample_md"]
             else:
                 if args.keep_sample and stage_sample is not None:
+                    sample_identity = file_identity(stage_sample)
                     publish_file(stage_sample, paths["sample_md"], overwrite=False)
                     published_sample = paths["sample_md"]
                 publish_file(staged_md, paths["final_md"], overwrite=args.overwrite)
         except OSError as exc:
-            if published_sample is not None:
-                Path(published_sample).unlink(missing_ok=True)
+            if published_sample is not None and sample_identity is not None:
+                rollback_entry(published_sample, sample_identity, log)
             raise JobError("publish",
                            "output_exists" if isinstance(exc, FileExistsError)
                            else "io_error",
                            f"could not publish the output: {exc}")
         except JobError:
-            if published_sample is not None:
-                Path(published_sample).unlink(missing_ok=True)
+            if published_sample is not None and sample_identity is not None:
+                rollback_entry(published_sample, sample_identity, log)
             raise
 
         report["backend"] = used_backend
@@ -872,16 +935,22 @@ def run_job(args, report, logs):
         return (2 if report["warnings"] else 0), None
 
 
-def fail(report, logs, error):
-    report["error"] = error.detail
+def fail(report, error, *, json_mode):
+    detail = report["error"] = error.detail
     for key in ("output", "chunks", "sample_md"):
         report[key] = None
+    if not json_mode:
+        print(f"[error:{detail['stage']}] {detail['message']}", file=sys.stderr)
+        diagnostic = detail["stderr_tail"].strip() or detail["stdout_tail"].strip()
+        if diagnostic:
+            print(diagnostic, file=sys.stderr)
     return 1
 
 
 def main():
     argv = sys.argv[1:]
-    json_mode = "--json" in argv
+    option_end = argv.index("--") if "--" in argv else len(argv)
+    json_mode = "--json" in argv[:option_end]
     report = new_report()
     logs = []
     try:
@@ -889,14 +958,22 @@ def main():
         json_mode = bool(args.json)
         set_stage("usage")
         code, status = run_job(args, report, logs)
+        if code == 0 and report["warnings"]:  # Includes staging cleanup after the return.
+            code = 2
         return finish(report, logs, code, status=status, json_mode=json_mode)
+    except HelpRequested as exc:
+        if json_mode:
+            report["help"] = str(exc)
+            return finish(report, logs, 0, status="help", json_mode=True)
+        print(exc, end="")
+        raise SystemExit(0)
     except JobError as exc:
-        code = fail(report, logs, exc)
+        code = fail(report, exc, json_mode=json_mode)
         return finish(report, logs, code, status="error", json_mode=json_mode)
     except Exception as exc:                      # no blanket silent recovery
         error = JobError(_STAGE["value"], "internal_error",
                          f"{type(exc).__name__}: {exc}")
-        code = fail(report, logs, error)
+        code = fail(report, error, json_mode=json_mode)
         return finish(report, logs, code, status="error", json_mode=json_mode)
 
 

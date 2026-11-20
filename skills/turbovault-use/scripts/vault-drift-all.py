@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the vault drift check across every vault registered with TurboVault.
 
-Reads `vaults:` from the TurboVault config (default ~/.turbovault/bosch.yaml),
+Reads `vaults:` from the TurboVault config (default $TURBOVAULT_CONFIG or ~/.turbovault/config.yaml),
 runs vault-drift-check.py --quiet --store for each, and prints the report of the
 vaults that have changes the audit log does not cover. Prints nothing at all
 when every vault is in sync, so it can run as a watchdog (cron, no_agent).

@@ -366,6 +366,43 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(m.detect_text_flags("Total 300,00& WEERTEwÖE WEERTEwÖE"),
                          ["amount-ampersand", "case-salad"])
 
+    def test_detect_text_flags_section_sign_mimic(self):
+        # a scanned Finanzamt letter whose layer turned every § into a glyph
+        self.assertEqual(m.detect_text_flags("gem. 8 152 AO ein Zuschlag"),
+                         ["section-sign-mimic"])
+        self.assertEqual(m.detect_text_flags("ergibt sich aus &$149 Abs. 1 AO"),
+                         ["section-sign-mimic"])
+        self.assertEqual(m.detect_text_flags("unzulässig ($ 393 Abs. 1 AO)"),
+                         ["section-sign-mimic"])
+
+    def test_detect_text_flags_section_sign_intact(self):
+        self.assertEqual(m.detect_text_flags("§ 149 Abs. 1 Abgabenordnung (AO)"), [])
+
+    def test_section_mimic_requires_legal_context(self):
+        for text in ("$ 100 USD; $100 US Dollars", "$123 Value package", "8 152 Artikel",
+                     "$ 100 Absorption", "$1.234 Angebot", "8 152 AON"):
+            with self.subTest(text=text):
+                self.assertEqual(m.detect_text_flags(text), [])
+
+    def test_section_mimic_spacing_suffix_and_mixed_layer(self):
+        for text in ("§ 149 Abs. 1 AO; vgl. 8 152 AO", "&amp;$\xa0\t149a   Abs. 1 AO",
+                     "$ 1234b\nSatz 2 BGB", "8   152\tAO"):
+            with self.subTest(text=text):
+                self.assertIn("section-sign-mimic", m.detect_text_flags(text))
+
+    def test_section_mimic_does_not_count_towards_automatic_ocr(self):
+        probe = self.probe(flags=["section-sign-mimic", "replacement-character"], image=True)
+        label, extra, _ = m.decide(probe)
+        self.assertEqual((label, extra), ("suspect-layer", []))
+
+    def test_decision_section_sign_mimic_warns_but_forces_nothing(self):
+        probe = self.probe(pages=3, flags=["section-sign-mimic"], image=True)
+        label, extra, _ = m.decide(probe)
+        self.assertEqual(label, "suspect-layer")
+        self.assertEqual(extra, [])
+        warnings = m.decision_warnings(probe, label)
+        self.assertTrue(any("layout_regions" in w for w in warnings))
+
     # --- 10: sample-only and general prose --------------------------------
     def test_sample_only_short_pdf(self):
         code, report = self.cli("--sample-only", pages=1)
@@ -430,6 +467,30 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(list(self.root.glob(".smart-convert-*")), [])
 
     # --- 11: bounded structural retries -----------------------------------
+    def test_structured_retry_can_restore_missing_headings(self):
+        def bodies(command, log, **kwargs):
+            self.commands.append(command)
+            target = Path(command[command.index("--output-file") + 1])
+            prefix = "# Recovered\n\n" if "--pdf-backend" in command else ""
+            target.write_text(prefix + self.body, encoding="utf-8")
+            return 0, 0.01
+
+        code, report = self.cli("--sample-only", "--profile", "structured",
+                                pages=3, converter=bodies)
+        self.assertEqual(code, 2)
+        self.assertEqual(len(self.commands), 2)
+        self.assertEqual(report["backend"], "pypdfium2")
+        self.assertEqual(report["sample_verify"]["headings"], 1)
+
+    def test_sample_tool_error_retains_stage_and_diagnostics(self):
+        done = subprocess.CompletedProcess(["docling"], 7, "sample stdout", "sample stderr")
+        with patch.object(m.subprocess, "run", return_value=done):
+            code, report = self.cli("--sample-only", converter=m.convert)
+        self.assertEqual(code, 1)
+        self.assertEqual(report["error"]["stage"], "sample")
+        self.assertEqual(report["error"]["returncode"], 7)
+        self.assertEqual(report["error"]["stderr_tail"], "sample stderr")
+
     def test_structured_retry_tie_keeps_default(self):
         def bodies(command, log, **kwargs):
             self.commands.append(command)
@@ -450,7 +511,8 @@ class ConverterTests(unittest.TestCase):
             self.commands.append(command)
             if "--pdf-backend" in command:
                 raise m.JobError("sample", "tool_failed", "pypdfium2 exploded",
-                                 returncode=7, stderr="alternate diagnostic")
+                                 returncode=7, stdout="alternate stdout",
+                                 stderr="alternate diagnostic")
             target = Path(command[command.index("--output-file") + 1])
             target.write_text("# A\n\n### C\n\n" + self.body, encoding="utf-8")
             return 0, 0.01
@@ -458,6 +520,10 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(report["status"], "sample")
         self.assertTrue(any("alternate diagnostic" in line for line in report["logs"]))
+        error = report["sample_retry_error"]
+        self.assertEqual(error["stdout_tail"], "alternate stdout")
+        self.assertEqual(error["stderr_tail"], "alternate diagnostic")
+        self.assertEqual(error["returncode"], 7)
         self.assertTrue(report["sample_md"])
 
     def test_explicit_backend_disables_retry(self):
@@ -497,6 +563,17 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(report["error"]["code"], "output_exists")
         self.assertEqual(sidecar.read_text(), "old sample")
         self.assertEqual(self.commands, [])
+
+    def test_keep_sample_rejects_same_target_before_probe(self):
+        self.out = self.source.with_suffix(".sample.md")
+        with patch.object(m, "probe_pdf", return_value=self.probe(40)) as probe:
+            code, report = self.cli("--keep-sample", mock_probe=False)
+        probe.assert_not_called()
+        self.assertEqual(code, 1)
+        self.assertEqual(report["error"]["stage"], "preflight")
+        self.assertEqual(report["error"]["code"], "output_collision")
+        self.assertEqual(self.commands, [])
+        self.assertFalse(self.out.exists())
 
     def test_target_symlink_rejected(self):
         real = self.root / "real.md"
@@ -675,6 +752,57 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(keeper.read_text(), "unrelated")
 
     # --- 15: dependency requirements, final CLI matrix --------------------
+    def test_chunks_rollback_preserves_foreign_entries_and_replacements(self):
+        self.out = self.root / "bundle"
+        real = m.publish_file
+
+        def flaky(staged, target, overwrite=False):
+            if target.suffix == ".md":
+                chunks = self.out / "input.chunks.jsonl"
+                (self.out / "foreign.txt").write_text("foreign", encoding="utf-8")
+                chunks.unlink()
+                chunks.write_text("replacement", encoding="utf-8")
+                raise OSError("publication failed")
+            return real(staged, target, overwrite)
+
+        with patch.object(m, "publish_file", side_effect=flaky):
+            code, report = self.cli("--chunks")
+        self.assertEqual(code, 1)
+        self.assertEqual(report["error"]["code"], "io_error")
+        self.assertEqual((self.out / "foreign.txt").read_text(), "foreign")
+        self.assertEqual((self.out / "input.chunks.jsonl").read_text(), "replacement")
+
+    def test_file_rollback_preserves_replaced_sample(self):
+        sidecar = self.source.with_suffix(".sample.md")
+        real = m.publish_file
+
+        def flaky(staged, target, overwrite=False):
+            if target == self.out:
+                sidecar.unlink()
+                sidecar.write_text("replacement", encoding="utf-8")
+                raise OSError("publication failed")
+            return real(staged, target, overwrite)
+
+        with patch.object(m, "publish_file", side_effect=flaky):
+            code, report = self.cli("--keep-sample", pages=40)
+        self.assertEqual(code, 1)
+        self.assertEqual(report["error"]["code"], "io_error")
+        self.assertEqual(sidecar.read_text(), "replacement")
+
+    def test_cleanup_error_does_not_retract_published_output(self):
+        for flags, key, status in (((), "output", "warning"),
+                                   (("--sample-only",), "sample_md", "sample")):
+            with self.subTest(flags=flags):
+                self.out = self.root / f"{key}.md"
+                with patch.object(m.tempfile.TemporaryDirectory, "cleanup",
+                                  side_effect=PermissionError("cleanup blocked")):
+                    code, report = self.cli(*flags)
+                self.assertEqual(code, 2)
+                self.assertEqual(report["status"], status)
+                self.assertTrue(Path(report[key]).is_file())
+                self.assertTrue(any("cleanup blocked" in line for line in report["logs"]))
+                self.assertTrue(any("cleanup blocked" in line for line in report["warnings"]))
+
     def test_html_does_not_require_poppler(self):
         self.source = self.root / "page.html"
         self.source.write_text("<html><body><h1>T</h1><p>body</p></body></html>", encoding="utf-8")
@@ -715,6 +843,29 @@ class ConverterTests(unittest.TestCase):
                     m.main()
         self.assertEqual(raised.exception.code, 0)
         self.assertIn("usage:", stdout.getvalue())
+
+    def test_json_help_is_one_report_in_either_order(self):
+        for flags in (("--json", "--help"), ("-h", "--json")):
+            with self.subTest(flags=flags):
+                result = subprocess.run([sys.executable, str(SCRIPT), *flags],
+                                        capture_output=True, text=True, check=True)
+                report = json.loads(result.stdout)
+                self.assertEqual(report["schema_version"], 1)
+                self.assertEqual(report["status"], "help")
+                self.assertEqual(report["exit_code"], 0)
+                self.assertIn("usage:", report["help"])
+                self.assertIsNone(report["output"])
+
+    def test_human_usage_and_preflight_errors_reach_stderr(self):
+        for flags, stage, expected in (([str(self.source), "--bad-option"], "usage", "unrecognized arguments"),
+                                       ([str(self.root / "missing.pdf")], "preflight", "input not found")):
+            with self.subTest(flags=flags):
+                result = subprocess.run([sys.executable, str(SCRIPT), *flags],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stdout, "")
+                self.assertIn(stage, result.stderr)
+                self.assertIn(expected, result.stderr)
 
     def test_uppercase_suffix_supported(self):
         self.source = self.root / "INPUT.PDF"

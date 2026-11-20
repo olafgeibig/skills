@@ -23,7 +23,8 @@ topics:
      ## Ergebnis     was daraus folgt — und was ausdrücklich offen bleibt
      `sources:` nennt statt eines veränderlichen `extract` die EINGEFRORENE `raw`-Fassung,
      auf der die Analyse beruht. Weitere Belege wie Fälle, Dossiers oder Stammdaten werden
-     verlinkt; ohne `raw` (etwa bei `research`): die konkreten URLs nennen.
+     verlinkt; ohne `raw` (etwa bei `research`): die konkreten URLs nennen. Bei einem wachsenden
+     Mailthread zusätzlich den verwendeten Originalexport mit relativem Pfad und SHA-256 im Text fixieren.
      Keine Quelle erfinden: was nicht in `sources:` steht, ist Behauptung. -->
 
 ## Kurzfassung

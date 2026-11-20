@@ -36,14 +36,14 @@ that arrived is never an extract, and something you derived never becomes an eve
 
 ## Which of the two is a document?
 
-Ask who authored the text.
+First decide whether it is correspondence or a separate project work product.
 
 | The text is… | Class | Consequence |
 |---|---|---|
 | a document from outside the project — converted from a file, exported as `.eml`, or pasted while the original lives elsewhere | `document` | folder `raw/`, body verbatim; provenance per `SKILL.md` → Ownership (`source:` path + `sha256:` when a file is held, prose `source:` when it is not) |
 | a work product this project produced and holds as evidence | `artifact` | folder `artifacts/`, frozen, no provenance fields |
 
-Direction and file shape do not decide it. A letter that arrives or was sent, an email thread, a contract both sides signed, a court decision quoted word for word — all `document`. What separates `artifact` is who wrote the text: the project itself. *Capturing a document* below says how the original and the note stay connected.
+Direction, authorship and file shape do not override the correspondence rule. A received or sent letter, an email thread, a signed contract and a court decision are `document`. An independently retained non-correspondence work product produced by the project is `artifact`.
 
 **Nothing is decided yet? Leave it in `inbox/`.** That is a valid state, not a failure: the folder exists so an unclassified file has somewhere to lie without becoming the wrong class. Triage can wait for the session that knows what the thing is.
 
@@ -57,12 +57,13 @@ Direction and file shape do not decide it. A letter that arrives or was sent, an
 
 How the original and the note stay connected. Applies to a document arriving as a file (`.eml` export, PDF, mail attachment) or as pasted text.
 
-1. **File held?** Copy it into the project's original store in the workdir (`documents/`), `cp -n`, then `shasum -a 256`. The note carries `source:` relative to the storage root and `sha256:` of that file.
-2. **`.eml` export:** take the `text/plain` part (`email` + `policy.default`, `get_body(preferencelist=("plain",))`), CRLF→LF. The body is the whole thread — every quoted message in source order, separated by `---`, each keeping its `Von:`/`Gesendet:`/`An:`/`Betreff:` header lines.
+1. **File held?** Copy it into the project's original store in the workdir (`documents/`), `cp -n`, then `shasum -a 256`. The note carries `source:` relative to the storage root and `sha256:` of that file. When the user names no path but only says the document is the newest file in a download folder, take the newest non-hidden file by mtime and confirm from its content that it is the described document before converting — a download folder accumulates unrelated exports.
+2. **`.eml` export:** use `references/correspondence.md` for conversion, attachment checks and thread updates.
 3. **Pasted text:** no file, no checksum. `source:` is prose naming where the original lives; say in the reply that provenance is interim until the original is captured.
-4. **Normalise only annotation noise** — `<mailto:>`, `<tel:>`, map links, `*` bullets, repeated trailing signature blocks — and name every drop in the reply. Everything else stays verbatim.
+4. **Normalise layout and verified annotation noise only.** Keep substantive links and repeated quoted content; report omissions explicitly.
 5. **Verify the transcription** against the source after normalising: every substantive source line must be present in the note. Report how many lines were checked and what was omitted.
 6. **Link an attachment only on matching checksums.** When the message carried a document that has its own note, the attachment's hash must equal that note's `sha256:` — a plausible filename is not proof.
+7. **Check evidentiary marks from the image, not only the text layer.** Record separately what is held (physical original, copy, scan or electronic file) and what the image shows (e.g. a seal, signature or certification wording). Do not infer authenticity or legal acceptability from those marks; verify any required form with the recipient. Record relevant receipt evidence separately from the document's own date.
 
 - A thread trimmed to its newest message, or a body summarised into the note, loses the substance of the exchange — distillation belongs in `resources/`, `analyses/` and the case's `## Stand`, never in the `document` body.
 - When a proper document note supersedes an interim one, create and delete in one `batch_execute` — the Direct backend is sequential, so verify both results — and never leave two notes for one thing.
@@ -76,7 +77,7 @@ How the original and the note stay connected. Applies to a document arriving as 
 | a value others will cite (date, number, reference) | `masterdata/`, values replaced in place |
 | the current state of a case or the subject | the `## Stand` of that case or dossier |
 | something that happened and left no document | an `event` — if it carries content |
-| a task | `## Aufgaben` of a case — never of a dossier; if no case holds it, the task is the case |
+| a task | `## Aufgaben` of the case it serves, never of a dossier. If none fits, use the case-cut rule in `SKILL.md` → *The two hubs*; a lone task does not by itself create a case. |
 
 ## Part 3 — a note that is the wrong class
 

@@ -1,11 +1,12 @@
 ---
 name: hermes-projects
 description: "Use when structuring a project that Hermes works in."
+version: "2.1.0"
+author: Olaf Geibig
+license: MIT
 metadata:
-  version: "2.0.0"
-  author: Olaf Geibig
   source: https://github.com/olafgeibig/skills
-  scope: personal
+  scope: standalone
   hermes:
     category: personal
     tags:
@@ -28,6 +29,12 @@ How a project that Hermes works in is structured: where its content lives, what 
 1. **Projektform — where does the content live?** `workdir` (a directory outside every vault), `vault` (`projects/<x>/` in a vault), or `hybrid` (both).
 2. **Projekttyp — how is it built and cared for?** Every type is governed by its own skill; the single exception is `flat`.
 3. **Containertyp — what holds the project?** `vault` (it sits in a vault), `workdir` (its container is a workdir), `standalone` (it *is* a vault at its own root).
+
+## When to Use
+
+- Choose a project form, project type, or container type.
+- Create or audit a project manual, or adopt a new type in an existing project.
+- Resolve project paths or decide how its vault and publication target relate to the workdir.
 
 ## Projektform
 
@@ -55,19 +62,9 @@ Both use the same five sections — `Purpose`, `Setup`, `Important resources`, `
 
 **One manual, plus `conventions.md` when it earns its place.** `AGENTS.md` is the contract; `conventions.md` takes every rule that does not fit a page. Create it with the first rule that overflows and link it from `AGENTS.md` in the same change — the link is what makes the file editable: an agent told to extend the rules opens the file it was pointed at instead of growing the manual. Shape it from `assets/project-conventions.md.example` — in a vault it is a note (frontmatter, `topics`, MoC entry in the same change), in a workdir a plain markdown file. Never scaffold an empty file or leave a dangling link.
 
-## Machines
+## Resolve the current machine
 
-Paths are declared per machine under a stable logical name. A hostname changes when hardware is replaced; the logical name does not.
-
-| Machine | Hostname | What it is |
-|---|---|---|
-| `bosch` | `BE18-C-0001G` | work laptop; its successor keeps the logical name, only this row changes |
-| `durin` | `durin` | home-lab server (Raspberry Pi 5), runs an agent and the backup NAS |
-| `boromir` | `boromir` | private MacBook, the local ML box |
-
-This table lives here on purpose. It is instance data and belongs in a personal skill, not in a shared one — and it is the one place to edit when the setup changes, instead of every project's `AGENTS.md`.
-
-Resolution: run `hostname`, find the row, use its logical name. Unknown hostname → ask which machine this is, add the row, then continue. Never derive a machine name from `whoami`, from a path, or from an OS hostname, and never reuse another machine's path. Write `not present` explicitly for a machine without a workdir — it stops the next agent from inventing a plausible path.
+Use the active profile’s setup guidance or the machine inventory linked by the project manual. If the inventory is keyed by hostname, look up `hostname` there and use the corresponding stable logical name. If no mapping exists, ask; do not guess from a username, known path, or another machine’s entry. Keep hostnames and machine roles in that inventory, never in a shared skill.
 
 ## Paths have one authoritative home
 
@@ -89,7 +86,7 @@ Declare the publication target per project; the Projektform alone does not deter
 
 - **Never mirror.** One artefact, one home per role; a note names the path and says what it is.
 - **No vault guarantees outside a registered vault.** Hashes, audit, rollback and the drift check cover a *registered* vault only. In a workdir: read before writing, write only when the task asks, and name its own version control as the safety net — or state plainly that nothing is versioned.
-- **One fact, one place.** Project facts in the project's files, method in a skill, instance data in the table above. A skill never restates a project fact; it links.
+- **One fact, one place.** Project facts in the project's files, method in a skill, installation facts in the profile’s setup guidance or its project documentation. A skill never restates a project fact; it links.
 - **Facts versus method.** The Projektskill that governs the type carries the method; the project's files carry locations, rules and the state of the work. There is no per-project skill: a project's specifics live in its `AGENTS.md` and the `conventions.md` beside it, which every environment can read.
 - **A concept note carries the complete concept; another audience gets its own file.** Rewrite a spec or design note so it stands alone as the full current concept — never leave a chain of amendments appended over time. Operational instructions aimed at a different reader (a runbook brief for other agents, per-machine steps) are a separate note beside it, linked from the spec: one file serving two audiences buries the procedure under the rationale.
 
@@ -117,21 +114,19 @@ Keep this file a navigation bridge, not a second resource MoC; leave originals a
 
 ## Projekttyp (notes projects)
 
-**Rule 1 — a type is what has a skill.** This skill does not enumerate the types, because a list is a second place to edit: a type appears by publishing a skill and disappears by freezing one. Every type is governed by its own **Projektskill**, which carries the folders, the `type:` vocabulary, the templates, the care rules and the validation; the project's `AGENTS.md` keeps facts and deviations only. The single exception is **`flat`**, described below. A manual naming a type this skill does not know is not a defect; a manual naming a type with no skill behind it is.
+**Rule 1 — a type is what has a skill.** This skill does not enumerate the types, because a list is a second place to edit: an active type has a maintained skill; a retired skill may remain discoverable solely to identify historical references. Every type is governed by its own **Projektskill**, which carries the folders, the `type:` vocabulary, the templates, the care rules and the validation; the project's `AGENTS.md` keeps facts and deviations only. The single exception is **`flat`**, described below. A manual naming a type this skill does not know is not a defect; a manual naming a type with no skill behind it is.
 
 **`flat`** — plain notes: a MoC and notes, no classes, no generated sections, no check. It is the state a project starts in and may legitimately stay in. It needs no skill because there is nothing to encode beyond this paragraph; the moment a project needs classes, a template or a check, the type changes and a skill takes over.
 
-**Frozen types do not vanish.** `casefile` is frozen: `whv` still runs on it, it takes no new projects, and it disappears once that project has migrated to `dossier-project`. Its skill stays until then — frozen is a state, not a deletion, and the migration instructions have to outlive the type.
-
 **Rule 2 — the Projektskill declares its Containertyp**, and the project manual declares the one in use; a mismatch is a defect. The Containertyp also fixes how far the skill reaches: a `vault` project is governed inside `projects/<x>/` only, while a vault that sits in a workdir — and a `standalone` one — is governed as a whole. Both sides are stated, never assumed: the skill names the type it governs, the manual names the skill. One page per form and per type: `references/project-forms-and-types.md`.
 
-**Adopting a type on a project that predates it:** inventory the existing notes' `type:` values first (`SELECT path, type FROM files WHERE path LIKE 'projects/<x>/%'`), declare the type in the manual, and record the legacy deviation — flat layout, pre-type `type:` values — in its `Rules`. Migrating or retyping the existing notes is a separate assignment that waits for the user's go: writing the manual never restructures the note set it describes.
+**Adopting a type on a project that predates it:** inventory the existing notes' `type:` values first (`SELECT path, type FROM files WHERE path LIKE 'projects/<x>/%'`), declare the type in the manual, and record the legacy deviation — flat layout, pre-type `type:` values — in its `Rules`. Migrating or retyping the existing notes is a separate assignment that waits for the user's go. Follow the target type’s adoption procedure for the approved scope; writing the manual alone never restructures existing notes.
 
 **When a project deserves its own vault** — exactly three reasons: an access or device boundary (work versus private), a publication or deployment target that needs its own home, or shared custody with its own sync history. Rule volume is not a reason; new document types call for a new kind, not a new vault.
 
 ## Renaming a skill
 
-Skills that govern a Projekttyp carry the postfix `-project` (`dossier-project`, `authoring-project`, `csl-project`). A rename touches more than the skill: the vault root `AGENTS.md`, every project `AGENTS.md`, the skill's own frontmatter and template, and any note naming the term. Patch the skill contents first, then `git mv` the directory (the frontmatter `name:` must equal the directory name), grep every skill root and vault for the old name, and verify discovery with the skills list — trust the listing, not the rename.
+For a requested rename, follow `skill-governance` and `skill-library-maintenance`; do not rename a released package in place as part of project maintenance. Inventory affected project and vault manuals, templates, and other consumers before proposing a coordinated update. After publication verify discovery under the new name and check that no live declaration still depends on the old one.
 
 ## Auditing an existing project manual
 
@@ -139,7 +134,7 @@ Asked whether a project's `AGENTS.md` still matches these conventions, the deliv
 
 1. **Five sections, in order, about a page.** A missing `Project directory: …` line is the most common gap: nothing else states which file *is* the manual.
 2. **Projektform stated literally** (`Projektform: hybrid`) together with the Projekttyp and — where a vault is involved — its Containertyp: consistent with the file tree and the rest of the file, and matching what the type's skill declares. If the form claim itself is wrong, rewrite rather than patch around it.
-3. **Instance data not restated.** Hostnames and per-machine roles belong in the table above; naming which machines are in play is enough. A manual that calls one machine "the work laptop" is a second place to edit.
+3. **Instance data not restated.** Reference the authoritative machine inventory; name only the logical machines relevant to the project. A manual that calls one machine "the work laptop" is a second place to edit.
 4. **Every cross-reference resolves.** The longest-lived defect is a note claiming "the table of installations lives in `AGENTS.md`" while the manual has no such table: each file reads correctly alone, so only a grep finds it. Grep the project for `AGENTS.md`, `conventions`, and the MoC link, and test every claim against the file's actual content.
 5. **`conventions.md` is a real link, not a code span**, from the `Extending the rules` section — the agent told to extend the rules must be able to follow it.
 6. **Important resources carry a reason** (`open before …`) and a stated selection rule. The MoC is the index; a second complete list is the defect.
@@ -152,7 +147,7 @@ Report as a numbered list with `file:line` and, for each, the exact replacement;
 1. Answer the three questions and write Projektform, Projekttyp and — where a vault is involved — the Containertyp down.
 2. `vault` form: create `projects/<x>/` with its `+<X>` MoC and its entry in the vault index.
 3. `workdir` and `hybrid`: create the workdir, `git init` and commit — or state that it is unversioned.
-4. Write `AGENTS.md` from the template, on the side where the work happens. For C, add a vault router only when vault-only discovery requires it. Create `conventions.md` from `assets/project-conventions.md.example` with the first rule that overflows the page, and link it in the same change.
+4. Write `AGENTS.md` from the template, on the side where the work happens. For `hybrid`, add a vault router only when vault-only discovery requires it. Create `conventions.md` from `assets/project-conventions.md.example` with the first rule that overflows the page, and link it in the same change.
 5. Declare per-machine checkout paths in their one authoritative home; in the workdir name the vault by name, never by path.
 6. If the project has a vault of its own: install it in a subdirectory, declare its Containertyp, name the Projektskill that governs it, and add the chain sentence — load that skill and read the vault's `AGENTS.md` before the first write inside it.
 7. Only then start working. The files exist before the first write, not after.

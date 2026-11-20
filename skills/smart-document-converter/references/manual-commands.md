@@ -27,14 +27,16 @@ pages. A four-page PDF therefore includes page 4.
 
 - **No text at all + a page-covering image** → scan without a layer → base
   command; Docling OCR fires automatically on the bitmap.
-- **Full-page image + a text layer** → the layer is checked for three
-  heuristic flags only: `replacement-character` (U+FFFD), `case-salad`
-  (two or more `WEERTEwÖE`-shaped tokens), `amount-ampersand` (a digit
-  amount immediately followed by `&`). Two or more of them on a
-  **single-page** document select `--ocr-mode full_page` and warn that the
-  choice is a heuristic, not proof. One category, or any suspicion in a
-  multi-page document, keeps Docling's default and warns instead.
-- **Clean text, no full-page image** → digital → base command.
+- **Text layer with red flags** → report the evidence in the sampled
+  pages. Only `replacement-character` (U+FFFD), `case-salad` (at least two
+  `WEERTEwÖE`-shaped tokens) and `amount-ampersand` (a decimal amount
+  followed by `&`) count toward automatic `--ocr-mode full_page`. At
+  least two of those categories plus a page-covering image on a
+  **single-page** PDF are required; otherwise the mode stays unchanged.
+- **`section-sign-mimic`** flags `8`, `$` or `&$` in a citation-shaped
+  context, including paragraph suffixes or pages that also contain
+  correctly rendered `§`. It never counts toward automatic re-OCR.
+- **Clean-looking text, no full-page image** → digital → base command.
 
 What the probe deliberately does **not** claim:
 
@@ -136,9 +138,10 @@ section in RAG metadata.
 
 The script does this once, on the sample, only under `--profile
 structured`, and only without an explicit `--pdf-backend`. It compares
-`(issues, level_jumps)`; a tie keeps the default backend, because more
-headings alone do not prove better output. A failed alternate backend
-leaves the usable sample selected and its diagnostic in the report.
+`(number of issues, missing_headings, level_jumps)` in that order; a tie
+keeps the default backend. Restoring missing headings can win, but merely
+adding more headings cannot. A failed alternate backend leaves the usable
+sample selected and records both diagnostic tails in `sample_retry_error`.
 
 ## RAG chunk export
 

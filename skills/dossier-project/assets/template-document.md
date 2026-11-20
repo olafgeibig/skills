@@ -20,8 +20,8 @@ topics:
      ein geglätteter Text ist kein Beweis mehr. Braucht der Agent eine lesbare, korrigierte Fassung,
      ist das ein `extract` daneben — nicht dieses Dokument.
      Das Original (PDF, Scan) kann an einem anderen Ort oder auf einem anderen Rechner liegen.
-     Fristen laufen ab ZUSTELLUNG, nicht ab Papierdatum: der Zustellungstag gehört in den Fall
-     (## Stand oder die Frist der Aufgabe), nicht auf dieses Dokument.
+     Relevante Zugangs- oder Zustelldaten samt Nachweis im Fall festhalten. Vor einer Fristberechnung
+     prüfen, welches Ereignis die Frist tatsächlich auslöst; das Papierdatum belegt keinen Zugang.
      Transkripte: `type: transcript`, sonst identisch — eine Audiodatei gibt es nicht. -->
 
 {{Konvertierter Volltext.}}

@@ -10,9 +10,8 @@ uv tool install docling
 docling --version
 ```
 
-- CLI: `~/.local/bin/docling`
-- Tool venv (needed for the ocrmac injection below):
-  `~/.local/share/uv/tools/docling/bin/python`
+Find the CLI with `command -v docling`. Resolve the actual tool environment
+with `uv tool dir`; do not assume uv's defaults or a fixed home path.
 
 ## 2. ocrmac — OCR engine (macOS only)
 
@@ -20,8 +19,9 @@ Apple Vision framework bindings: local, offline, no HF models. Install
 INTO docling's tool venv, not as a separate tool:
 
 ```bash
-uv pip install --python ~/.local/share/uv/tools/docling/bin/python ocrmac
-~/.local/share/uv/tools/docling/bin/python -c "import ocrmac; print('ok')"
+docling_python="$(uv tool dir)/docling/bin/python"
+uv pip install --python "$docling_python" ocrmac
+env -u PYTHONPATH -u PYTHONHOME "$docling_python" -c "import ocrmac; print('ok')"
 ```
 
 - `uv tool inject docling ocrmac` does NOT work (unknown option).
@@ -34,7 +34,7 @@ uv pip install --python ~/.local/share/uv/tools/docling/bin/python ocrmac
 
 ```bash
 brew install poppler
-command -v pdftotext pdfimages
+command -v pdfinfo && command -v pdftotext && command -v pdfimages
 ```
 
 Used for the pre-conversion probe (`pdfinfo`, `pdftotext -layout`,
@@ -77,7 +77,7 @@ DOCX or image fixtures with Pillow), use the tool venv explicitly and the
 same scoping:
 
 ```bash
-env -u PYTHONPATH -u PYTHONHOME ~/.local/share/uv/tools/docling/bin/python script.py
+env -u PYTHONPATH -u PYTHONHOME "$(uv tool dir)/docling/bin/python" script.py
 ```
 
 ## Notes
@@ -86,5 +86,7 @@ env -u PYTHONPATH -u PYTHONHOME ~/.local/share/uv/tools/docling/bin/python scrip
   creating test DOCX with real heading styles; no extra install needed.
 - `--device mps` uses the Apple Silicon GPU; on Intel Macs use
   `--device cpu`.
-- On Linux, ocrmac is unavailable — a different OCR engine (e.g.
-  easyocr/tesseract) would be needed; this skill's commands assume macOS.
+- The wrapper's OCR engine is fixed to ocrmac: PDF conversion with this
+  configuration assumes macOS. The stdlib tests and base smoke fixture
+  generator do not require macOS; extended scan/DOCX fixtures use a macOS
+  system font and the Python dependencies of the Docling tool environment.

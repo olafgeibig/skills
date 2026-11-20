@@ -20,6 +20,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 
 # --- the model, as code -----------------------------------------------------
 
@@ -59,7 +60,12 @@ FOCUS_TYPES = set(ALL_TYPES) - {"utility", "moc"}
 
 DATE_PREFIX = re.compile(r"^(\d{4})-?(\d{2})-?(\d{2})")
 UNKNOWN_DATE = "????-??-??"
+TASK_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+\[[^\]\r\n]\](?:\s|$)")
 LINK_RE = re.compile(r"\[\[([^\]|#]+)")
+
+
+def name_key(text):
+    return unicodedata.normalize("NFC", text.casefold())
 
 
 # --- reading ----------------------------------------------------------------
@@ -387,7 +393,7 @@ def vault_basenames(root):
         dirnames[:] = [d for d in dirnames if not d.startswith(".") and d != ".turbovault"]
         for f in filenames:
             if f.endswith(".md") and f not in NOT_NOTES:
-                seen.setdefault(f[:-3], []).append(os.path.relpath(os.path.join(dirpath, f), root))
+                seen.setdefault(name_key(f[:-3]), []).append(os.path.relpath(os.path.join(dirpath, f), root))
     return {k: v for k, v in seen.items() if len(v) > 1}
 
 
@@ -397,7 +403,11 @@ def link_targets(note):
     Only *notes* count as sources: conventions.md and AGENTS.md are not parsed,
     so they can never be the reason a raw or artifact note looks reachable.
     """
-    return [t.strip().split("/")[-1].lower() for t in LINK_RE.findall(note.raw)]
+    return text_targets(note.raw)
+
+
+def text_targets(text):
+    return [name_key(t.strip().split("/")[-1]) for t in LINK_RE.findall(text)]
 
 
 def vault_stems(root):
@@ -407,7 +417,7 @@ def vault_stems(root):
         dirnames[:] = [d for d in dirnames if not d.startswith(".") and d != ".turbovault"]
         for f in filenames:
             if f.endswith(".md") and f not in NOT_NOTES:
-                seen.add(f[:-3].lower())
+                seen.add(name_key(f[:-3]))
     return seen
 
 
@@ -426,6 +436,10 @@ def valid_child_folder(note):
     return note.type in FOLDER_TYPES.get(folder, set())
 
 
+def names_parent(child, field, parent):
+    return name_key(parent.stem) in map(name_key, targets(child.fm.get(field)))
+
+
 def children(note, notes):
     """(rows, uninterpretable) for a parent note.
 
@@ -437,7 +451,7 @@ def children(note, notes):
     rows, odd = [], []
     if note.type == "case":
         for c in notes:
-            if note.stem not in targets(c.fm.get("cases")):
+            if not names_parent(c, "cases", note):
                 continue
             # Working knowledge is cited in ## Stand, not listed as an event: an
             # extract, research or analysis has a date, but it is not something
@@ -451,7 +465,7 @@ def children(note, notes):
         return sorted(rows, reverse=True), odd
     if note.type == "dossier":
         for c in notes:
-            if note.stem not in targets(c.fm.get("dossier")):
+            if not names_parent(c, "dossier", note):
                 continue
             if c.type is None or c.type not in ALL_TYPES:
                 odd.append((c.rel, c.type))
@@ -587,14 +601,13 @@ def report(notes, root, project_dir):
                 bad.append((n.rel, "status: %r invalid for %s (expected %s)"
                             % (st, n.type, " | ".join(sorted(STATUS_VALUES[n.type])))))
 
-        if n.type == "masterdata" and "Aufgaben" in headings(n.body):
-            bad.append((n.rel, "masterdata must not carry tasks (## Aufgaben) — "
-                               "they belong to a case or a dossier"))
+        has_task = n.type in ("masterdata", "dossier") and any(
+            TASK_RE.match(line) for line, visible in scan(n.body) if visible)
+        if n.type == "masterdata" and (has_task or "Aufgaben" in headings(n.body)):
+            bad.append((n.rel, "masterdata must not carry tasks — they belong to a case"))
 
         if n.type == "dossier":
-            span = section(n.body, "Aufgaben")
-            if span and any(re.match(r"\s*[-*+]\s*\[[ xX]\]", ln)
-                            for ln in n.body[span[0]:span[1]].splitlines()):
+            if has_task:
                 bad.append((n.rel, "a dossier must not carry a task — a task is the decision to "
                                    "act, and the matter it belongs to is a case"))
 
@@ -612,12 +625,12 @@ def report(notes, root, project_dir):
 
         for key in ("cases", "dossier"):
             for t in targets(n.fm.get(key)):
-                if t.lower() not in known:
+                if name_key(t) not in known:
                     bad.append((n.rel, "%s: names [[%s]], and no note of that name exists in "
                                        "the vault" % (key, t)))
 
         if has_entry and n.type in ("document", "transcript", "artifact") \
-                and not pointed_at.get(n.stem.lower()):
+                and not pointed_at.get(name_key(n.stem)):
             bad.append((n.rel, "evidence nothing points at — a document or artifact no note "
                                "refers to is invisible; cite it from its case"))
 
@@ -665,9 +678,9 @@ def report(notes, root, project_dir):
                 bad.append((n.rel, "## %s is stale (%d row(s) present, %d expected) — run --rebuild"
                             % (head, len(have), len(want))))
 
-    proj = os.path.relpath(os.path.abspath(project_dir), root)
+    proj = os.path.abspath(project_dir)
     for name, paths in vault_basenames(root).items():
-        if any(os.path.abspath(os.path.join(root, p)).startswith(os.path.abspath(project_dir))
+        if any(os.path.commonpath((proj, os.path.join(root, p))) == proj
                for p in paths):
             bad.append((name, "duplicate basename in the vault" +
                         (" — " + " | ".join(paths) if len(paths) < 5 else "")))
@@ -684,9 +697,33 @@ def report(notes, root, project_dir):
 
 # --- audit ------------------------------------------------------------------
 
-def audit(notes, project_dir):
+def tasks_scope(project_path):
+    path = re.sub(r"([/\\.^$*+?{}\[\]|()])", r"\\\1", project_path)
+    return r"path regex matches /^" + path + r"\/cases\//"
+
+
+def task_blocks(body):
+    """Top-level Tasks fences, not examples inside other fences or comments."""
+    fence, block, comment = None, None, False
+    for line in body.splitlines():
+        if fence:
+            if re.fullmatch(r" {0,3}" + fence[0] + "{%d,}[ \t]*" % len(fence), line):
+                if block is not None:
+                    yield block
+                fence, block = None, None
+            elif block is not None:
+                block.append(line.strip())
+        elif comment or line.lstrip().startswith("<!--"):
+            comment = "-->" not in line
+        else:
+            m = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+            if m:
+                fence = m.group(1)
+                block = [] if m.group(2).strip() == "tasks" else None
+
+
+def audit(notes, project_dir, root):
     out = []
-    root_name = os.path.basename(os.path.abspath(project_dir))
 
     pointed_at = {}
     for n in notes:
@@ -695,7 +732,7 @@ def audit(notes, project_dir):
 
     for n in notes:
         if n.type not in ("document", "transcript", "artifact") \
-                and not pointed_at.get(n.stem.lower()):
+                and not pointed_at.get(name_key(n.stem)):
             out.append((n.rel, "no incoming link — nothing in the project points here; link it "
                                "from its case, its dossier or the router"))
         if n.type == "case" and n.fm.get("status") == "blocked":
@@ -704,7 +741,7 @@ def audit(notes, project_dir):
             w, d = section(n.body, "Wissen"), section(n.body, "Dokumente")
             empty = (lambda s: not (s and "[[" in n.body[s[0]:s[1]]))
             kids = [c for c in notes if c is not n and (
-                n.stem in targets(c.fm.get("dossier")) or n.stem in targets(c.fm.get("cases")))]
+                names_parent(c, "dossier", n) or names_parent(c, "cases", n))]
             if empty(w) and empty(d) and kids:
                 out.append((n.rel, "## Wissen and ## Dokumente are empty while %d note(s) point here"
                             % len(kids)))
@@ -712,8 +749,15 @@ def audit(notes, project_dir):
     if not any(n.type in FOCUS_TYPES for n in notes):
         out.append(("<project>", "no note carries a kind type — this project is not on the "
                                  "dossier-project model yet"))
-    if not [n for n in notes if os.path.dirname(n.rel) == "" and "```tasks" in n.raw]:
-        out.append(("<root>", "no task hub at the project root (one note with a ```tasks block)"))
+    hubs = [(n, block) for n in notes if not os.path.dirname(n.rel) and n.type in ROOT_TYPES
+            for block in task_blocks(n.body)]
+    if len(hubs) != 1 or hubs[0][0].type != "utility":
+        out.append(("<root>", "expected exactly one task hub (utility) with one tasks block at the project root"))
+    else:
+        hub, block = hubs[0]
+        scope = tasks_scope(os.path.relpath(project_dir, root))
+        if scope not in block:
+            out.append((hub.rel, "task hub must use the exact cases/ subtree: " + scope))
 
     if out:
         print("AUDIT — %d item(s) for a human" % len(out))
@@ -835,7 +879,7 @@ def main():
     g.add_argument("--report", action="store_true", help="hard findings, exit 1 on any")
     g.add_argument("--audit", action="store_true", help="what a human has to decide")
     g.add_argument("--rebuild", action="store_true", help="propose the generated sections, write nothing")
-    ap.add_argument("project", help="project directory, e.g. projects/whv")
+    ap.add_argument("project", help="project directory, e.g. projects/example")
     a = ap.parse_args()
 
     project_dir = a.project.rstrip("/")
@@ -847,7 +891,7 @@ def main():
     if a.report:
         return report(notes, root, project_dir)
     if a.audit:
-        return audit(notes, project_dir)
+        return audit(notes, project_dir, root)
     return rebuild(notes, project_dir)
 
 

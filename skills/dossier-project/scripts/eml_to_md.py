@@ -28,14 +28,13 @@ import re
 import sys
 from email import policy
 
-# Annotations the mail clients append to the plain-text part: <mailto:…>, <tel:…>,
-# and bare URLs in angle brackets (Google Maps links follow every address).
-ANNOTATION = re.compile(r"\s*<(?:mailto:[^<>]*|tel:[^<>]*|https?://[^<>]*)>")
+# Strip an annotation only when the same target is already printed beside it.
+ANNOTATION = re.compile(r"([^\s<>]+)[ \t]*<((?:mailto:|tel:|https?://)[^<>]+)>")
 
-HEADER_FIELDS = ("Von", "Gesendet", "An", "Betreff", "Cc")
+HEADER_FIELDS = ("Von", "Gesendet", "An", "Betreff", "Cc", "From", "Sent", "To", "Subject")
 
 # Where a quoted message starts: Outlook's "Von: …" or Gmail's "Am … schrieb …".
-QUOTED_START = re.compile(r"^(?:Von: |Am \S.{0,60} schrieb )")
+QUOTED_START = re.compile(r"^(?:Von: |From: |Am \S.{0,60} schrieb )")
 
 BULLET = re.compile(r"^[*-][ \t]+")
 
@@ -44,7 +43,7 @@ ANGLE_SPACE = re.compile(r"(<[^<>]*) >")
 
 # Angle brackets around an address become a mail autolink in Obsidian and a
 # phantom entry in the broken-link report. The address stays, the brackets go.
-ANGLE_MAIL = re.compile(r"<(\S[^<>\s]*@[^<>\s]*)>")
+ANGLE_MAIL = re.compile(r"<([^<>\s:/]+@[^<>\s:/]+)>")
 
 HEADER_KEYS = (
     ("Von", "From"),
@@ -66,13 +65,20 @@ def plain_text(msg):
     return part.get_content()
 
 
+def redundant_annotation(match):
+    label, target = match.groups()
+    plain = re.sub(r"^(?:mailto:|tel:)", "", target)
+    return label if plain == label else match.group()
+
+
 def normalise(text):
     """Return the thread as a list of markdown lines."""
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     out = []
     pending_blank = False
     for raw in text.split("\n"):
-        line = ANGLE_MAIL.sub(r"\1", ANGLE_SPACE.sub(r"\1>", ANNOTATION.sub("", raw).strip()))
+        text_line = ANNOTATION.sub(redundant_annotation, raw).strip()
+        line = ANGLE_MAIL.sub(r"\1", ANGLE_SPACE.sub(r"\1>", text_line))
         if not line:
             pending_blank = True
             continue
@@ -99,7 +105,7 @@ def normalise(text):
     return collapsed
 
 
-def header_block(msg):
+def header_block(msg, parts):
     rows = []
     for label, key in HEADER_KEYS:
         value = msg.get(key)
@@ -110,8 +116,9 @@ def header_block(msg):
                 value = email.utils.parsedate_to_datetime(str(value)).strftime("%Y-%m-%d %H:%M:%S %z")
             except (TypeError, ValueError):
                 pass
-        rows.append(f"{label}: {ANGLE_MAIL.sub(r'\1', str(value))}")
-    attached = [p.get_filename() for p in msg.walk() if p.get_filename() and not p.get("Content-ID")]
+        text = ANGLE_MAIL.sub(r"\1", str(value))
+        rows.append(f"{label}: {text}")
+    attached = [name for name, _, _, _, kind in parts if kind == "anhang"]
     if attached:
         rows.append("Anhang: " + ", ".join(attached))
     return rows
@@ -123,13 +130,15 @@ def attachments(msg):
         name = part.get_filename()
         if not name:
             continue
-        payload = part.get_payload(decode=True) or b""
+        payload = part.get_payload(decode=True)
+        embedded = (part.get_content_disposition() == "inline"
+                    or (part.get_content_disposition() != "attachment" and part.get("Content-ID")))
         found.append((
             name,
             part.get_content_type(),
-            len(payload),
-            hashlib.sha256(payload).hexdigest(),
-            "eingebettet" if part.get("Content-ID") else "anhang",
+            len(payload) if payload is not None else None,
+            hashlib.sha256(payload).hexdigest() if payload is not None else None,
+            "eingebettet" if embedded else "anhang",
         ))
     return found
 
@@ -140,19 +149,25 @@ def main(argv=None):
     ap.add_argument("--no-header", action="store_true", help="Kopfblock der äußeren Nachricht weglassen")
     args = ap.parse_args(argv)
 
-    raw = open(args.eml, "rb").read()
+    try:
+        with open(args.eml, "rb") as fh:
+            raw = fh.read()
+    except OSError as exc:
+        ap.exit(1, f"Datei nicht lesbar: {exc}\n")
     msg = email.message_from_bytes(raw, policy=policy.default)
     body = normalise(plain_text(msg))
 
-    lines = [] if args.no_header else header_block(msg) + [""]
+    parts = attachments(msg)
+    lines = [] if args.no_header else header_block(msg, parts) + [""]
     sys.stdout.write("\n".join(lines + body).rstrip() + "\n")
 
     print(f"datei       {args.eml}", file=sys.stderr)
     print(f"sha256      {hashlib.sha256(raw).hexdigest()}", file=sys.stderr)
     print(f"nachrichten {sum(1 for l in body if QUOTED_START.match(l)) + 1}", file=sys.stderr)
     print(f"zeichen     {len(chr(10).join(body))}", file=sys.stderr)
-    for name, ctype, size, digest, kind in attachments(msg):
-        print(f"{kind:11} {name} | {ctype} | {size} B | {digest}", file=sys.stderr)
+    for name, ctype, size, digest, kind in parts:
+        detail = f"{size} B | {digest}" if digest is not None else "keine Prüfsumme (kein dekodierbarer Byteinhalt)"
+        print(f"{kind:11} {name} | {ctype} | {detail}", file=sys.stderr)
     return 0
 
 

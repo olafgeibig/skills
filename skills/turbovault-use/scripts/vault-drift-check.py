@@ -218,7 +218,7 @@ def main() -> int:
             return True
         return rec["write_hashes"][digest] >= window_start - 1
 
-    def audited_delete(rel: str) -> bool:
+    def is_audited_delete(rel: str) -> bool:
         rec = audited_paths.get(rel)
         if not rec or not rec["delete_ts"]:
             return False
@@ -245,7 +245,7 @@ def main() -> int:
         for rel in prev_files:
             if rel in disk:
                 continue
-            (audited_delete if audited_delete(rel) else external_delete).append(rel)
+            (audited_delete if is_audited_delete(rel) else external_delete).append(rel)
 
     # ---- historical picture (only with --full, or on the baseline run) -----
     never_audited = [rel for rel in disk if rel not in audited_paths]

@@ -63,7 +63,6 @@ The vault sits **beside** the workdir (two independent paths) or **inside** it (
 | `flat` | `vault` | none — described in `SKILL.md` |
 | `authoring-project` | `workdir` | `authoring-project` |
 | `csl-project` | `workdir` | `csl-vault` (renamed to `csl-project`, where installed) |
-| `casefile` *(frozen)* | `vault` | `casefile` — `whv` only, until it migrates |
 
 A project's own vault lives in a **subdirectory** of the workdir and is **unregistered by default**: without registration it has no TurboVault audit, rollback or drift check, so its own version control is the safety net. Never apply the notes vault's types (`zettel`, `article`, …) inside it, and never translate its notes across the boundary except at publication.
 

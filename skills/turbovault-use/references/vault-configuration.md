@@ -13,7 +13,7 @@ Read it when **TurboVault** is the problem, never when a **vault** is:
 | "Something misbehaves although it is there" — parked spawn, stale UI, reconnect churn | `references/troubleshooting.md`, not here |
 | "How do I edit, move, query, delete?" | the tool reference for that task; neither of these files |
 
-The always-on checks stay in `SKILL.md` §Establish Availability (`list_vaults` first; an empty list after a restart is a registry reset, not an empty vault; a missing tool does not prove the server is down). Read this guide when those checks report something wrong that has to be fixed.
+The always-on checks stay in `SKILL.md` §Establish Availability (`list_vaults` first; an empty registry does not explain the cause, and a missing tool does not prove the server is down). Read this guide when those checks report something wrong that has to be fixed.
 
 ## Detect TurboVault
 
@@ -94,7 +94,7 @@ The registry is not one global list. In 4.0 registration combines these sources 
 
 Treat the configured `is_default`, runtime default flags, and active selection as separate observations. Do not promise active selection from the YAML alone: a v4 startup with restored cache state can select a different vault. Because the cache is keyed by the server's **working directory**, two Hermes processes (dashboard, gateway) can report different vault lists on the same machine. Declare intended entries explicitly, then verify the complete live registry and active selection after startup; cached names absent from the config may also be restored. Test both a clean cache and a disposable copy of the relevant existing cache under the intended working directory before claiming restart behavior. Keep all probe cache writes isolated from production.
 
-**Isolation is a property of the working directory, not of the config.** A profile whose YAML deliberately excludes another project's vaults still inherits them when its server starts in a directory whose cache holds them — names, `active_vault` and the default flag included — so a private profile can address vaults its config never mentions. `security.allowed_vault_roots` does not prevent this: it only limits runtime `add_vault`. Give such a profile a cache of its own; then prove the result by comparing `list_vaults` with the YAML rather than by reading either alone.
+**Use a separate cache for each profile that needs an isolated registry.** The YAML alone does not exclude entries from a shared cache. `security.allowed_vault_roots` does not prevent this: it only limits runtime `add_vault`. Give such a profile a cache of its own; then prove the result by comparing `list_vaults` with the YAML rather than by reading either alone.
 
 Two levers separate the cache, and the cheaper one is the cache root rather than the working directory:
 

@@ -10,15 +10,19 @@ Ein Absatz. Keine Notizliste, keine Zahlen.}}
 
 ## Setup
 
-Shape: notes only (B) — kein Arbeitsbaum
-<!-- Hybrid (C): Workdir je Maschine als eigene Zeile (`- **Workdir** (per machine): `maschine` → /pfad`); Belegpfade in Notizen bleiben relativ zur Originalablage -->
+Projektform: vault
+Containertyp: vault
 Projektverzeichnis: dieses Verzeichnis — Einstieg `+{{Projekt}}.md`
-Projekttyp: `dossier-project`
+Projekttyp: dossier-project
 
-- **Notes:** dieses Verzeichnis (Vault `{{akademeia}}`)
-- **Working vault:** none
+- **Notizen:** dieses Verzeichnis (Vault `{{Vaultname}}`)
+- **Originalablage:** {{Ort je Maschine, falls vorhanden; sonst Zeile weglassen}}
 
-Sprache {{DE}}. Bei jeder Arbeit hier zuerst den Skill `dossier-project` laden.
+Sprache: {{Sprache}}.
+
+### Verbindliche Skills
+
+Vor der Arbeit `hermes-projects` und `dossier-project` laden.
 Seine Notiztypen und Pflegeregeln gelten; Abweichungen stehen nur hier.
 
 ## Wichtige Ressourcen
@@ -34,10 +38,12 @@ Seine Notiztypen und Pflegeregeln gelten; Abweichungen stehen nur hier.
 
 Notizklassen, Ordnertabelle, Routing und Pflichtabschnitte: Skill `dossier-project`. Hier nur die Abweichungen dieses Projekts:
 
+Veröffentlichung: {{Ziel oder „keine“}}. Der Bereich `wiki/` gehört nicht zu diesem Projekt.
+
 - {{z. B. Personen-Achse über Tags und Dateinamen; Verwechslungssperren; Root-Ausnahmen mit Grund}}
 - {{z. B. Fristen-Logik, Freigabe-Pflicht, Zahlendisziplin}}
 
 ## Regeln erweitern
 
-Vault-Konvention → Vault-`AGENTS.md`; Methodik → `project-{{x}}`.
-Wichtiger Kontext und Basisfakten stehen in `conventions.md` — die Datei entsteht mit ihrer ersten Regel, nicht vorher; sobald sie existiert, gilt sie und muss gelesen werden
+Vault-Konvention → Vault-`AGENTS.md`; Methodik → `dossier-project`.
+Projektregeln und Basisfakten kommen bei Bedarf in `conventions.md`; erst wenn sie existiert, hier einen Link darauf setzen.

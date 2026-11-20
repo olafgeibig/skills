@@ -1,7 +1,7 @@
 ---
 name: smart-document-converter
 description: "Use when converting PDF/DOCX/HTML to Markdown (docling)."
-version: "1.0.0"
+version: "1.1.0"
 author: Olaf Geibig
 license: MIT
 compatibility: "macOS (ocrmac/Apple Vision OCR); requires docling CLI and poppler."
@@ -59,13 +59,16 @@ Exit code and `status` travel together; orchestration reads `status`.
 | `warning` | 2 | requested artifact published, with warnings |
 | `planned` | 0 / 2 | `--probe-only`: decision and command, nothing written |
 | `sample` | 0 / 2 | `--sample-only`: durable sample, no full conversion |
-| `error` | 1 | nothing published; `error` carries stage, code, diagnostics |
+| `help` | 0 | `--json --help`: usage text in the `help` field; nothing written |
+| `error` | 1 | no completed output; `error` carries stage, code, diagnostics |
 
 Exit 2 always means a usable artifact (or an explicitly requested
 plan/sample) — never an aborted conversion. Every report, including a
 successful one, states `semantic_validation: "not_performed"`, and
 `--json` emits exactly one object on stdout with `schema_version: 1` on
-every path, including usage errors. Progress goes to stderr.
+every path, including usage errors and help. Progress and plain-text
+errors go to stderr. Staging cleanup failures after publication are warnings;
+the report still lists the published artifacts.
 
 Flags:
 
@@ -91,12 +94,12 @@ with `--chunks`, `--overwrite` with `--chunks` or `--keep-sample`, and
 `--sample-only` with `--force-full`/`--probe-only`/`--chunks`/
 `--keep-sample` or a non-PDF input.
 
-Existing outputs are never replaced by accident: a target that exists,
-that is a symlink, that is the source itself, or an existing chunk
-directory fails before Docling starts. Chunk bundles are validated then
-published chunks-first, Markdown last; that pair is not a filesystem
-transaction, so consumers wait for the success report rather than for the
-directory to appear.
+Existing outputs are not replaced without `--overwrite`. A symlink,
+the source itself, or an existing chunk directory is always rejected.
+`--keep-sample` requires a final Markdown filename distinct from the
+sample filename. Chunk bundles are validated and then published chunks
+first, Markdown last. This is not a filesystem transaction: wait for the
+success report, not for the directory to appear.
 
 Manual commands and the reasoning behind each decision:
 `references/manual-commands.md` (fallback if the script breaks).
@@ -158,6 +161,11 @@ approval before the rest (rule home: `pdf-document-processing`).
 - Small print in scanned forms loses umlauts selectively (`Prufbescheinigung`, `Luneburg`) —
   a known ocrmac limit, not a broken run. Do not "repair" it by hand-editing;
   correct spellings go into whatever summary you derive from the file.
+- **Check legal citations against the page image** when the probe warns
+  `section-sign-mimic`: a scan's text layer can misread `§` even when the
+  surrounding prose is clean. For scans, compare `--ocr-mode layout_regions`
+  with `--ocr-mode full_page` and verify both citations and reading order.
+  This flag never counts toward automatic re-OCR.
 - Tiled scans (a page built from several partial images) are not detected
   as full-page images; the heuristic stays conservative and may keep a
   weak text layer. Inspect such output.
