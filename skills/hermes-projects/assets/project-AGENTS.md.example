@@ -8,7 +8,7 @@ are produced, say where they are produced and where they end up.}}
 ## Setup
 
 Projektform: {{workdir | vault | hybrid}}
-Projekttyp: {{flat | dossier-project | authoring-project | csl-project}}
+Projekttyp: {{flat | dossier-project | authoring-project | cs-project}}
 Containertyp: {{vault | workdir | standalone}} — only where the project has a vault
 Projektverzeichnis: {{this directory | the workdir — its AGENTS.md is the operating manual}}
 
@@ -16,7 +16,7 @@ Projektverzeichnis: {{this directory | the workdir — its AGENTS.md is the oper
 - **Workdir** (per machine): `{{machine}}` → `{{/absolute/path}}` · `{{machine}}` → not present
 - **Own vault:** `{{subdirectory}}`, Containertyp `{{workdir}}` — or `none`
 
-Work inside the project's own vault starts with its skill, not with this file: load `{{authoring-project|csl-project|none}}`, then read `{{subdirectory}}/AGENTS.md` before the first write there. Inside that directory the vault's own manual governs — layout, metadata, navigation, project-specific overrides; out here this file does. Never drive the vault from this manual alone, and do not treat the skill as a substitute for the vault's local rules: the skill carries the reusable conventions for its type, the vault file carries the decisions this vault made.
+Work inside the project's own vault starts with its skill, not with this file: load `{{authoring-project|cs-project|csl-vault|none}}`, then read `{{subdirectory}}/AGENTS.md` before the first write there. Inside that directory the vault's own manual governs — layout, metadata, navigation, project-specific overrides; out here this file does. Never drive the vault from this manual alone, and do not treat the skill as a substitute for the vault's local rules: the skill carries the reusable conventions for its type, the vault file carries the decisions this vault made.
 
 {{With a workdir this file is the router: purpose, where the project lives per machine, and
 what the notes here are for — knowledge source, and publication target when they are one. The

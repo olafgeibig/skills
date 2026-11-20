@@ -21,11 +21,11 @@ metadata:
 
 # Authoring Project
 
-Operate one **authoring-project**: a project whose scope is primarily one small, self-contained vault, and — where the work needs them — raw originals, PDFs and helper scripts beside it in the workdir. Its outputs are published to a declared target, commonly a notes vault. Use this model instead of importing the area/project hierarchy from `vault-ops` or the compliance machinery from `csl-project` (a separate package, installed only where CSL work is set up). No mandatory plugins, manifests, evidence IDs, or independent per-note versions.
+Operate one **authoring-project**: a project whose scope is primarily one small, self-contained vault, and — where the work needs them — raw originals, PDFs and helper scripts beside it in the workdir. Its outputs are published to a declared target, commonly a notes vault. Use this model instead of importing the area/project hierarchy from `vault-ops`. No mandatory plugins, manifests, evidence IDs, or independent per-note versions.
 
 **Projekttyp `authoring-project`, Containertyp `workdir`.** The type owns a vault of its own, which sits in a subdirectory of the workdir — never at its root — plus whatever does not belong in a vault. The project's `AGENTS.md` declares the same pair; a mismatch is a defect (`hermes-projects` audits it).
 
-Use the Projekttyp declared by the project's `AGENTS.md`, not the presence of a publication target, to select this skill. A declared `authoring-project` may develop local research and deliverables with no publication target; keep publication disabled until a destination and authorization exist. This skill is one type, not the whole genus: a `csl-project` is governed by `csl-project` (formerly `csl-vault`), where that package is installed.
+Use the Projekttyp declared by the project's `AGENTS.md`, not the presence of a publication target, to select this skill. A declared `authoring-project` may develop local research and deliverables with no publication target; keep publication disabled until a destination and authorization exist.
 
 **Scope gate — the vault's `AGENTS.md` chooses the skill.** Apply this model only where the vault's `AGENTS.md` declares `Projekttyp: authoring-project` or names this skill, or the user explicitly sets the project up as one. When a vault's `AGENTS.md` names no skill, `vault-ops` plus that vault's specific skill governs it. A notes vault (MoC-based `area/`/`projects/`/`wiki/` Zettelkasten) keeps its own structure, note types, and metadata — never give it this layout, SemVer versions, or `checked`/`reviewed_for` markers. The session offering this skill is not the vault choosing it.
 

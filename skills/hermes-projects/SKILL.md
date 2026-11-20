@@ -74,7 +74,7 @@ Use the active profile’s setup guidance or the machine inventory linked by the
 
 ## Publication
 
-Declare the publication target per project; the Projektform alone does not determine it. An `authoring-project`'s vault commonly publishes into the associated notes project. A `csl-project`'s vault follows its lifecycle (`analysis → compiled → docs`) and may target `docs/` in the same vault or an external repository. A `vault` project may publish into itself; a project without a declared target does not publish.
+Declare the publication target per project; the Projektform alone does not determine it. An `authoring-project`'s vault commonly publishes into the associated notes project. A `cs-project` (Projekttyp, Projektform `hybrid`) publishes according to its own skill; its embedded `csl/` vault follows the lifecycle `analysis → compiled → docs` and may target `docs/` in the same vault or an external repository. A `vault` project may publish into itself; a project without a declared target does not publish.
 
 - Explicit request only — no request, no publication.
 - One deliverable maps one-to-one to one target artifact — a note, page, report, or declared bundle.
@@ -159,4 +159,4 @@ Report as a numbered list with `file:line` and, for each, the exact replacement;
 | Note types, MoCs, INDEX, frontmatter, refactoring, tasks | `vault-ops` |
 | Writing into a vault, audit, drift | `turbovault-use` |
 | The `authoring-project` type (analysis → deliverable) | `authoring-project` |
-| The `csl-project` type | `csl-vault` (where installed) |
+| The `cs-project` type (repository plus embedded `csl/` vault) | `cs-project` governs the project; `csl-vault` governs only the embedded vault |
