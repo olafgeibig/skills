@@ -49,10 +49,11 @@ development and it does not publish.
    - **Divergence or conflicts:** stop, report the conflicting commits/files, and discuss
      resolution with the user. Default is for the user to run the merge/resolution commands without
      changing locks. If the user explicitly wants the agent to resolve conflicts directly, the user
-     can run `python3 skills/skill-governance/scripts/bulk-lock.py unlock <skills-dir>` beforehand
-     and `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir>` afterwards
-     (restores only previously locked skills). Never bulk-unlock from the agent, and never rebase or
-     force-push on your own.
+     can run `python3 skills/skill-governance/scripts/bulk-lock.py unlock <skills-dir> -p <profile>`
+     beforehand and
+     `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir> -p <profile>`
+     afterwards (restores only previously locked skills). Never bulk-unlock from the agent, and
+     never rebase or force-push on your own.
 5. **Verify afterwards, on the real path.** Re-run `git status`, `git log -1`, and the declaration
    and library audits. `skill_view` each affected skill from a fresh session and confirm the
    resolved path and the version that actually loads. A fetched revision is not an installed

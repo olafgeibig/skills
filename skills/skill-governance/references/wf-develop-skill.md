@@ -46,9 +46,10 @@ self-improvement phases. **Never copy existing canonical skills into `$HERMES_HO
    for the agent — default is for the user to run those Git commands directly without changing
    locks. Only if the user deliberately wants the agent to run repo-wide Git commands or conflict
    resolution may the user run
-   `python3 skills/skill-governance/scripts/bulk-lock.py unlock <skills-dir>` beforehand and
-   `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir>` afterwards (restores
-   only the previously locked skills; never invoked by the agent).
+   `python3 skills/skill-governance/scripts/bulk-lock.py unlock <skills-dir> -p <profile>`
+   beforehand and
+   `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir> -p <profile>`
+   afterwards (restores only the previously locked skills; never invoked by the agent).
 4. **Edit or learn in place.** Patch/edit directly in the canonical repository (`skill_manage` or
    filesystem tools on the canonical package path). For `improve/*` burn-in, leave the skill(s)
    unlocked in place until stable — never create a local shadow copy. Keep the change doc updated

@@ -17,29 +17,55 @@ There is no local copy to remove; edits live directly in the canonical checkout.
 1. **Verify the canonical state.** Confirm `git status --short --branch` is clean for the published
    paths, `HEAD` is the verified commit (or merged into `main`), and `skill_view` resolves the
    canonical package with the published content.
-2. **Re-lock (unless intentionally kept unlocked for burn-in).** Output copy-paste
-   `hermes curator lock <skill>` commands (one per skill) — or
-   `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir>` if the user
-   temporarily bulk-unlocked the repo. Read `hermes curator status` back to verify.
+2. **Re-lock (unless intentionally kept unlocked for burn-in).** Keep these two steps separate:
+   - If the user temporarily ran `bulk-lock.py unlock`, restore the sibling snapshot first:
+     `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir> -p <profile>`
+     (note: if the target skill was already unlocked before the bulk-unlock, the snapshot only
+     covers the sibling skills).
+   - Then output copy-paste `hermes -p <profile> curator lock <skill>` commands (one per target
+     skill edited in this phase, unless burn-in is agreed).
+   - Verify the final state with `hermes -p <profile> curator status`.
 
 ### Abandoned
 
 Unpublished edits live directly in the active canonical checkout — **re-locking alone does NOT
 revert them.**
 
-1. **Decide disposition with the user.** Ask explicitly whether to preserve the unpublished work
-   (keep the `edit/*` / `improve/*` branch unmerged, or save a `git diff` patch outside skill
-   discovery) or discard it completely.
-2. **Restore the intended canonical state.** Prepare the exact user-executed Git commands (repo-root
+1. **Inventory index, working tree, and untracked files separately.** Run `git status --short --branch`,
+   `git diff --cached --name-status` (staged), `git diff --name-status` (unstaged), and
+   `git ls-files --others --exclude-standard` (untracked) so nothing is missed and unrelated dirty
+   files stay untouched.
+2. **Decide disposition with the user.** Ask explicitly whether to preserve the unpublished work or
+   discard it completely. If preserving:
+   - Keep the `edit/*` / `improve/*` branch unmerged (after committing the WIP state there), **or**
+   - Save a complete recovery bundle outside skill discovery that captures **index and working tree
+     separately** (a single `git diff HEAD` misses staged changes that were later reverted in the
+     working tree):
+     - `git -C <repo> diff --cached --binary HEAD -- <exact paths> > <backup>/staged.patch`
+     - `git -C <repo> diff --binary -- <exact paths> > <backup>/worktree.patch`
+     - copy/tarball any untracked files created in this phase into `<backup>/`.
+     Verify the saved patches and copied files are non-empty where expected and readable before
+     discarding anything.
+3. **Restore the intended canonical state.** Prepare the exact user-executed Git commands (repo-root
    Git mutations are guarded while sibling skills are locked):
-   - If on an `edit/*` or `improve/*` branch: commit or discard working-tree changes per step 1,
-     then `git -C <repo> switch main` (and optionally delete the abandoned branch if discarding).
-   - If edits were made directly on `main`: `git -C <repo> checkout -- <exact paths>` and remove
-     any untracked files belonging solely to the abandoned phase.
-3. **Verify the active source.** Confirm `git status --short --branch` and `skill_view` resolve the
-   canonical package at its intended pre-phase content.
-4. **Restore the prior lock state.** Output copy-paste `hermes curator lock <skill>` commands for
-   each skill that was locked before the phase, then read `hermes curator status` back.
+   - If on an `edit/*` or `improve/*` branch: commit or discard working-tree/staged changes per
+     step 2, then `git -C <repo> switch main` (and optionally delete the abandoned branch if
+     discarding).
+   - If edits were made directly on `main`: restore **both index and working tree** exclusively for
+     the phase's approved paths from the recorded base (`HEAD` or base commit):
+     `git -C <repo> restore --source=HEAD --staged --worktree -- <exact paths>`,
+     then remove only the untracked files belonging to the abandoned phase. Do **not** use
+     `git checkout -- <paths>` alone — that restores from the index and leaves staged changes
+     active in both the index and the working tree.
+4. **Verify the active source.** Confirm `git status --short --branch`, `git diff --cached`, and
+   `skill_view` resolve the canonical package at its intended pre-phase content with no leftover
+   staged edits.
+5. **Restore the prior lock state.** Keep these two steps separate:
+   - If the user temporarily ran `bulk-lock.py unlock`, restore the sibling snapshot first:
+     `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir> -p <profile>`.
+   - Then output copy-paste `hermes -p <profile> curator lock <skill>` commands for each target
+     skill that was locked before the phase started.
+   - Verify the final state with `hermes -p <profile> curator status`.
 
 ## Branch B — Brand-new skill developed profile-local
 

@@ -2,16 +2,17 @@
 """User-only helper to lock, unlock, or restore locks in an external skills dir.
 
 Usage (run by the user in their own shell — never invoked by the agent):
-    python3 bulk-lock.py unlock  /path/to/skills-dir [--dry-run]
-    python3 bulk-lock.py restore /path/to/skills-dir [--dry-run]
-    python3 bulk-lock.py lock    /path/to/skills-dir [--dry-run]
+    python3 bulk-lock.py unlock  /path/to/skills-dir -p <profile> [--dry-run]
+    python3 bulk-lock.py restore /path/to/skills-dir -p <profile> [--dry-run]
+    python3 bulk-lock.py lock    /path/to/skills-dir [-p <profile>] [--dry-run]
 
-- `unlock` reads currently locked skills from `hermes curator status`, unlocks
-  only the ones in <skills-dir> that are currently locked, and records them in a
-  state file so `restore` re-locks ONLY those skills (preserving any skills that
-  were already intentionally unlocked for burn-in).
-- `restore` re-locks the skills recorded by the previous `unlock` and removes
-  the state file once all succeed.
+- `unlock` requires an explicit `-p/--profile` so the snapshot is bound to the
+  exact profile passed to `hermes -p <profile> curator ...` (never relying on a
+  mutable active-profile default). It unlocks only currently locked skills in
+  <skills-dir> and records them in a state file.
+- `restore` requires the same `-p/--profile` and <skills-dir>, re-locks ONLY
+  the recorded subset (preserving burn-in unlocked skills), and removes the
+  state file once all succeed.
 - `lock` explicitly locks every discovered skill in <skills-dir> (e.g. initial
   lock setup on a new checkout).
 """
@@ -82,8 +83,21 @@ def get_locked_skills(profile: str | None) -> set[str]:
     return parse_locked_skills(result.stdout)
 
 
+def effective_profile(explicit_profile: str | None) -> str:
+    """Resolve a stable profile identity from --profile, env, or default."""
+    if explicit_profile:
+        return f"profile:{explicit_profile}"
+    env_profile = os.environ.get("HERMES_PROFILE")
+    if env_profile:
+        return f"profile:{env_profile}"
+    env_home = os.environ.get("HERMES_HOME")
+    if env_home:
+        return f"home:{Path(env_home).expanduser().resolve()}"
+    return "default"
+
+
 def default_state_file(root: Path, profile: str | None) -> Path:
-    key = f"{profile or 'default'}::{root}"
+    key = f"{effective_profile(profile)}::{root}"
     digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
     base = Path.home() / ".hermes" / "cache" / "bulk-lock"
     return base / f"{digest}.json"
@@ -117,7 +131,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("action", choices=["lock", "unlock", "restore"], help="curator action")
     parser.add_argument("skills_dir", type=Path, help="path to external skills directory")
-    parser.add_argument("-p", "--profile", default=None, help="optional Hermes profile name")
+    parser.add_argument(
+        "-p",
+        "--profile",
+        default=None,
+        help="Hermes profile name (required for unlock and restore)",
+    )
     parser.add_argument(
         "--state-file",
         type=Path,
@@ -126,6 +145,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--dry-run", action="store_true", help="print commands without running")
     args = parser.parse_args(argv)
+
+    if args.action in ("unlock", "restore") and not args.profile:
+        print(
+            f"error: --profile (-p) is required for `{args.action}` so lock snapshots cannot "
+            "drift across active-profile switches.",
+            file=sys.stderr,
+        )
+        return 2
 
     root = args.skills_dir.expanduser().resolve()
     if not root.is_dir():
@@ -138,11 +165,23 @@ def main(argv: list[str] | None = None) -> int:
         else default_state_file(root, args.profile)
     )
 
+    eff_profile = effective_profile(args.profile)
+
     if args.action == "restore":
         if not state_file.is_file():
             print(f"error: no saved lock state at {state_file}", file=sys.stderr)
             return 2
         payload = json.loads(state_file.read_text(encoding="utf-8"))
+        saved_dir = payload.get("skills_dir")
+        saved_profile = payload.get("effective_profile")
+        if saved_dir != str(root) or saved_profile != eff_profile:
+            print(
+                "error: lock state mismatch — refusing to restore and keeping state file intact.\n"
+                f"  saved:   profile={saved_profile!r}, skills_dir={saved_dir!r}\n"
+                f"  current: profile={eff_profile!r}, skills_dir={str(root)!r}",
+                file=sys.stderr,
+            )
+            return 2
         names = sorted(payload.get("previously_locked", []))
         if not names:
             print("No previously locked skills recorded; nothing to restore.")
@@ -191,6 +230,7 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "skills_dir": str(root),
                     "profile": args.profile,
+                    "effective_profile": eff_profile,
                     "previously_locked": to_unlock,
                     "already_unlocked": skipped,
                 },

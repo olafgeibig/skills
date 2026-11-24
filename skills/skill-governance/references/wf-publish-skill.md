@@ -50,13 +50,16 @@ authorization, nothing in this file may run.
      DNS. Then read the remote back (`git ls-remote origin <ref>` and the commit's files) and
      compare the remote commit id with the local one. If the push fails, report the work as local
      and unpublished — a failed push is not completion.
-8. **Output the re-lock commands.** Unless a skill is intentionally left unlocked for burn-in,
-   output a ready-to-copy-paste block with one `hermes curator lock <skill>` command per unlocked
-   canonical skill. If the user had temporarily run `bulk-lock.py unlock <skills-dir>`, output
-   `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir>` (never blind
-   `bulk-lock.py lock`, which would also lock skills intentionally left open for burn-in). If a
-   local new-skill copy exists, remove it first per `references/wf-close-development.md` before
-   locking.
+8. **Output the re-lock commands.** If a local new-skill copy exists, remove it first per
+   `references/wf-close-development.md` before locking. Then keep these two steps separate:
+   - If the user temporarily ran `bulk-lock.py unlock`, restore the sibling snapshot first:
+     `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir> -p <profile>`
+     (never blind `bulk-lock.py lock`, which would also lock skills intentionally left open for
+     burn-in; note that target skills unlocked before the bulk-unlock are not in that snapshot).
+   - Then output a ready-to-copy-paste block with one `hermes -p <profile> curator lock <skill>`
+     command per target canonical skill edited in this phase (unless intentionally left unlocked
+     for burn-in).
+   - Verify the final lock state with `hermes -p <profile> curator status`.
 
 A coupled change publishes as one commit: every skill in the phase is reviewed together, staged by
 its own exact paths, and committed in the same commit.

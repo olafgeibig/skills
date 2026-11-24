@@ -44,7 +44,7 @@ Make the curation lifecycle in `skill-governance` concrete and traceable across 
 ### 4. Publication Sync & Re-Locking
 
 - `wf-publish-skill.md` commits reviewed changes locally first, then runs `git fetch origin` and checks `HEAD...origin/main`. If `origin/main` has moved ahead, it stops for an explicit user integration decision and re-review (keeping `wf-update-library.md` strictly for clean consuming checkouts).
-- At close/publish, it outputs copy-paste `hermes curator lock <skill>` commands (or `bulk-lock.py restore` if bulk-unlocked), preserving any skills intentionally left unlocked for burn-in.
+- At close/publish, re-locking separates two steps: first `bulk-lock.py restore <skills-dir> -p <profile>` if bulk-unlocked (restoring sibling locks from the mid-phase snapshot), then individual `hermes -p <profile> curator lock <skill>` commands for the target skill(s) unlocked at phase start (unless kept unlocked for burn-in), followed by `hermes -p <profile> curator status` verification.
 
 ### 5. State-Preserving User-Only Lock Helper (`scripts/bulk-lock.py`)
 
@@ -53,7 +53,8 @@ Make the curation lifecycle in `skill-governance` concrete and traceable across 
 
 ### 6. Review Fixes (P1/P2 & Consistency Cleanup)
 
-- **In-place abandon path (`wf-close-development.md`):** Added an explicit published + abandoned workflow for existing canonical skills edited in place (preserve/discard decision, user Git commands to switch back to `main` or revert files, source verification, lock restoration).
+- **In-place abandon path (`wf-close-development.md`):** Added an explicit published + abandoned workflow for existing canonical skills edited in place: inventories staged, unstaged, and untracked files separately; preserves staged (`git diff --cached --binary HEAD`) and working-tree (`git diff --binary`) patches separately plus untracked files if requested (so staged changes reverted in the working tree are not lost); restores both index and working tree via `git restore --source=HEAD --staged --worktree -- <exact paths>`; verifies source and restores locks.
+- **Explicit profile & state-binding in `bulk-lock.py`:** `unlock` and `restore` require `-p/--profile` explicitly (avoiding drift across mutable active-profile defaults) and pass it to every `hermes -p <profile> curator ...` call; snapshots bind both `effective_profile` and resolved `skills_dir`, and `restore` refuses with exit code 2 (without touching locks or deleting the snapshot) if either mismatches.
 - **Local create root check (`wf-develop-skill.md`):** Branch B now checks `hermes config get skills.create_dir` before creating a brand-new local skill and falls back to explicit filesystem `write_file` under `$HERMES_HOME/skills/local/<name>/` if `skills.create_dir` points elsewhere.
 - Updated stale `skill-builder` step-number references (`step 5` → `step 4`, `step 8` → `step 7`) in `wf-develop-skill.md` and `wf-audit-library.md`.
 - Removed remaining `working copy`, `open-development-phases`, and `own/` wording leftovers across `skill-governance` references/tests and `skill-builder` references (`hermes-frontmatter.md`, `profile-skill.md`).
