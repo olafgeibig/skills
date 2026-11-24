@@ -1,12 +1,11 @@
 ---
 name: dossier-project
 description: "Use when running a dossier-project: dossiers and cases."
-version: "0.6.0"
+version: "0.6.1"
 author: Olaf Geibig
 license: MIT
 metadata:
   source: https://github.com/olafgeibig/skills
-  scope: standalone
   hermes:
     tags:
       - projects

@@ -43,8 +43,7 @@ about one setup, or the installation facts a generic skill deliberately does not
 ## Frontmatter
 
 The same Hermes variant as every other package in the library: top-level `version`, `author`,
-`license`; `metadata.scope: standalone` because it is not a delta on another skill;
-`metadata.hermes.category: own`; a description of at most 57 characters.
+`license`; `metadata.hermes.category: local`; a description of at most 57 characters.
 
 ```yaml
 ---
@@ -54,9 +53,8 @@ version: "1.0.0"
 author: Example Author
 license: MIT
 metadata:
-  scope: standalone
   hermes:
-    category: own
+    category: local
     tags:
       - environment
 ---
@@ -71,9 +69,9 @@ Field detail: `references/hermes-frontmatter.md`.
    it belongs in that home. A profile skill is for what is genuinely installation-bound.
 2. **Check for an overlap.** Run the routing gate in `skill-governance`: search the profile-local tree,
    every external root and the curator archive before creating a second skill with the same territory.
-3. **Create the package** with `skill_manage(action="create", category="own")`, which writes to
-   `own/<name>/`. Use a real directory — a symlinked skill directory is not discovered — and do not
-   point `skills.create_dir` at `own/` as well.
+3. **Create the package** with `skill_manage(action="create", category="local")`, which writes to
+   `local/<name>/`. Use a real directory — a symlinked skill directory is not discovered — and do not
+   point `skills.create_dir` at `local/` as well.
 4. **Write only the installation-specific content**, with the generic procedure referenced rather than
    copied. Keep the main file short; detail goes to `references/`.
 5. **Validate:** the authoring linter (see `references/hermes-frontmatter.md`), then confirm the skill
@@ -85,6 +83,6 @@ Field detail: `references/hermes-frontmatter.md`.
   skill's rule.
 - Paths, directory roles and settings are concrete for this profile, and volatile data is a pointer to
   a dated note.
-- Frontmatter follows the Hermes variant and declares `metadata.scope: standalone`.
-- The skill is a real directory under `own/`, appears in discovery, and no second package claims the
+- Frontmatter follows the Hermes variant.
+- The skill is a real directory under `local/`, appears in discovery, and no second package claims the
   same territory.

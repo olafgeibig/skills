@@ -1,12 +1,11 @@
 ---
 name: hermes-projects
 description: "Use when structuring a project that Hermes works in."
-version: "2.1.0"
+version: "2.1.1"
 author: Olaf Geibig
 license: MIT
 metadata:
   source: https://github.com/olafgeibig/skills
-  scope: standalone
   hermes:
     category: personal
     tags:
@@ -126,7 +125,7 @@ Keep this file a navigation bridge, not a second resource MoC; leave originals a
 
 ## Renaming a skill
 
-For a requested rename, follow `skill-governance` and `skill-library-maintenance`; do not rename a released package in place as part of project maintenance. Inventory affected project and vault manuals, templates, and other consumers before proposing a coordinated update. After publication verify discovery under the new name and check that no live declaration still depends on the old one.
+For a requested rename, follow `skill-governance`; do not rename a released package in place as part of project maintenance. Inventory affected project and vault manuals, templates, and other consumers before proposing a coordinated update. After publication verify discovery under the new name and check that no live declaration still depends on the old one.
 
 ## Auditing an existing project manual
 

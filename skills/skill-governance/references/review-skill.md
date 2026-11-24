@@ -11,8 +11,9 @@ one conversation and never certifies a package.
 
 ## Preconditions
 
-- The working copy is open, complete, and verified as the source (`skill_view` resolves it).
-- The phase record holds the baseline: canonical commit, package path, intent, owner.
+- The changed package is complete and verified as the active source (`skill_view` resolves it).
+- The baseline is known: the Git base commit/branch (for existing skills edited in place) or
+  `baseline: none` in the phase record (for a brand-new skill).
 - Competing learning writes have stopped. Say so explicitly: no `/refine` runs and no edits during
   the review; if a background or automatic review is enabled in this profile, ask the user to pause
   it for the session and say why.
@@ -21,8 +22,8 @@ one conversation and never certifies a package.
 
 Give this to the review session — a separate session, ideally a stronger model than the implementer:
 
-> You are the review session for the development phase of `<skill>`. Read the working copy at
-> `<path>` in full and compare it with its canonical baseline `<commit, or: none — new skill>`.
+> You are the review session for `<skill>`. Read the package at `<path>` in full and compare it with
+> its baseline `<commit/branch, or: none — new skill>`.
 > Do not edit any other skill and do not publish anything. Produce: (1) a complete-package
 > comparison against the baseline, not a diff summary; (2) every instance- or profile-specific fact,
 > with a proposed generic rewording or its existing local home; (3) duplicates, contradictions and
@@ -33,10 +34,10 @@ Give this to the review session — a separate session, ideally a stronger model
 
 1. **Stop the phase's writes.** Announce the review; the only edits allowed are those the review
    itself produces, and each one returns through the review before approval.
-2. **Compare the complete package, not a diff.** Read every file of the working copy. For an existing
-   skill, read the canonical package at the baseline commit for comparison — a `git diff` against
-   that commit is an index, not the review. For a new skill there is no baseline: read the whole
-   package on its own terms.
+2. **Compare the complete package, not a diff.** Read every file of the package. For an existing
+   skill, compare against the baseline commit (`git show <base>:<path>` or checkout) — a `git diff`
+   is an index, not the review. For a new skill there is no baseline: read the whole package on its
+   own terms.
 3. **Answer the required questions.** Does the change solve the intended problem, and was the
    affected workflow actually exercised? Are the instructions generic for the skill's intended
    consumers, or merely generalized wording wrapped around one installation? Are instance and

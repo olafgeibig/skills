@@ -1,8 +1,14 @@
 # Closing a Development Phase
 
-How a phase ends with the external source active again: the working copy leaves discovery while it
-is still unlocked, the source is read back, and the lock returns to the canonical package. Two
-branches end here — published and abandoned — and they share the same order.
+How a phase ends with the canonical skill active and (unless intentionally left unlocked for
+burn-in) locked again.
+
+- **For existing canonical skills edited in place:** there is no local copy to remove. Verify the
+  published canonical commit/content, and re-lock the skill (`hermes curator lock <name>`) unless
+  the user wants it kept unlocked for burn-in / self-improvement.
+- **For a brand-new skill developed profile-local:** the local copy leaves discovery while it is
+  still unlocked, the canonical source is read back, and the lock is set on the canonical package
+  last. Two branches end here — published and abandoned — and they share the same order.
 
 ## When to load
 
@@ -16,8 +22,8 @@ is unresolved or whose publication is unverified is still open.
   reviewed bytes.
 - For an abandoned phase: the user has decided to abandon, and the disposition of the local work is
   explicit — preserved, or discarded with the user's explicit approval.
-- The working copy is still unlocked. If it was locked early, report and stop rather than working
-  around it; unlocking is the user's action (`skill-governance` → *Released Skills Are Locked*).
+- The local copy is still unlocked. If it was locked early, generate the copy-paste
+  `hermes curator unlock <name>` command and wait rather than working around it.
 
 ## Order that matters
 
@@ -45,9 +51,10 @@ Prove the resolved path, then delete once.
    destination and a recovery copy exists. Never use it as an archive step.
 4. **Read the source back.** `skill_view` must resolve the canonical package again, its content must
    be the published content, and the declaration audit must report no local override for that name.
-5. **Set the lock last, then read the target back.** Use the supported CLI for the canonical name;
-   the locked directory must be the canonical package directory, not a path that no longer exists.
-   A successful command is not the evidence — the read-back is.
+5. **Set the lock last (unless left unlocked for burn-in), then read the target back.** Use the
+   supported CLI for the canonical name; the locked directory must be the canonical package
+   directory, not a path that no longer exists. A successful command is not the evidence — the
+   read-back is.
 
 ## Abandoned branch
 

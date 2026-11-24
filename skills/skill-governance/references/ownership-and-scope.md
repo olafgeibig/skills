@@ -38,58 +38,27 @@ that tree — keep it scoped to rules, because the whole file is injected.
 
 ## Where a profile-local skill lives
 
-The own skills of a profile live in the `own/` directory, and the directory decides the category — the
-loader derives it from the path, so `own/<name>/SKILL.md` is category `own` with nothing to declare.
-Standing user preferences, environment quirks and tool knowledge about one setup all land here.
+Profile-local skills created by the agent (via self-improvement or user request) and brand-new
+skills before promotion live in `$HERMES_HOME/skills/local/`. The directory decides the category —
+the loader derives it from the path, so `local/<name>/SKILL.md` is category `local`.
 
 - **Real directories, never symlinks.** The discovery walk uses `rglob("SKILL.md")` and does not
-  descend into symlinked directories: a symlinked skill directory is invisible to `skills_list` and to
-  the Telegram command scan while `skill_view` still loads it — the most confusing "missing skill"
-  there is.
-- **Create with `category="own"`.** `skill_manage(action="create", category="own")` writes to
-  `own/<name>/`; without a category it writes to the profile root. Do **not** additionally point
-  `skills.create_dir` at `own/` — the two combine into `own/own/<name>`.
-- **Declare it anyway.** `metadata.hermes.category: own` plus `metadata.scope: standalone` keeps the
-  frontmatter honest for humans and audits; only the path decides discovery.
-
-**Legacy `adaptations/` path.** `$HERMES_HOME/skills/adaptations/<source>-adaptation/` is a historical
-layout, not an active convention: nothing new is created there and a lock is never evaded by
-re-creating a package under that path. Existing `metadata.adapted_from` records are read diagnostically
-by the declaration audit — readability, not permission to create another skill. A local delta that is
-still needed belongs in the owning skill's development phase, not in a new adaptation.
-
-## The project route: the project's own files
-
-A project's specifics do not get a skill. The route that used to be `project-<folder>` is the project's
-manual: `AGENTS.md` plus the `conventions.md` beside it — both travel with the vault or the workdir, so
-every environment can read them, and the manual is the file that loads on entry.
-
-- **One manual per project, named with the project.** The naming bundle is still worth confirming in one
-  message before the first write: folder path, display name, note prefix, tag, MoC filename, language.
-  The values are downstream-coupled — correcting the root afterwards means rewriting every file that
-  mirrored it.
-- **What the manual carries:** location and naming conventions, the load triggers, the stable situation
-  (who/what, and which open decision shapes the work), the working rules for that project, and the
-  methodology developed inside it.
-- **No note inventory.** The project's MoC is the single source for what exists and what is open; a
-  manual that lists notes, tasks or contacts duplicates it and drifts from the first rename.
-- **Methods discovered inside a project stay inside that project** — in its `conventions.md`, or in a file
-  the manual links — until a second, independent consumer exists.
-- **A method is not generic because it is method-shaped.** A source ladder, checklist or analysis script
-  written while working one project is that project's procedure, not a shared capability.
-- **A Projektskill is something else.** It governs a *Projekttyp* — a class of projects — and is named
-  after the type (`dossier-project`, `authoring-project`). One per type, never one per project; the split
-  is owned by `hermes-projects`.
+  descend into symlinked directories: a symlinked skill directory is invisible to `skills_list` and
+  to the Telegram command scan while `skill_view` still loads it.
+- **Create with `category="local"`.** `skill_manage(action="create", category="local")` writes to
+  `local/<name>/`; without a category it writes to the profile root. Do **not** additionally point
+  `skills.create_dir` at `local/` — the two combine into `local/local/<name>`.
+- **Declare the category anyway.** `metadata.hermes.category: local` keeps the frontmatter honest
+  for humans and audits; only the path decides discovery.
 
 ## Promotion needs a second, independent occurrence
 
-A method, checklist or script developed for one project is not evidence of a generic capability — it
-is evidence of one use. Promote it into an owned canonical skill when a **second, independent**
+A method, checklist or script developed for one context is not evidence of a generic capability —
+it is evidence of one use. Promote it into a canonical skill when a **second, independent**
 consumer appears (another project, another domain, another profile), not on the first occurrence: a
-rule promoted on a guess lands in the shared artifact and has to be maintained there forever. Until
-then it lives in that project's `conventions.md`. Promotion itself is not a continuous process: the
-delta enters the owning skill's development phase and is published with that phase's reviewed bytes,
-not written straight into a locked source.
+rule promoted on a guess lands in the shared artifact and has to be maintained there forever.
+Promotion enters the owning canonical skill after user unlock (or as a brand-new canonical skill
+after review).
 
 ## Pitfalls retained here
 
@@ -119,7 +88,4 @@ not written straight into a locked source.
 
 - Fork request is explicit; the provenance file exists and its per-file class claims are true.
 - Standing rule placed in an always-discovered zone; identity kept in `SOUL.md`, not duplicated.
-- Profile-local skill is a real directory under `own/`, declares `metadata.scope: standalone`, and no
-  new package was created under the legacy `adaptations/` path.
-- A project's `AGENTS.md` mirrors exactly one project folder, carries no note inventory, and any method it holds
-  has not been promoted on its first occurrence.
+- Profile-local skill is a real directory under `local/`.

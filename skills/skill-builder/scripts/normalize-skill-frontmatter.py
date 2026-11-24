@@ -8,7 +8,6 @@ Repairs declaration defects while the skill still loads in Hermes:
     them as an accepted portability finding, not a defect.
   * flow-style lists (`tags: [a, b]`) -> block lists
   * `--category` given                -> `metadata.hermes.category` (never added on its own)
-  * `--scope` given                   -> `metadata.scope` (never added on its own)
 
 The BODY IS NEVER TOUCHED: frontmatter and body are split before parsing, the
 original body string is re-attached after the dump, and the result is verified
@@ -16,12 +15,12 @@ byte-identical.
 
 Usage:
     normalize-skill-frontmatter.py <skill-dir-or-SKILL.md> [more...] \\
-        [--category own] [--scope standalone] [--bump patch|minor|major|none] \\
+        [--category local] [--bump patch|minor|major|none] \\
         [--backup-dir DIR] [--dry-run]
 
-Nothing is added unless you ask for it: without `--category`/`--scope` both
-declarations stay exactly as they are, and their absence is not a failure. Pass
-`--category own --scope standalone` only for a profile-local package.
+Nothing is added unless you ask for it: without `--category` the category stays
+untouched, and its absence is not a failure. Pass `--category local` only for a
+profile-local package.
 """
 from __future__ import annotations
 
@@ -59,7 +58,7 @@ def bump(version, kind: str) -> str:
     return ".".join(parts[:3])
 
 
-def normalize(path: pathlib.Path, category: str, scope: str, kind: str):
+def normalize(path: pathlib.Path, category: str, kind: str):
     text = path.read_text()
     fm, _raw, body = split_skill_md(text)
 
@@ -74,8 +73,6 @@ def normalize(path: pathlib.Path, category: str, scope: str, kind: str):
         hermes["category"] = category
     if hermes or "hermes" in meta:
         meta["hermes"] = hermes
-    if scope:
-        meta["scope"] = scope
     top["version"] = bump(top.get("version"), kind)
 
     order = ("name", "description", "version", "author",
@@ -97,7 +94,6 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("targets", nargs="+")
     ap.add_argument("--category", default="", help="set metadata.hermes.category; empty leaves it untouched")
-    ap.add_argument("--scope", default="", help="set metadata.scope; empty leaves it untouched")
     ap.add_argument("--bump", default="patch", choices=["patch", "minor", "major", "none"])
     ap.add_argument("--backup-dir", default=None)
     ap.add_argument("--dry-run", action="store_true")
@@ -113,7 +109,7 @@ def main() -> int:
             failures += 1
             continue
         try:
-            new_text, body, out = normalize(p, args.category, args.scope, args.bump)
+            new_text, body, out = normalize(p, args.category, args.bump)
         except Exception as exc:                       # noqa: BLE001
             print(f"  !! {p}: {exc}")
             failures += 1

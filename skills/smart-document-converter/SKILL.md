@@ -1,13 +1,12 @@
 ---
 name: smart-document-converter
 description: "Use when converting PDF/DOCX/HTML to Markdown (docling)."
-version: "1.1.0"
+version: "1.1.1"
 author: Olaf Geibig
 license: MIT
 compatibility: "macOS (ocrmac/Apple Vision OCR); requires docling CLI and poppler."
 metadata:
   source: https://github.com/olafgeibig/skills
-  scope: standalone
   hermes:
     category: personal
     tags:

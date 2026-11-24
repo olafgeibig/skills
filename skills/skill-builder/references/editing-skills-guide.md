@@ -8,7 +8,7 @@
 4. Read the repository's local rules.
 5. State the concrete defect or improvement goal.
 
-Do not edit an installed shadow when the canonical skill lives elsewhere. A released owned skill is developed in an explicitly opened working copy instead — complete package, recorded baseline, published or abandoned before it leaves discovery (`skill-library-maintenance` → `develop-skill.md`).
+Do not edit an installed shadow when the canonical skill lives elsewhere. Ownership, locking, and lifecycle rules live in `skill-governance`.
 
 ## Classify the change
 
@@ -79,30 +79,19 @@ Bump the version when the skill package changes, including behavior-bearing refe
 
 After editing:
 
-1. Run the Hermes authoring linter and, for a multi-skill repository, the library audit (`skill-library-maintenance` → `audit-library.md`).
+1. Run the Hermes authoring linter and, for a multi-skill repository, the library audit (`skill-governance` → `audit-library.md`).
 2. Confirm all links resolve.
 3. Run scripts or examples affected by the change.
 4. Load the skill in the target client.
-5. Confirm source resolution for the phase — the working copy while it is open, the canonical package after close — and the absence of any unintended shadow.
+5. Confirm source resolution — the canonical package (or the local package while a brand-new skill's local phase is open) — and the absence of any unintended shadow.
 6. Inspect the repository diff and status.
 7. Commit or publish only when authorized.
 
-## Authoring ends at the maintenance workflow
+## Authoring ends at the governance workflow
 
 This guide covers the authoring side of a change: reading the package, classifying the defect, making
-a coherent edit and validating it. It is not a second publication runbook.
-
-When the edited skill is a released owned skill, the change is a development phase; when it is a new
-canonical skill, review comes before its first publication. Either way the procedure is in
-`skill-library-maintenance`: `develop-skill.md` for the working copy and baseline,
-`review-skill.md` for the complete-package review, `publish-skill.md` for the
-authorized transfer and commit, `close-development.md` for removal of the copy and the
-final lock, and `update-library.md` for a consuming checkout.
-
-When the user has explicitly chosen to work on the local `main`, do not force a feature branch:
-preserve unrelated dirty work byte-for-byte, stage explicit paths, and report the local commits as
-unpublished. Commit, push and PR creation are separate authorization scopes; there is no autonomous
-pull, push or transport-branch model.
+a coherent edit and validating it. Locking, branching, review, publication, and re-locking are owned
+by `skill-governance`.
 
 ## Stop conditions
 

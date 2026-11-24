@@ -23,9 +23,8 @@ license: MIT
 compatibility: Optional runtime requirement
 metadata:
   source: https://example.com/owner/repository
-  scope: standalone
   hermes:
-    category: own
+    category: local
     tags:
       - topic
     related_skills:
@@ -87,15 +86,14 @@ findings get fixed.
 ## Procedure: normalize a batch in one pass
 
 1. Dry-run first, per file: `python3 <skill-dir>/scripts/normalize-skill-frontmatter.py <path>
-   --category own --scope standalone --bump patch --dry-run`. It promotes `version`/`author` to top
-   level (correct in every root here), adds `metadata.hermes.category` and `metadata.scope` **only
-   when you pass the flags**, converts flow lists to block lists, and bumps the version. Without the
-   flags it adds no declaration and does not fail for the absence.
-2. **A real run writes files directly, so it is limited to writable targets:** an open working copy
-   of a skill in its development phase, or a profile-local package. A released canonical package is
-   normalized inside its own phase — never by a batch run across the library. For such a package,
-   apply the dry-run output through `skill_manage` as a frontmatter-block patch — `old_string` is the
-   current block, `new_string` the dry-run block, per the route below.
+   --category local --bump patch --dry-run`. It promotes `version`/`author` to top level (correct
+   in every root here), adds `metadata.hermes.category` **only when you pass `--category`**,
+   converts flow lists to block lists, and bumps the version. Without `--category` it leaves the
+   category untouched.
+2. **A real run writes files directly, so it is limited to writable targets:** unlocked canonical
+   skills or profile-local packages. For an existing skill, apply the dry-run output through
+   `skill_manage` as a frontmatter-block patch — `old_string` is the current block, `new_string`
+   the dry-run block, per the route below.
 3. Back the files up first (`cp -a` into a backup directory), run with `--backup-dir`, then verify
    the changed files with the authoring linter and the library audit.
 4. Verify discovery, not just validity: `hermes skills list` must show the expected entries. A valid

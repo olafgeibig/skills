@@ -12,19 +12,14 @@ Hermes separates skill discovery from skill creation.
 - `skill_manage(action="create")` does not choose an external root from the skill's ownership or frontmatter category. It writes beneath one base directory: the profile-local skills directory by default, or the single configured `skills.create_dir`.
 - The `category` argument only adds a subdirectory below that one creation root. It does not select a repository.
 - A profile-local skill with the same name takes precedence over an external skill and can shadow it.
-- That precedence is legitimate in exactly one case: an explicitly opened **working copy** of an owned skill (`skill-library-maintenance` → `develop-skill.md`). While it exists, the bare name resolves to the local copy, so `skill_manage(name=…)` edits the copy and **not** the released package — publication must address the canonical repository explicitly with filesystem tools.
+- That precedence is legitimate only briefly during publication/close of a brand-new skill (`references/develop-skill.md`), never for editing an existing canonical skill. While a local copy exists, the bare name resolves to it, so publication must address the canonical repository explicitly with filesystem tools.
 - Autonomous Curator review treats external-directory skills as read-only. A foreground, user-directed `skill_manage` operation may update them.
 - Curator lifecycle verbs split by target location: `curator lock` works and persists on an external root just as on a profile-local skill, while `curator adopt` and the maintenance lifecycle (stale/archive, consolidation, Curator snapshots) are profile-local only. Locks guard skill writes per profile; they do not pin a Git revision or stop filesystem-level changes.
 
 ## Technical reach is not permission
 
 The API can technically patch a file in an external repository whenever filesystem permissions allow it.
-This lifecycle permits an in-place write only in an **unlocked project repository**. A skill that is or
-will be released is built profile-local first and published after review — no direct-canonical
-exception, not even for a first publication, and an open phase's unlock makes the working copy
-writable, not the canonical package. A released owned skill is locked and changes through that working
-copy; a third-party skill is never written. Read the class and the lock state before choosing an
-operation, and report the proposed change when neither permits a write.
+For an **existing canonical skill**, the user unlocks it (`hermes curator unlock <name>`) and edits happen directly in the canonical repository (on a Git branch for larger or multi-skill changes). For a **brand-new canonical skill**, build it profile-local first (or on a branch in the canonical repo) and publish after review. A third-party skill is never written. Read the class and the lock state before choosing an operation, and report the proposed change when neither permits a write.
 
 ## Consequence for multiple owned repositories
 
@@ -37,13 +32,13 @@ Do not temporarily switch the global `skills.create_dir` for individual writes i
 | Operation | Preferred mechanism | Reason |
 | --- | --- | --- |
 | Read an existing skill | `skill_view` | Resolves local and external roots and records read-before-write context. |
-| Patch an existing owned external skill in an unlocked project repository | `skill_manage(action="patch")` | Modifies the resolved source in place and retains native hooks. Never the canonical package of a skill under the release boundary, open phase or not. |
-| Add a support file in an unlocked project repository | `skill_manage(action="write_file")` | Constrains the path and retains native hooks. Never the canonical package of a skill under the release boundary, open phase or not. |
-| Edit a released owned external skill | Edit the resolved **open working copy**, then publish the reviewed bytes into the canonical repository | The released package is locked and the canonical file is never patched in place; the copy resolves under the bare name while the phase is open. |
-| Create a skill when `skills.create_dir` points at a **project** repository | `skill_manage(action="create")` | Native creation, validation, ledger, and cache handling. A create into the released library is not a shortcut around the local-first path. |
-| Create a skill inside an unlocked owned repository | Filesystem `write_file` in that repository | The target path is explicit; `skill_manage` has no per-call root selector. |
-| Create a skill destined for the released canonical library | Build it profile-local, review it, publish the reviewed bytes | A direct write into the library would bypass the review and the release boundary. |
-| Publish a reviewed working copy into the canonical repository | Filesystem writes in that repository, then validate and commit explicit paths | The bare name resolves to the local copy; `skill_manage` would edit the copy, and a direct write has no ledger entry to roll back. |
+| Patch an existing owned external skill (unlocked) | `skill_manage(action="patch")` | Modifies the resolved canonical source in place and retains native hooks. Use a Git branch in the canonical repo for larger or multi-skill changes. |
+| Add a support file in an unlocked owned external skill | `skill_manage(action="write_file")` | Constrains the path and retains native hooks. |
+| Edit a locked owned external skill | Report the proposed change and ask the user to unlock it | Locked skills cannot be patched; never create a local shadow copy to bypass the lock. |
+| Create a skill when `skills.create_dir` points at a **project** repository | `skill_manage(action="create")` | Native creation, validation, ledger, and cache handling. |
+| Create a skill inside an unlocked owned repository | Filesystem `write_file` in that repository (e.g. on a branch) | The target path is explicit; `skill_manage` has no per-call root selector. |
+| Create a brand-new skill destined for the released canonical library | Build it profile-local (`baseline: none`), review it, publish the reviewed bytes | Avoids polluting the canonical repo before the procedure stabilizes. |
+| Publish a reviewed local new skill into the canonical repository | Filesystem writes in that repository, then validate and commit explicit paths | The bare name resolves to the local copy; `skill_manage` would edit the local copy. |
 | Modify a third-party skill | Do not modify it | Never written; report the learning per `skill-governance`. |
 
 ## Native `skill_manage` advantages

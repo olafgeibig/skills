@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Audit skill-name collisions and local routing declarations.
+"""Audit skill-name collisions, local overrides, and overlap candidates.
 
-Two failures this reports:
+Two checks this reports:
 
 1. **Name collision** — the same frontmatter `name:` reachable from more than one
    root. Hermes' loader fails closed on those, so the skill is unusable under its
@@ -11,43 +11,33 @@ Two failures this reports:
                            local skills dir and external_dirs. Refusing to guess"
 
    One exception is classified separately instead of as a collision: exactly one
-   local hit plus exactly one external hit of the same name is the temporary
-   working copy from `references/develop-skill.md`. Runtime resolves
-   the local package, so this is reported under LOCAL OVERRIDES with both paths,
-   exits 0, and still requires that the development session was actually opened.
+   local hit plus exactly one external hit of the same name. Runtime resolves
+   the local package, so this is reported under LOCAL OVERRIDES with both paths
+   and exits 0. Such an override is legitimate only during the brief
+   publication/close window of a brand-new skill (see `references/develop-skill.md`).
    Two local copies, two external copies, or an ambiguous pair on either side stay
    collisions — this audit is not a replacement for the loader.
 
-2. **Undeclared local skill** — a skill that does not say what it is: neither
-   `metadata.adapted_from` (legacy attribution for a named source skill) nor
-   `metadata.scope: standalone`. An undeclared skill that overlaps an external
-   skill duplicates a rule set in a second location while the owning skill stays
-   unaware. An overlap requires review and an explicit development decision: the
-   delta belongs in the owning skill, or the second location is a deliberate
-   choice recorded in its own development phase. Renaming a skill into an
-   adaptation is not a repair, and a legacy `adapted_from` marker is metadata to
-   read, not an instruction to create another skill.
+2. **Overlap candidates** — profile-local skills whose name or description
+   overlaps an external skill (token similarity). Scoped by `.usage.json`
+   provenance so the list stays actionable:
 
-Check 2 is scoped by provenance so it stays actionable:
-
-- **agent-created** (`.usage.json` -> `created_by: agent`) — the agent decided to
-  create this skill, so the agent owes the declaration. Reported in full.
-- **unattributed** (no provenance marker) — predates the marker or was created in
-  the foreground. Declare on next edit; only overlap candidates are listed.
-- **managed** (`.bundled_manifest`, `.hub/lock.json`) — upstream packages, not
-  local decisions. Skipped and counted, so the exclusion stays visible.
+   - **agent-created** (`.usage.json` -> `created_by: agent`) — reported in full.
+   - **unattributed** (no provenance marker) — only overlap candidates are listed.
+   - **managed** (`.bundled_manifest`, `.hub/lock.json`) — Hermes bundled and
+     Marketplace packages. Skipped and counted, so the exclusion stays visible.
 
 The overlap column is a **candidate list for human review**, not a verdict —
 token similarity over name plus description.
 
 Usage:
     python3 audit-skill-declarations.py
-    python3 audit-skill-declarations.py --strict    # undeclared overlap is fatal
+    python3 audit-skill-declarations.py --strict    # agent-created overlap is fatal
     python3 audit-skill-declarations.py --all --json
     python3 audit-skill-declarations.py --root ~/some/skills:label
 
 Exit codes: 0 clean (overrides alone are not a failure), 1 collision, 1 with
---strict when an agent-created skill is undeclared and overlaps an external skill,
+--strict when an agent-created local skill overlaps an external skill,
 2 no roots.
 """
 
@@ -290,8 +280,6 @@ def collect(roots) -> tuple[dict, list[str]]:
                     "dir": skill_dir,
                     "name": name,
                     "description": scalar(frontmatter, "description") or "",
-                    "adapted_from": scalar(frontmatter, "adapted_from"),
-                    "scope": scalar(frontmatter, "scope"),
                     "related_skills": list_items(frontmatter, "related_skills"),
                     "symlink": os.path.islink(skill_dir),
                     "real": os.path.realpath(skill_dir),
@@ -303,20 +291,13 @@ def collect(roots) -> tuple[dict, list[str]]:
 # --------------------------------------------------------------------------- #
 # report
 # --------------------------------------------------------------------------- #
-def status_of(entry: dict) -> str:
-    if entry["adapted_from"]:
-        return "adaptation"
-    if (entry["scope"] or "").strip().lower() == "standalone":
-        return "standalone"
-    return "UNDECLARED"
-
-
 def build_report(index, threshold: float, managed: set[str], created_by: dict,
                  include_managed: bool) -> dict:
-    # One local hit plus one external hit of the same name is runtime *precedence*: the
-    # explicitly opened development working copy wins over the released package. That is
-    # not a loader ambiguity and must not be reported as one. Everything else stays a
-    # collision: two local copies, two external copies, or a pair ambiguous on either side.
+    # One local hit plus one external hit of the same name is runtime *precedence*:
+    # the local package wins over the external one. That is not a loader ambiguity
+    # and must not be reported as one, though it is only legitimate during a
+    # brand-new skill's brief publication/close window. Everything else stays a
+    # collision: two local copies, two external copies, or an ambiguous pair.
     collisions: dict[str, list[dict]] = {}
     overrides: dict[str, dict] = {}
     for name, hits in index.items():
@@ -359,15 +340,11 @@ def build_report(index, threshold: float, managed: set[str], created_by: dict,
         candidates.sort(key=lambda item: -item["score"])
 
         override = overrides.get(entry["name"])
+        is_override = bool(override and override["active"]["dir"] == entry["dir"])
         record = {
             "name": entry["name"],
             "dir": entry["dir"],
-            # A working copy is not an undeclared skill; it is the active side of a
-            # recorded override. Never manufacture a declaration to silence the audit.
-            "status": "override" if override and override["active"]["dir"] == entry["dir"]
-            else status_of(entry),
-            "adapted_from": entry["adapted_from"],
-            "scope": entry["scope"],
+            "status": "override" if is_override else ("overlap" if candidates else "ok"),
             "related_skills": entry["related_skills"],
             "candidates": candidates[:3],
             "managed": manage,
@@ -388,16 +365,11 @@ def build_report(index, threshold: float, managed: set[str], created_by: dict,
 
 
 def _detail(record: dict) -> str:
-    detail = ""
-    if record["adapted_from"]:
-        detail = f" adapted_from={record['adapted_from']}"
-    elif record["scope"]:
-        detail = f" scope={record['scope']}"
     if record["candidates"]:
-        detail += "  candidates: " + ", ".join(
+        return "  candidates: " + ", ".join(
             f"{c['skill']} ({c['score']})" for c in record["candidates"]
         )
-    return detail
+    return ""
 
 
 def print_report(report: dict, roots, missing) -> None:
@@ -425,51 +397,40 @@ def print_report(report: dict, roots, missing) -> None:
             print(f"   shadowed {entry['dir']}")
     if overrides:
         print(
-            "\nRuntime precedence is not proof of an authorized development session."
-            "\nAn override is legitimate only as an explicitly opened working copy"
-            "\n(see references/develop-skill.md); otherwise it is an"
-            "\naccidental shadow and the content belongs in the owning skill."
+            "\nRuntime precedence is not proof of an authorized publication window."
+            "\nAn override is legitimate only during the brief publication/close window"
+            "\nof a brand-new skill (see references/develop-skill.md); otherwise it is"
+            "\nan accidental shadow and must be removed."
         )
-    agent_gaps = [r for r in agent if r["status"] == "UNDECLARED"]
-    agent_risky = [r for r in agent_gaps if r["candidates"]]
+    agent_overlaps = [r for r in agent if r["status"] == "overlap"]
     print(
-        f"\nAGENT-CREATED (created_by: agent) — declaration required: "
-        f"{len(agent)} checked, {len(agent_gaps)} undeclared, "
-        f"{len(agent_risky)} with an overlap candidate"
+        f"\nAGENT-CREATED (created_by: agent): "
+        f"{len(agent)} checked, {len(agent_overlaps)} with an overlap candidate"
     )
     for record in agent:
-        marker = "ok  " if record["status"] != "UNDECLARED" else "GAP "
+        marker = "OVERLAP " if record["status"] == "overlap" else "ok      "
         print(f"  {marker}{record['name']:42}{_detail(record)}")
 
     unattributed = report["unattributed"]
-    unattributed_gaps = [r for r in unattributed if r["status"] == "UNDECLARED"]
+    unattributed_overlaps = [r for r in unattributed if r["status"] == "overlap"]
     print(
-        f"\nUNATTRIBUTED LOCAL (no provenance marker) — declare on next edit: "
-        f"{len(unattributed)} skills, {len(unattributed_gaps)} undeclared"
+        f"\nUNATTRIBUTED LOCAL (no provenance marker): "
+        f"{len(unattributed)} skills, {len(unattributed_overlaps)} with an overlap candidate"
     )
-    for record in unattributed_gaps:
-        if record["candidates"]:
-            print(f"  ?   {record['name']:42}{_detail(record)}")
-    print(
-        f"  ({len(unattributed_gaps) - sum(1 for r in unattributed_gaps if r['candidates'])}"
-        " further undeclared without an overlap candidate)"
-    )
+    for record in unattributed_overlaps:
+        print(f"  ?       {record['name']:42}{_detail(record)}")
     print(f"\nHermes-managed skipped: {report['skipped_managed']}")
 
-    if agent_risky:
+    if agent_overlaps:
         print(
-            "\nUndeclared = neither `metadata.adapted_from` nor `metadata.scope: standalone`.\n"
-            "An overlap requires review and an explicit development decision.\n"
-            "Route the delta into the owning skill, or record why a second location\n"
-            "exists in the owning development phase; do not create or rename a skill\n"
-            "into an adaptation to satisfy this audit.\n"
-            "A non-standard scope value (e.g. `scope: olaf-personal`) is still undeclared."
+            "\nAn overlap requires review and an explicit decision:\n"
+            "merge into the owning canonical skill, keep separate, or archive."
         )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Audit skill-name collisions and local routing declarations."
+        description="Audit skill-name collisions, local overrides, and overlap candidates."
     )
     parser.add_argument(
         "--root",
@@ -481,7 +442,7 @@ def main() -> int:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="exit 1 when an agent-created skill is undeclared and overlaps an external skill",
+        help="exit 1 when an agent-created local skill overlaps an external skill",
     )
     parser.add_argument(
         "--all",
@@ -512,9 +473,7 @@ def main() -> int:
 
     if report["collisions"]:
         return 1
-    if args.strict and any(
-        r["status"] == "UNDECLARED" and r["candidates"] for r in report["agent_created"]
-    ):
+    if args.strict and any(r["status"] == "overlap" for r in report["agent_created"]):
         return 1
     return 0
 

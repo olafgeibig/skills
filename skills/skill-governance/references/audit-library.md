@@ -21,7 +21,7 @@ directory's name.
 From the repository root:
 
 ```bash
-python3 -B skills/skill-library-maintenance/scripts/audit-skill-library.py skills --json
+python3 -B skills/skill-governance/scripts/audit-skill-library.py skills --json
 ```
 
 It reports main-file line and word counts, description length, files over the preferred and hard
@@ -45,7 +45,7 @@ This audits the runtime: the profile-local directory plus every `skills.external
 discovered from the active profile's configuration.
 
 ```bash
-python3 -B skills/skill-library-maintenance/scripts/audit-skill-declarations.py --strict --json
+python3 -B skills/skill-governance/scripts/audit-skill-declarations.py --strict --json
 ```
 
 Useful flags: `--root PATH[:LABEL]` (repeatable, explicit roots), `--threshold` (overlap threshold,
@@ -55,25 +55,17 @@ What the rows mean:
 
 - **Name collisions across roots** — the loader fails closed, so the skill is unusable under its
   bare name. Exit code 1.
-- **Local overrides** (`LOCAL OVERRIDES`) — exactly one profile-local hit plus exactly one external
-  hit of the same name, printed with both paths. Runtime resolves the local package, so this is not
-  a collision and does not fail the run. It is legitimate only while a development phase is open.
-  Two local copies, two external copies, or a pair ambiguous on either side stay collisions.
-- **Undeclared profile-local skills** (neither legacy `metadata.adapted_from` nor `metadata.scope:
-  standalone`), scoped by `.usage.json` provenance so the list stays actionable: agent-created
-  skills are listed in full, unattributed ones only when they overlap an external skill.
-- **Overlap candidates** — token similarity over name plus description. A review list, not a verdict.
+- **One temporary local override for a new skill.** A profile-local package shadowing an external
+  hit of the same name is reported under `LOCAL OVERRIDES`. This is only expected during the
+  brief publication/close window of a brand-new skill (`develop-skill.md`), never for editing an
+  existing canonical skill.
+- **Overlap candidates** — token similarity over name plus description between profile-local and
+  external skills. Scoped by `.usage.json` provenance (agent-created vs unattributed). A review
+  list, not a verdict.
 
 Exit code 1 on a collision; overrides alone exit 0. Under `--strict`, also 1 when an agent-created
-skill is undeclared and overlaps an external skill. An overlap requires review and an explicit
-development decision — it is never a reason to create or rename a skill into an adaptation.
-
-## Legacy metadata
-
-A package may carry `metadata.adapted_from` or `metadata.scope` from an older convention. The audit
-reads it and reports it; reading it proves readability, not permission to create a new adaptation.
-Do not add `adapted_from` to an ordinary working copy to silence a diagnostic, and do not derive a
-new skill from a legacy field. A legacy marker is history, not an instruction.
+local skill overlaps an external skill. An overlap requires review and an explicit decision (merge
+into the owning skill, keep separate, or archive).
 
 ## Validator and gates
 
@@ -120,9 +112,8 @@ Mechanics to state precisely:
   shows the operation. Do not require an archived row in `hermes curator usage --json`, which can
   omit archived packages.
 - `hermes curator restore <name>` is the only way back, CLI-only and ledgered as actor `user`. It
-  restores to the flat `$HERMES_HOME/skills/<name>` path and does **not** rebuild `adaptations/` or
-  any other category nesting. Restoring the original category path is a separate operator decision,
-  never an automatic step.
+  restores to the flat `$HERMES_HOME/skills/<name>` path and does **not** rebuild category nesting.
+  Restoring the original category path is a separate operator decision, never an automatic step.
 - `restore` refuses a name that now collides with a hub-installed skill, and a bundled skill unless
   `curator.prune_builtins` is enabled. It also refuses when the destination path already exists.
 
@@ -141,12 +132,13 @@ Verification of any archive or restore:
 - An override reports runtime precedence, never permission: it says which copy wins, not that
   opening it was authorized.
 - An overlap is a prompt for a deliberate owner/development decision. It is not a migration order.
-- Audits never edit files and never create adaptations, overlays or substitute skills.
+- Audits never edit files and never create overlays or substitute skills.
 
 ## Verification
 
 - Package audit completes without hard errors.
-- Declaration audit: no unintended collision; overrides only for open phases.
+- Declaration audit: no unintended collision; local overrides only during a brand-new skill's
+  publication/close window.
 - Hermes linter reports no structural finding; `skills-ref` shows only the expected frontmatter
   finding.
 - Archive inventory and hashes match where an archive operation was part of the task.

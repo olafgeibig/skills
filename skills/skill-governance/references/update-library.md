@@ -13,8 +13,8 @@ development and it does not publish.
 
 - The target checkout is known: resolve it with `git -C <skill_dir> rev-parse --show-toplevel`
   starting from a fresh `skill_view` result. Discovery roots can be nested inside a checkout.
-- You know which skills in this profile have an open working copy. An open copy must not be
-  overwritten by an update; that is a reconciliation case.
+- You know which skills in this profile have an open local phase (e.g. a brand-new skill before
+  close). An open local package must not be overwritten by an update; that is a reconciliation case.
 - Read-only Git only until the guard question is settled.
 
 ## Read-only versus blocked Git
@@ -33,10 +33,10 @@ development and it does not publish.
 1. **Refuse a dirty checkout.** `git status --short --branch` must be clean before an update. Dirty
    work is preserved, never stashed, reset or committed as a side effect. If it is dirty, report the
    paths and stop: the owner decides what happens to them.
-2. **Protect open working copies.** For every skill with a local working copy, the update must not
-   touch it. A same-name local package shadows the canonical one, so the update changes the
-   checkout without changing what loads — say that explicitly instead of claiming the profile was
-   updated.
+2. **Protect open local phases.** For any skill with a local package in `$HERMES_HOME/skills/`,
+   the update must not touch it. A same-name local package shadows the canonical one, so the update
+   changes the checkout without changing what loads — say that explicitly instead of claiming the
+   profile was updated.
 3. **Fetch, then compare.** `git fetch <remote>` only when the remote is the intended one; if the
    fetch fails, label the tracking ref as cached rather than claiming current remote state. Compare
    with `git rev-list --left-right --count HEAD...@{upstream}` and read the incoming commits before
@@ -67,7 +67,7 @@ development and it does not publish.
 ## Verification
 
 - The checkout is clean before and after, and `HEAD` is the intended released commit.
-- No open working copy changed content; each still resolves locally.
+- No open local phase changed content; each still resolves locally.
 - Audits report no new collision or unintended override.
 - Every newly released skill's lock target reads back as its canonical package.
 

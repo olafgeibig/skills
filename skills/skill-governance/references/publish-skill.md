@@ -11,38 +11,35 @@ authorization, nothing in this file may run.
 ## Preconditions
 
 - A review verdict exists and names the reviewed version.
-- The working copy is unchanged since the review. If it changed, go back to the review.
+- The reviewed package is unchanged since the review. If it changed, go back to the review.
 - The canonical repository path, branch and package path are known; the working tree and index were
-  inspected read-only before the transfer.
+  inspected read-only before the commit.
 - The user knows the commit will be local unless a push is separately authorized.
 
 ## Steps
 
-1. **Confirm the target and the boundary.** Resolve the canonical checkout (`git -C <skill_dir>
-   rev-parse --show-toplevel` on the canonical package, not the local copy). Read `git status
-   --short --branch`. Unrelated dirty files stay untouched — they are not part of the publication
-   and must survive it.
-2. **Transfer exactly the reviewed package.** Write the reviewed files into the canonical package
-   path, including deletions: a reference or template removed in review must be removed here too,
-   or the publication is not the reviewed package. A new skill is added as a complete package; an
-   existing one is updated in place under the same name — never as a parallel identity.
-3. **Disclose the direct-write ledger caveat.** A filesystem write into the canonical repository has
-   no native `skill_manage` ledger entry. Say so in the report; do not imply a native rollback
-   exists. Git is the record for this transfer.
-4. **Verify source and target.** Read the canonical package back and compare it with the reviewed
-   copy: same file list, same content, no leftovers from the old version. Validate it in place with
-   the package's validator and the library audit (commands in `references/audit-library.md`).
-5. **Stage explicit paths only.** `git add -- <exact file paths>`, including removed paths and the
-   files added since the baseline. Never `git add .`, `-A` or a directory wildcard across a shared
-   tree. Inspect `git diff --cached --name-status` and `git diff --cached` and prove they equal the
-   reviewed file list.
-6. **Commit without a pathspec.** Once the index contains exactly the intended files, run the commit
+1. **Confirm the target and the boundary.** Resolve the canonical checkout (`git -C <repo_dir>
+   rev-parse --show-toplevel`). Read `git status --short --branch`. Unrelated dirty files stay
+   untouched — they are not part of the publication and must survive it.
+2. **If publishing a brand-new local skill, transfer the reviewed package first.** Write the
+   reviewed files into the canonical package path (including any deletions if replacing a draft),
+   then read the canonical package back and compare file for file. Disclose that a direct
+   filesystem write into the canonical repository has no native `skill_manage` ledger entry (Git is
+   the record).
+   *(For existing skills edited in place in the canonical repo, the bytes are already there.)*
+3. **Validate in place.** Run the package's validator and the library audit (commands in
+   `references/audit-library.md`).
+4. **Stage explicit paths only.** `git add -- <exact file paths>`, including removed paths and new
+   files. Never `git add .`, `-A` or a directory wildcard across a shared tree. Inspect
+   `git diff --cached --name-status` and `git diff --cached` and prove they equal the reviewed file
+   list.
+5. **Commit without a pathspec.** Once the index contains exactly the intended files, run the commit
    without `-- <path>`. Caveat: `git commit -- <path>` commits the **working-tree** content of every
    path under that pathspec, not just the index — an unrelated edit under the same directory rides
    along. If the index is right, a pathspec adds risk and no safety.
-7. **Verify the commit, not the staging step.** `git show --name-only <sha>` must list exactly the
+6. **Verify the commit, not the staging step.** `git show --name-only <sha>` must list exactly the
    reviewed paths. The staging step is what can be wrong; the commit is the evidence.
-8. **Push only when separately authorized.** A local commit is a complete publication to the
+7. **Push only when separately authorized.** A local commit is a complete publication to the
    checkout, not to the remote. Name the remote explicitly: `git push origin <sha>:<ref>`; a bare
    `<sha>:<ref>` parses as an scp-style host and fails on DNS. Then read the remote back
    (`git ls-remote origin <ref>` and the commit's files) and compare the remote commit id with the
@@ -68,10 +65,11 @@ Command hygiene, for every Git command prepared for the user or run:
   unlock siblings. Hand the user the exact prepared command sequence — `git add --` with the file
   list, `git diff --cached --check`, `git diff --cached --name-status`, `git diff --cached`, then the
   commit — and verify afterwards.
-- **Do not re-lock here.** The lock is keyed by name, and the same-name working copy still exists;
-  locking now would lock that copy and block its removal. Closing owns the order.
-- **Do not use the bare name as a target.** While the working copy is open, `skill_manage` resolves
-  the name locally. Publication is an explicitly targeted repository operation.
+- **Do not re-lock while a local new-skill copy still exists.** The lock is keyed by name; locking
+  before removing the local copy locks that copy and blocks its removal. Closing owns the order.
+- **For a local new-skill phase, do not use the bare name as a target for publication.** While the
+  local copy exists, `skill_manage` resolves the name locally. Publication addresses the canonical
+  repository path explicitly.
 
 ## Verification
 
