@@ -2,7 +2,7 @@
 
 The audit used to treat every duplicate name as a loader-refused collision. Runtime
 actually resolves a profile-local package before an external one, so one local plus
-one external hit is the development working copy — visible, but not fatal. Everything
+one external hit is reported as a local override — visible, not fatal. Everything
 else must stay a collision: a second local copy, a second external copy, or an
 ambiguous pair on either side.
 
@@ -115,7 +115,7 @@ def test_two_external_copies_remain_collision(audit, tmp_path):
 
 def test_ambiguous_external_pair_is_not_hidden_by_local_copy(audit, tmp_path):
     local, first, second = tmp_path / "local", tmp_path / "ext-a", tmp_path / "ext-b"
-    make_skill(local, "demo-skill", "the working copy")
+    make_skill(local, "demo-skill", "local package")
     make_skill(first, "demo-skill", "external copy one")
     make_skill(second, "demo-skill", "external copy two")
 

@@ -25,8 +25,8 @@ about one setup, or the installation facts a generic skill deliberately does not
   write-approval gate are on or off for this installation, and what that means for how learning lands
   (edits apply at once, the phase review is the check). State the fact for this profile and its
   consequence; do not encode it as a rule for every installation.
-- **Pointers to the installation's notes.** The open-development-phases table that records baselines
-  and owners, and any dated note holding volatile data, named by their real location.
+- **Pointers to the installation's notes.** Any dated note holding volatile data, named by its real
+  location.
 - **Local overrides of generic conventions**, where the generic skill says the concrete value varies
   per consumer.
 

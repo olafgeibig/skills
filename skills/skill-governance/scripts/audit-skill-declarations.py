@@ -14,7 +14,7 @@ Two checks this reports:
    local hit plus exactly one external hit of the same name. Runtime resolves
    the local package, so this is reported under LOCAL OVERRIDES with both paths
    and exits 0. Such an override is legitimate only during the brief
-   publication/close window of a brand-new skill (see `references/develop-skill.md`).
+   publication/close window of a brand-new skill (see `references/wf-develop-skill.md`).
    Two local copies, two external copies, or an ambiguous pair on either side stay
    collisions — this audit is not a replacement for the loader.
 
@@ -399,7 +399,7 @@ def print_report(report: dict, roots, missing) -> None:
         print(
             "\nRuntime precedence is not proof of an authorized publication window."
             "\nAn override is legitimate only during the brief publication/close window"
-            "\nof a brand-new skill (see references/develop-skill.md); otherwise it is"
+            "\nof a brand-new skill (see references/wf-develop-skill.md); otherwise it is"
             "\nan accidental shadow and must be removed."
         )
     agent_overlaps = [r for r in agent if r["status"] == "overlap"]

@@ -5,15 +5,19 @@ recorded baseline and either approves exact bytes for publication or names concr
 
 ## When to load
 
-The learning in the phase is finished and the package should be reviewed, or the user judges the
-skill to work and starts the review session. `/refine` is not this review: it captures lessons from
-one conversation and never certifies a package.
+The learning or editing is ready to be checked, or the user requests another review pass after
+discussing updates. This workflow is **iterative**: if a review leads to further edits, update the
+change doc (`./changes/YYYYMMDD-<slug>.md`), re-run validation and linter, and review again until
+the user approves. `/refine` is not this review: it captures lessons from one conversation and
+never certifies a package.
 
 ## Preconditions
 
 - The changed package is complete and verified as the active source (`skill_view` resolves it).
 - The baseline is known: the Git base commit/branch (for existing skills edited in place) or
   `baseline: none` in the phase record (for a brand-new skill).
+- The change doc (`./changes/YYYYMMDD-<slug>.md`) exists and reflects the current state of the
+  branch.
 - Competing learning writes have stopped. Say so explicitly: no `/refine` runs and no edits during
   the review; if a background or automatic review is enabled in this profile, ask the user to pause
   it for the session and say why.
@@ -34,33 +38,39 @@ Give this to the review session — a separate session, ideally a stronger model
 
 1. **Stop the phase's writes.** Announce the review; the only edits allowed are those the review
    itself produces, and each one returns through the review before approval.
-2. **Compare the complete package, not a diff.** Read every file of the package. For an existing
-   skill, compare against the baseline commit (`git show <base>:<path>` or checkout) — a `git diff`
-   is an index, not the review. For a new skill there is no baseline: read the whole package on its
-   own terms.
+2. **Compare the complete package, git diff, and change doc.** Read every file of the package,
+   inspect `git diff <base>..HEAD` (plus unstaged changes), and read `./changes/YYYYMMDD-<slug>.md`.
+   Check that the implementation matches the Goal Statement and that the change doc accurately
+   describes all conceptual deltas. For a new skill there is no baseline: read the whole package on
+   its own terms.
 3. **Answer the required questions.** Does the change solve the intended problem, and was the
    affected workflow actually exercised? Are the instructions generic for the skill's intended
    consumers, or merely generalized wording wrapped around one installation? Are instance and
-   profile specifics removed or held in their existing local home? Are duplicates, contradictory
-   exceptions and superseded rules gone? Do links, scripts, tests and validators still work? Is the
-   version appropriate, and is the package still compact enough to load?
+   profile specifics removed or held in their existing local home? *(Pay extra attention when the
+   branch is `improve/*`: self-improvement runs easily pull in project- or instance-specific rules
+   that must be stripped or generalized.)* Are duplicates, contradictory exceptions and superseded
+   rules gone? Do links, scripts, tests and validators still work? Is the version appropriate, and
+   is the package still compact enough to load?
 4. **Reconcile same-skill canonical drift.** If the canonical package of this same skill changed
    during the phase, reconcile explicitly: adopt the change, supersede it, or report the conflict.
    Never merge silently. Updates to unrelated skills are not merged into this copy.
 5. **Check dedupe and support files.** No normative rule twice, no reference chain deeper than
    needed, support files complete, no stale path or client assumption. Remove what no longer earns
    its place rather than accumulating a chronicle of incidents.
-6. **Record the verdict.** In the phase record put: verdict, reviewed version, unresolved findings.
-   Approval covers exactly the reviewed bytes; a later content change needs another review.
+6. **Iterate or record the verdict.** If the review produces edits, apply them, update the change
+   doc, re-run the linter and library audits, and repeat the check. When clean, record the verdict
+   (ready to publish at version `<x>`, or blocked with concrete findings). Approval covers exactly
+   the reviewed bytes; a later content change needs another review.
 
 ## Verification
 
 - Every `references/...` path in the package resolves.
-- The package validator reports no structural finding (see `references/audit-library.md` for the
-  exact commands and what each gate proves).
+- The change doc matches the actual changes and goal.
+- The package validator reports no structural finding (see `references/wf-audit-library.md` for
+  the exact commands and what each gate proves).
 - The library audit and declaration audit were run against the reviewed tree, after the last edit.
 - The version is bumped once for the phase and matches the change's scope.
-- The frontmatter follows the variant in `skill-builder` step 5.
+- The frontmatter follows the variant in `skill-builder` step 4.
 
 ## Stop and recovery
 

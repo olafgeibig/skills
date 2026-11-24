@@ -18,9 +18,9 @@ authorization, nothing in this file may run.
 
 ## Steps
 
-1. **Confirm the target and the boundary.** Resolve the canonical checkout (`git -C <repo_dir>
-   rev-parse --show-toplevel`). Read `git status --short --branch`. Unrelated dirty files stay
-   untouched — they are not part of the publication and must survive it.
+1. **Confirm the target and the boundary.** Resolve the canonical checkout
+   (`git -C <repo_dir> rev-parse --show-toplevel`). Read `git status --short --branch`. Unrelated
+   dirty files stay untouched — they are not part of the publication and must survive it.
 2. **If publishing a brand-new local skill, transfer the reviewed package first.** Write the
    reviewed files into the canonical package path (including any deletions if replacing a draft),
    then read the canonical package back and compare file for file. Disclose that a direct
@@ -28,23 +28,35 @@ authorization, nothing in this file may run.
    the record).
    *(For existing skills edited in place in the canonical repo, the bytes are already there.)*
 3. **Validate in place.** Run the package's validator and the library audit (commands in
-   `references/audit-library.md`).
-4. **Stage explicit paths only.** `git add -- <exact file paths>`, including removed paths and new
-   files. Never `git add .`, `-A` or a directory wildcard across a shared tree. Inspect
-   `git diff --cached --name-status` and `git diff --cached` and prove they equal the reviewed file
-   list.
+   `references/wf-audit-library.md`).
+4. **Stage explicit paths only.** `git add -- <exact file paths>` (including the change doc under
+   `./changes/`, removed paths, and new files). Never `git add .`, `-A` or a directory wildcard
+   across a shared tree. Inspect `git diff --cached --name-status` and `git diff --cached` and
+   prove they equal the reviewed file list.
 5. **Commit without a pathspec.** Once the index contains exactly the intended files, run the commit
    without `-- <path>`. Caveat: `git commit -- <path>` commits the **working-tree** content of every
    path under that pathspec, not just the index — an unrelated edit under the same directory rides
    along. If the index is right, a pathspec adds risk and no safety.
 6. **Verify the commit, not the staging step.** `git show --name-only <sha>` must list exactly the
    reviewed paths. The staging step is what can be wrong; the commit is the evidence.
-7. **Push only when separately authorized.** A local commit is a complete publication to the
-   checkout, not to the remote. Name the remote explicitly: `git push origin <sha>:<ref>`; a bare
-   `<sha>:<ref>` parses as an scp-style host and fails on DNS. Then read the remote back
-   (`git ls-remote origin <ref>` and the commit's files) and compare the remote commit id with the
-   local one. If the push fails, report the work as local and unpublished — a failed push is not
-   completion.
+7. **Check base-branch drift before merging or pushing.** Run `git fetch origin` and inspect
+   `git rev-list --left-right --count HEAD...origin/main`.
+   - If `origin/main` has moved ahead (right count > 0), **do not** run `wf-update-library.md`
+     (which is for clean consuming checkouts with an upstream). Instead, stop and let the user
+     decide how to integrate `origin/main` into the branch (merge or rebase), then **re-review**
+     the integrated result before merging to `main` or pushing.
+   - Push only when separately authorized. Name the remote explicitly:
+     `git push origin <sha>:<ref>`; a bare `<sha>:<ref>` parses as an scp-style host and fails on
+     DNS. Then read the remote back (`git ls-remote origin <ref>` and the commit's files) and
+     compare the remote commit id with the local one. If the push fails, report the work as local
+     and unpublished — a failed push is not completion.
+8. **Output the re-lock commands.** Unless a skill is intentionally left unlocked for burn-in,
+   output a ready-to-copy-paste block with one `hermes curator lock <skill>` command per unlocked
+   canonical skill. If the user had temporarily run `bulk-lock.py unlock <skills-dir>`, output
+   `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir>` (never blind
+   `bulk-lock.py lock`, which would also lock skills intentionally left open for burn-in). If a
+   local new-skill copy exists, remove it first per `references/wf-close-development.md` before
+   locking.
 
 A coupled change publishes as one commit: every skill in the phase is reviewed together, staged by
 its own exact paths, and committed in the same commit.
@@ -61,10 +73,12 @@ Command hygiene, for every Git command prepared for the user or run:
 - **No push without authorization.** The lock guard does not block `push`; the no-push rule is
   explicit policy, so nothing technical stops a mistake here. Treat authorization as the only gate.
 - **Locked siblings block repository-root Git writes.** With any locked skill below the repository
-  root, `git add` and `git commit` at that root are refused regardless of staged paths. Do not
-  unlock siblings. Hand the user the exact prepared command sequence — `git add --` with the file
-  list, `git diff --cached --check`, `git diff --cached --name-status`, `git diff --cached`, then the
-  commit — and verify afterwards.
+  root, `git add` and `git commit` at that root are refused regardless of staged paths. Default:
+  hand the user the exact prepared command sequence — `git add --` with the file list,
+  `git diff --cached --check`, `git diff --cached --name-status`, `git diff --cached`, then the
+  commit — without changing locks, and verify afterwards. Only if the user explicitly wants the
+  agent to run repo-wide Git/conflict resolution may the user run `scripts/bulk-lock.py unlock`
+  beforehand and `scripts/bulk-lock.py restore` afterwards.
 - **Do not re-lock while a local new-skill copy still exists.** The lock is keyed by name; locking
   before removing the local copy locks that copy and blocks its removal. Closing owns the order.
 - **For a local new-skill phase, do not use the bare name as a target for publication.** While the

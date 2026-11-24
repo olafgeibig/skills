@@ -57,7 +57,7 @@ What the rows mean:
   bare name. Exit code 1.
 - **One temporary local override for a new skill.** A profile-local package shadowing an external
   hit of the same name is reported under `LOCAL OVERRIDES`. This is only expected during the
-  brief publication/close window of a brand-new skill (`develop-skill.md`), never for editing an
+  brief publication/close window of a brand-new skill (`wf-develop-skill.md`), never for editing an
   existing canonical skill.
 - **Overlap candidates** — token similarity over name plus description between profile-local and
   external skills. Scoped by `.usage.json` provenance (agent-created vs unattributed). A review
@@ -76,14 +76,14 @@ into the owning skill, keep separate, or archive).
   ```
 
   Use the installed source directory when Hermes lives elsewhere; the interpreter must be that
-  source's own `venv`. The pass criteria are defined in `skill-builder` step 8.
+  source's own `venv`. The pass criteria are defined in `skill-builder` step 7.
 - **`skills-ref`** is a portability check, not a gate:
 
   ```bash
   bash skills/skill-builder/scripts/skills-ref.sh validate skills/<package>
   ```
 
-  Field placement and the accepted result are defined in `skill-builder` step 5 and step 8; this
+  Field placement and the accepted result are defined in `skill-builder` step 4 and step 7; this
   audit only runs the check. If it cannot run, report it as not run — never as a pass.
 - **Package tests**, where the package ships them:
 

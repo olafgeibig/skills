@@ -66,7 +66,7 @@ findings get fixed.
    import sys; sys.path.insert(0, ".")
    from tools.skill_linter import lint_skill
    from pathlib import Path
-   root = Path.home() / ".hermes/skills/own"          # or any skill root
+   root = Path.home() / ".hermes/skills/local"        # or any skill root
    for d in sorted(p for p in root.iterdir() if p.is_dir()):
        f = d / "SKILL.md"
        if f.exists():
@@ -122,9 +122,9 @@ pass in two halves: declarations (scriptable) and `description` text (hand-autho
   `name`/`description`/`metadata`; leaving flow style on reintroduces the list style the validator
   rejects.
 - **`create` does not write the category into the frontmatter** — the directory decides it
-  (`category="own"` writes to `own/<name>/`). Declare `metadata.hermes.category` yourself so humans
-  and audits see what the loader infers. Never pass a `category` while `skills.create_dir` already
-  points at that directory: the two combine into `<dir>/<category>/<name>`.
+  (`category="local"` writes to `local/<name>/`). Declare `metadata.hermes.category` yourself so
+  humans and audits see what the loader infers. Never pass a `category` while `skills.create_dir`
+  already points at that directory: the two combine into `<dir>/<category>/<name>`.
 - **A frontmatter pass fixes declarations, not content.** Duplicated H1s, duplicated tag blocks, stale
   cross-references and numbering gaps survive it — check the body separately, and re-read the saved
   file with its parsed frontmatter and body length before reporting success.

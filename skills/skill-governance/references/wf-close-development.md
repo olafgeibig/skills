@@ -3,19 +3,52 @@
 How a phase ends with the canonical skill active and (unless intentionally left unlocked for
 burn-in) locked again.
 
-- **For existing canonical skills edited in place:** there is no local copy to remove. Verify the
-  published canonical commit/content, and re-lock the skill (`hermes curator lock <name>`) unless
-  the user wants it kept unlocked for burn-in / self-improvement.
-- **For a brand-new skill developed profile-local:** the local copy leaves discovery while it is
-  still unlocked, the canonical source is read back, and the lock is set on the canonical package
-  last. Two branches end here — published and abandoned — and they share the same order.
-
 ## When to load
 
 Publication is verified, or the phase is deliberately abandoned. Not before: a phase whose review
 is unresolved or whose publication is unverified is still open.
 
-## Preconditions
+## Branch A — Existing canonical skill(s) edited in place
+
+There is no local copy to remove; edits live directly in the canonical checkout.
+
+### Published
+
+1. **Verify the canonical state.** Confirm `git status --short --branch` is clean for the published
+   paths, `HEAD` is the verified commit (or merged into `main`), and `skill_view` resolves the
+   canonical package with the published content.
+2. **Re-lock (unless intentionally kept unlocked for burn-in).** Output copy-paste
+   `hermes curator lock <skill>` commands (one per skill) — or
+   `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir>` if the user
+   temporarily bulk-unlocked the repo. Read `hermes curator status` back to verify.
+
+### Abandoned
+
+Unpublished edits live directly in the active canonical checkout — **re-locking alone does NOT
+revert them.**
+
+1. **Decide disposition with the user.** Ask explicitly whether to preserve the unpublished work
+   (keep the `edit/*` / `improve/*` branch unmerged, or save a `git diff` patch outside skill
+   discovery) or discard it completely.
+2. **Restore the intended canonical state.** Prepare the exact user-executed Git commands (repo-root
+   Git mutations are guarded while sibling skills are locked):
+   - If on an `edit/*` or `improve/*` branch: commit or discard working-tree changes per step 1,
+     then `git -C <repo> switch main` (and optionally delete the abandoned branch if discarding).
+   - If edits were made directly on `main`: `git -C <repo> checkout -- <exact paths>` and remove
+     any untracked files belonging solely to the abandoned phase.
+3. **Verify the active source.** Confirm `git status --short --branch` and `skill_view` resolve the
+   canonical package at its intended pre-phase content.
+4. **Restore the prior lock state.** Output copy-paste `hermes curator lock <skill>` commands for
+   each skill that was locked before the phase, then read `hermes curator status` back.
+
+## Branch B — Brand-new skill developed profile-local
+
+For a brand-new skill developed in `$HERMES_HOME/skills/local/<name>/`, the local copy leaves
+discovery while it is still unlocked, the canonical source is read back, and the lock is set on
+the canonical package last. Two branches end here — published and abandoned — and they share the
+same order.
+
+### Preconditions (Branch B)
 
 - The phase record exists and states the intended ending.
 - For a published phase: the canonical commit is verified and the canonical package contains the
@@ -27,10 +60,10 @@ is unresolved or whose publication is unverified is still open.
 
 ## Order that matters
 
-A lock is keyed by skill **name**. While a same-name working copy exists, locking the name locks the
+A lock is keyed by skill **name**. While a same-name local copy exists, locking the name locks the
 copy and then blocks its removal. So: copy first, lock last.
 
-**Before any deletion, resolve the name.** The tool must report the **local working copy**, never the
+**Before any deletion, resolve the name.** The tool must report the **local copy**, never the
 canonical package. The canonical package is unlocked during the phase, so once the copy is gone the
 bare name resolves there — a repeated `skill_manage delete` would recursively delete the checkout.
 Prove the resolved path, then delete once.
@@ -44,7 +77,7 @@ Prove the resolved path, then delete once.
 2. **Keep a recovery copy.** Write a tarball of the complete local package outside skill discovery
    (a plain archive, never `hermes curator archive`, which is a lifecycle operation on the name) and
    verify it against the package — file list and hashes — before deleting anything.
-3. **Remove the working copy from active discovery while it is unlocked**, after the resolved-path
+3. **Remove the local copy from active discovery while it is unlocked**, after the resolved-path
    check above. `skill_manage delete <name>` in the foreground is **not** archival: it recursively
    deletes the package. That is
    acceptable here only because the reviewed package is already preserved in its verified canonical
@@ -62,7 +95,7 @@ Prove the resolved path, then delete once.
    work, write a tarball of the complete local package outside discovery (a plain archive, not
    `hermes curator archive`) and verify it against the package — file list and hashes. A partial copy
    is not recovery.
-2. **Remove the working copy while it is unlocked**, as above — deletion, after preservation and the
+2. **Remove the local copy while it is unlocked**, as above — deletion, after preservation and the
    resolved-path check.
 3. **Read the source back.** For a released skill, `skill_view` must resolve the canonical package;
    closing the phase must have left it as it was. Abandonment after a deliberate canonical update is

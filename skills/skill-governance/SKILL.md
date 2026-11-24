@@ -1,7 +1,7 @@
 ---
 name: skill-governance
 description: "Use for skill ownership, locking, lifecycle, and audits."
-version: "3.0.0"
+version: "3.1.0"
 author: Olaf Geibig
 license: MIT
 metadata:
@@ -91,16 +91,24 @@ refuse writes — without pinning a Git revision or blocking manual checkout upd
 
 **start → develop → review → publish → close/abandon → consume/update**
 
-Load only the reference for the step in front of you:
+Branch & traceability conventions for canonical repos:
+
+- **Branches:** `edit/<slug>` for targeted edits; `improve/<slug>` for burn-in / self-improvement
+  phases (signals stricter review for project/instance leakage).
+- **Change doc:** `./changes/YYYYMMDD-<slug>.md` records goal, summary, and conceptual deltas for
+  traceability and downstream concept-doc updates.
+
+Load only the reference for the step in front of you (`wf-*` = procedural workflows; unprefixed =
+policy/reference material):
 
 | Trigger | Reference |
 | --- | --- |
-| Edit existing canonical skill(s) or start a brand-new skill | `references/develop-skill.md` |
-| Review changed or new package(s) against baseline before release | `references/review-skill.md` |
-| Commit / transfer / push reviewed bytes to canonical repo | `references/publish-skill.md` |
-| Clean up local new-skill copy and re-lock canonical skill(s) | `references/close-development.md` |
-| Update a consuming checkout to a newer released version | `references/update-library.md` |
-| Run package audit, declaration audit, linter, or archive checks | `references/audit-library.md` |
+| Edit existing canonical skill(s), start burn-in, or create a new skill | `references/wf-develop-skill.md` |
+| Review changed/new package(s), diff, and change doc (iterative) | `references/wf-review-skill.md` |
+| Check sync, commit / transfer / push reviewed bytes, output lock commands | `references/wf-publish-skill.md` |
+| Clean up local new-skill copy and re-lock canonical skill(s) | `references/wf-close-development.md` |
+| Fetch, inspect incoming changes, and update a checkout | `references/wf-update-library.md` |
+| Run package audit, declaration audit, linter, or archive checks | `references/wf-audit-library.md` |
 | Forks, standing rules, `local/` placement, promotion signal | `references/ownership-and-scope.md` |
 | `skill_manage` vs filesystem writes across `external_dirs` | `references/skill-manage-external-directories.md` |
 
@@ -121,5 +129,5 @@ Load only the reference for the step in front of you:
 - Copy-paste `hermes curator unlock <name>` command(s) (one per skill) provided whenever locked
   skills must be edited.
 - Package format, frontmatter, and linter verified per `skill-builder`; library and declaration
-  audits run via `references/audit-library.md`.
+  audits run via `references/wf-audit-library.md`.
 - Canonical skills re-locked after publication (unless intentionally left unlocked for burn-in).

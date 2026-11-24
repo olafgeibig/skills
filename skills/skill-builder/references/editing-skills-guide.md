@@ -79,7 +79,7 @@ Bump the version when the skill package changes, including behavior-bearing refe
 
 After editing:
 
-1. Run the Hermes authoring linter and, for a multi-skill repository, the library audit (`skill-governance` → `audit-library.md`).
+1. Run the Hermes authoring linter and, for a multi-skill repository, the library audit (`skill-governance` → `wf-audit-library.md`).
 2. Confirm all links resolve.
 3. Run scripts or examples affected by the change.
 4. Load the skill in the target client.

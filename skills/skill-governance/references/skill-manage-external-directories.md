@@ -12,7 +12,7 @@ Hermes separates skill discovery from skill creation.
 - `skill_manage(action="create")` does not choose an external root from the skill's ownership or frontmatter category. It writes beneath one base directory: the profile-local skills directory by default, or the single configured `skills.create_dir`.
 - The `category` argument only adds a subdirectory below that one creation root. It does not select a repository.
 - A profile-local skill with the same name takes precedence over an external skill and can shadow it.
-- That precedence is legitimate only briefly during publication/close of a brand-new skill (`references/develop-skill.md`), never for editing an existing canonical skill. While a local copy exists, the bare name resolves to it, so publication must address the canonical repository explicitly with filesystem tools.
+- That precedence is legitimate only briefly during publication/close of a brand-new skill (`references/wf-develop-skill.md`), never for editing an existing canonical skill. While a local copy exists, the bare name resolves to it, so publication must address the canonical repository explicitly with filesystem tools.
 - Autonomous Curator review treats external-directory skills as read-only. A foreground, user-directed `skill_manage` operation may update them.
 - Curator lifecycle verbs split by target location: `curator lock` works and persists on an external root just as on a profile-local skill, while `curator adopt` and the maintenance lifecycle (stale/archive, consolidation, Curator snapshots) are profile-local only. Locks guard skill writes per profile; they do not pin a Git revision or stop filesystem-level changes.
 

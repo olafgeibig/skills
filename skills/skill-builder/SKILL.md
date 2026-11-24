@@ -1,7 +1,7 @@
 ---
 name: skill-builder
 description: "Use when authoring, editing or validating a skill."
-version: "2.0.0"
+version: "2.0.1"
 author: Olaf Geibig
 license: MIT
 compatibility: Requires network access for current documentation and uv for bundled skills-ref validation
@@ -168,7 +168,7 @@ cd ~/.hermes/hermes-agent && venv/bin/python -c "from pathlib import Path; from 
 
 Expect no `missing-metadata` and no `dangling-reference` finding.
 
-**Gate 2 — Library audit:** run the package and declaration audits via `skill-governance` (`audit-library.md`).
+**Gate 2 — Library audit:** run the package and declaration audits via `skill-governance` (`wf-audit-library.md`).
 
 **Optional portability check (`skills-ref`):**
 

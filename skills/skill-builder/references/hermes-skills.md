@@ -68,7 +68,7 @@ For the full ownership and routing rules, load `skill-governance`.
 - Use `skill_manage` for an existing owned skill resolved from the profile or an external directory.
 - For `skill_manage(action='patch')`, name the pair `old_string`/`new_string` and send no other fields on that op: the matcher reads those names, and an op carrying `content` or `old_text` is refused as a missing `old_string` however exact the snippet is.
 - Do not use `skill_manage(create)` unless its configured creation root is the intended canonical repository. A brand-new canonical skill can be created profile-local (`baseline: none`) and published later; never copy an existing canonical skill into `$HERMES_HOME/skills/`.
-- When several external repositories exist and `skills.create_dir` cannot select among them, build a brand-new package profile-local and publish it into the chosen repository (`skill-governance` → `publish-skill.md`), or write it directly into the unlocked canonical repository on a branch.
+- When several external repositories exist and `skills.create_dir` cannot select among them, build a brand-new package profile-local and publish it into the chosen repository (`skill-governance` → `wf-publish-skill.md`), or write it directly into the unlocked canonical repository on a branch.
 - Never edit a third-party skill directly.
 
 After creation or movement, load the skill and inspect `_source_path`.

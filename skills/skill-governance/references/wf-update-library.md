@@ -1,7 +1,7 @@
 # Updating a Released Library
 
 How a consuming profile or checkout moves to a newer released version without losing local work,
-overwriting an open working copy, or bulk-unlocking the library.
+overwriting an open local phase, or bulk-unlocking from the agent.
 
 ## When to load
 
@@ -41,11 +41,18 @@ development and it does not publish.
    fetch fails, label the tracking ref as cached rather than claiming current remote state. Compare
    with `git rev-list --left-right --count HEAD...@{upstream}` and read the incoming commits before
    applying them.
-4. **Hand the operator the exact command.** When locked descendants block the fast-forward, prepare
-   the exact command — typically `git -C <repo> merge --ff-only @{upstream}` — and state which skills
-   are locked and that they do not need to be unlocked for this. The agent does not run it. Never
-   bulk-unlock, unlock a single sibling to "make the update possible", or relocate the command into
-   a helper.
+4. **Apply or hand over the update.**
+   - **Clean fast-forward, no locked skills blocking:** run `git -C <repo> merge --ff-only @{upstream}`.
+   - **Clean fast-forward, locked siblings blocking:** hand the user the exact command
+     (`git -C <repo> merge --ff-only @{upstream}`) and note that skills do not need to be unlocked
+     for the user to run it.
+   - **Divergence or conflicts:** stop, report the conflicting commits/files, and discuss
+     resolution with the user. Default is for the user to run the merge/resolution commands without
+     changing locks. If the user explicitly wants the agent to resolve conflicts directly, the user
+     can run `python3 skills/skill-governance/scripts/bulk-lock.py unlock <skills-dir>` beforehand
+     and `python3 skills/skill-governance/scripts/bulk-lock.py restore <skills-dir>` afterwards
+     (restores only previously locked skills). Never bulk-unlock from the agent, and never rebase or
+     force-push on your own.
 5. **Verify afterwards, on the real path.** Re-run `git status`, `git log -1`, and the declaration
    and library audits. `skill_view` each affected skill from a fresh session and confirm the
    resolved path and the version that actually loads. A fetched revision is not an installed
