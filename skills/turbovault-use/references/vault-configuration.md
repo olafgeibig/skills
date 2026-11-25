@@ -8,10 +8,11 @@ Read it when **TurboVault** is the problem, never when a **vault** is:
 
 | The question | Where |
 |---|---|
+| "How do I audit, configure, post-update check, or fix a default vault?" | `references/wf-turbovault-config.md` |
 | "It is missing, unreachable, or a tool vanished" | §Detect TurboVault below, then `references/troubleshooting.md` for the symptom |
-| "The wiring must change" — first setup, a new vault, a new machine, profile isolation, an upgrade | this file, end to end |
+| "What is the YAML schema, cache layout, or isolated-test gate?" | this file |
 | "Something misbehaves although it is there" — parked spawn, stale UI, reconnect churn | `references/troubleshooting.md`, not here |
-| "How do I edit, move, query, delete?" | the tool reference for that task; neither of these files |
+| "How do I edit, move, query, delete?" | the tool reference for that task; none of these files |
 
 The always-on checks stay in `SKILL.md` §Establish Availability (`list_vaults` first; an empty registry does not explain the cause, and a missing tool does not prove the server is down). Read this guide when those checks report something wrong that has to be fixed.
 
@@ -24,28 +25,18 @@ We use a two-stage check:
    - If missing: tell the user to install it (https://github.com/Epistates/turbovault)
 
 2. Stage 2 (decisive): check that the TurboVault MCP server is available (this is what the agent actually uses).
-   - Call `mcp_turbovault_list_vaults`
+   - Call `list_vaults`
    - If it succeeds (even with an empty list): TurboVault MCP is available.
    - If it fails: stop and instruct the user to enable/configure TurboVault MCP.
 
-## Inspect existing working-vault registrations
-
-For a read-only question about whether project working vaults are configured:
-
-1. Resolve the active client's TurboVault launch entry and its exact `--config` argument before opening YAML; a familiar filename is not evidence that this session uses it. Inspect only the relevant command, arguments, and vault entries, not unrelated credentials or environment values.
-2. Read the configured vault names and paths, then call `list_vaults` on the current MCP connection. Match names **and** absolute paths; file configuration, live registration, default flags, and active selection are separate facts.
-3. Resolve each requested project's embedded vault root from its project manual or existing registration. Check the project and vault directories explicitly. If the project directory is empty or has no working vault, report that state rather than treating it as a ready-to-register vault. A missing manual alone does not prove that a vault is absent.
-4. If configuration and runtime disagree, report the mismatch without guessing its cause: compare the launch configuration and per-working-directory cache sources described below before attributing it to an old process. Do not restart or rewrite configuration during an inspection.
-5. Return one compact row per requested project, distinguishing configured, live-registered, and directory-present states. Mention the configuration source and that nothing changed. Do not audit manual formatting, metadata, or navigation unless requested; stop once the registration question is answered.
-
-## Register and activate an existing vault
+## Register an existing vault
 
 When the user provides an existing vault path that is not registered:
 
-1. Call `list_vaults` and read `data.vaults` plus `data.active_vault` (4.0 returns them in one object; `get_active_vault` is gone).
-2. Call `add_vault(name, path)` for the existing directory. Registration does not require a newly created directory.
-3. Call `set_active_vault(name)` explicitly. Registration and activation are separate operations.
-4. Verify with `get_vault_context`; confirm the active vault name, registered path, and ready state together.
+1. Call `list_vaults` and read `data.vaults` plus `data.active_vault`.
+2. Call `add_vault(name, path)` for the existing directory. Registration does not require a newly created directory and does not switch `active_vault`.
+3. Prefer passing `vault: name` on subsequent scoped calls. Call `set_active_vault(name)` only when the user intentionally wants to switch the global active pointer for tools without a `vault` argument.
+4. Verify with `get_vault_context(vault=name)` (or `get_vault_context` after `set_active_vault`); confirm the vault name, registered path, and ready state together.
 
 Do not assume `add_vault` also selects the vault. Do not claim success from the registration response alone.
 
@@ -54,8 +45,8 @@ Do not assume `add_vault` also selects the vault. Do not claim success from the 
 Before the first write in a session — and again after a long pause (>30 min) in a long session — confirm orientation, not just availability:
 
 1. Call `list_vaults` and `get_vault_context`.
-2. Sanity-check `current_stats.total_notes` against the content you intend to touch: a count far from the expected magnitude means the wrong vault is active — stop and ask, or switch explicitly when the target vault is unambiguous.
-3. In multi-vault setups, prefer the v4 `vault` argument on each scoped call; when a tool lacks it or the server is pre-v4, call `set_active_vault(name)` and re-confirm with `list_vaults` and `get_vault_context`. Match the registered absolute path to the intended directory. Counts are only a plausibility check, not proof of identity.
+2. Sanity-check `current_stats.total_notes` against the content you intend to touch: a count far from the expected magnitude means the wrong vault is targeted — stop and ask, or pass the intended `vault` argument explicitly when unambiguous.
+3. In multi-vault setups, prefer the `vault` argument on each scoped call; when a tool lacks it or an explicit session selection is desired, call `set_active_vault(name)` and re-confirm with `list_vaults` and `get_vault_context`. Match the registered absolute path to the intended directory. Counts are only a plausibility check, not proof of identity.
 
 Example: a write request clearly aimed at the large vault, but `get_vault_context` reports ~50 notes — wrong vault active; switch explicitly before writing.
 
@@ -63,7 +54,7 @@ Example: a write request clearly aimed at the large vault, but `get_vault_contex
 
 1. Inventory the installed binary, running MCP connection, configuration source, registered paths, selected vault, and write backends separately; they can refer to different processes or configurations.
 2. Stage the candidate binary and configuration outside production. Verify the release checksum and candidate `--version`; this establishes the candidate artifact, not the version of an already-running server.
-3. Use a disposable vault or an explicitly authorized copy. Through the exact MCP connection intended for the test, call `list_vaults` and `get_vault_context` to confirm the disposable target's registered absolute path; on v4, pass its `vault` name on every scoped write. A scratch configuration or separate CLI process does not establish the target of session-bound tools.
+3. Use a disposable vault or an explicitly authorized copy. Through the exact MCP connection intended for the test, call `list_vaults` and `get_vault_context` to confirm the disposable target's registered absolute path; pass its `vault` name on every scoped write. A scratch configuration or separate CLI process does not establish the target of session-bound tools.
 4. Inspect the candidate's exposed tools and schemas before planning test calls. Do not infer a public MCP tool from an internal function or a tool mentioned in another release.
 5. Test reads, guarded edits, moves, link handling, and deletion only after target verification. Use collision-checked fixture names and retain pre-write content/hashes for every touched existing file. If a write lands in an unexpected vault, stop the test; inspect actual changes before deciding on restoration. Do not assume deleting the filenames restores pre-existing content or removes sync history.
 6. Keep Direct as the default and Git/fan-out disabled unless the standing per-vault authorization gate is met. Test non-Git and externally synchronized vault compatibility on copies, not by enabling Git on the originals.
@@ -80,28 +71,28 @@ When the user has not provided a path, discover local Obsidian vaults through `o
 - Linux: `~/.config/obsidian/obsidian.json`
 - Flatpak: `~/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json`
 
-Register only the vaults needed for the task. If none are discoverable, ask for the vault path. Registration still requires a separate activation and `get_vault_context` verification.
+Register only the vaults needed for the task. If none are discoverable, ask for the vault path. Pass the `vault` argument on scoped calls or verify with `get_vault_context` after any intentional `set_active_vault`.
 
-## Vault registry and config file (4.0)
+## Vault registry and config file
 
-The registry is not one global list. In 4.0 registration combines these sources (configured entries take precedence over cached entries with the same name; this is not a guarantee of execution order):
+The registry is not one global list. Registration combines these sources (configured entries take precedence over cached entries with the same name; this is not a guarantee of execution order):
 
-1. vaults declared in the file passed with `--config` — the only source of a `vaults:` list: without the flag the default path `~/.turbovault/config.yaml` is opened for its `tool_visibility` section alone, so no vault declaration and no per-vault setting is read, and the registry comes from the project cache;
-2. vaults restored from the per-project cache `~/.cache/turbovault/projects/<hash>/vaults.yaml`;
+1. vaults declared in the file passed with `--config` — the only source of a `vaults:` list: without the flag, `~/.turbovault/config.yaml` is opened for its `tool_visibility` section alone, so no vault declaration and no per-vault setting is read, and the registry comes from the project cache;
+2. vaults restored from the per-project cache `$XDG_CACHE_HOME/turbovault/projects/<hash>/vaults.yaml` (default `~/.cache/turbovault/projects/<hash>/vaults.yaml`);
 3. `--vault <path>`, registered as `default` if that name is free.
 
-**A listed advanced-tool set proves the file was found, never that its `vaults:` were applied.** The `config` echo of `list_vaults(name: …)` is the proof for that half: compare it field by field with the YAML — `is_default`, `reconcile_external_changes`, `max_file_size`, `allowed_operations`. A stale cache entry produces a plausible-looking echo in which every declared value is missing (`is_default: false`, `reconcile_external_changes: null`) while `tool_visibility` and the tool count look perfectly healthy. When the values are missing: put `--config <path>` into the launch entry, rename the project cache directory aside — renamed, not deleted, it is the evidence — then restart and re-read the echo.
+**A listed advanced-tool set proves the file was found, never that its `vaults:` were applied.** The `config` echo of `list_vaults(name: …)` is the proof for that half: compare it field by field with the YAML — `is_default`, `reconcile_external_changes`, `max_file_size`, `allowed_operations`. A stale cache entry produces a plausible-looking echo in which every declared value is missing (`is_default: false`, `reconcile_external_changes: null`) while `tool_visibility` and the tool count look healthy. When values are missing: put `--config <path>` into the launch entry, rename the project cache directory aside — renamed, not deleted, it is the evidence — then restart and re-read the echo.
 
-Treat the configured `is_default`, runtime default flags, and active selection as separate observations. Do not promise active selection from the YAML alone: a v4 startup with restored cache state can select a different vault. Because the cache is keyed by the server's **working directory**, two Hermes processes (dashboard, gateway) can report different vault lists on the same machine. Declare intended entries explicitly, then verify the complete live registry and active selection after startup; cached names absent from the config may also be restored. Test both a clean cache and a disposable copy of the relevant existing cache under the intended working directory before claiming restart behavior. Keep all probe cache writes isolated from production.
+Treat the configured `is_default`, runtime default flags, and active selection as separate observations. Do not promise active selection from the YAML alone: startup with restored cache state can select a different vault. Because the cache is keyed by the server's **working directory**, two Hermes processes (dashboard, gateway) can report different vault lists on the same machine. Declare intended entries explicitly, then verify the complete live registry and active selection after startup; cached names absent from the config may also be restored. Test both a clean cache and a disposable copy of the relevant existing cache under the intended working directory before claiming restart behavior. Keep all probe cache writes isolated from production.
 
-**Use a separate cache for each profile that needs an isolated registry.** The YAML alone does not exclude entries from a shared cache. `security.allowed_vault_roots` does not prevent this: it only limits runtime `add_vault`. Give such a profile a cache of its own; then prove the result by comparing `list_vaults` with the YAML rather than by reading either alone.
+**Isolate the cache per profile — including single-profile installations.** The YAML alone does not exclude entries from a shared cache, and `security.allowed_vault_roots` only limits runtime `add_vault`. Giving every profile its own cache root prevents CWD-keyed drift across gateway, dashboard, CLI, and additional profiles. Prove the result by comparing `list_vaults` with the YAML rather than by reading either alone.
 
 Two levers separate the cache, and the cheaper one is the cache root rather than the working directory:
 
-1. **`XDG_CACHE_HOME` in the server entry's `env`** — the cache lands below it (`<root>/turbovault/projects/<hash>/`), so each profile gets its own directory while the client keeps spawning from wherever it likes. The value is a path string, so it does not fall into the env-typing trap that breaks numeric values.
-2. **A launcher that `cd`s into the profile directory before `exec`** — changes the cache key instead of the root; needed only when the cache root cannot be set.
+1. **`XDG_CACHE_HOME` in the server entry's `env`** — the cache lands below it (`<root>/turbovault/projects/<hash>/`), so each profile keeps its own directory while the client spawns from any working directory. The value is a path string, so it avoids the non-string env validation failure.
+2. **A launcher that `cd`s into the profile directory before `exec`** — changes the cache key instead of the root; needed only when `XDG_CACHE_HOME` cannot be set.
 
-Prove either lever before restarting anything: run the binary with the intended environment and working directory, then read its startup log. A separated cache prints `Project cache initialized: <id> | Cache dir: <path>`, then `No cached vaults found for this project`, then one `Registering configured vault '<name>'` line per entry in the YAML. Any `Restored vault from cache: '<name>'` line is the leak, and a restored `active_vault` overrides the `is_default` flag from the config. Restart the owning gateway afterwards and confirm the new registry with `list_vaults`.
+Prove either lever before restarting anything: run the binary with the intended environment and working directory, then read its startup log. A separated cache prints `Project cache initialized: <id> | Cache dir: <path>`, then `No cached vaults found for this project`, then one `Registering configured vault '<name>'` line per entry in the YAML. Any `Restored vault from cache: '<name>'` line is a leak, and a restored `active_vault` overrides the `is_default` flag from the config. Restart the owning service afterwards and confirm the new registry with `list_vaults`.
 
 ```yaml
 vaults:
@@ -113,6 +104,9 @@ vaults:
 
 tool_visibility:
   show_advanced_tools: true   # or the 22 advanced tools are unlisted
+  disabled:
+    - fanout
+    - list_orphan_fanouts
 ```
 
-`allowed_operations` (`read`, `write`, `delete`, `move`, `all`) makes a vault read-only; `security.allowed_vault_roots` limits where runtime `add_vault` may register a vault. An unknown key under `security` stops startup, an unknown key in a `vaults` entry is ignored.
+`allowed_operations` (`read`, `write`, `delete`, `move`, `all`) makes a vault read-only; `security.allowed_vault_roots` limits where runtime `add_vault` may register a vault. An unknown key under `security` stops startup; an unknown key in a `vaults` entry is ignored. For the step-by-step audit, post-update check, and default diagnosis/repair procedure, run `references/wf-turbovault-config.md`.

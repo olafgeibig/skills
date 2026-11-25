@@ -8,7 +8,7 @@ Use `inspect_frontmatter` before writing repository-specific SQL. Use `search` w
 
 ## Writing frontmatter
 
-`update_frontmatter` merges the given keys into the existing frontmatter by default; `merge: false` replaces the whole block. In 4.0 an empty object is a no-op that still reports `success: true` with `keys_set` echoing what was already there — so pass at least one key, and read the note back instead of trusting success alone. A `write_note` whose content already includes the frontmatter line needs no separate stamp.
+`update_frontmatter` merges the given keys into the existing frontmatter by default; `merge: false` replaces the whole block. An empty object is a no-op that still reports `success: true` with `keys_set` echoing what was already there — so pass at least one key, and read the note back instead of trusting success alone. A `write_note` whose content already includes the frontmatter line needs no separate stamp.
 
 `manage_tags` only adds or removes (`operation: add|remove`, `tags` as a list); listing a note's tags is `get_notes_info` with `include_tags: true`.
 
@@ -18,7 +18,7 @@ An unquoted `: ` inside a YAML value (e.g. `description: … Sprache: DE.`) inva
 
 ## Parser compatibility during upgrades
 
-For upgrades that change Obsidian frontmatter parsing, use v4's `validate_vault` on a disposable copy, or under a read-only profile if that profile exposes the tool. It reports pre-1.9 `tags`/`aliases`/`cssclasses`, unparsable frontmatter, and broken links. Treat a blank `tags:` as YAML null, not an empty list (`tags: []`); distinguish null values, scalar forms, singular legacy keys, invalid YAML, and template placeholders because they need different decisions. Keep findings separate from binary installation and obtain scope approval before normalizing notes.
+For upgrades that change Obsidian frontmatter parsing, use `validate_vault` on a disposable copy, or under a read-only profile if that profile exposes the tool. It reports pre-1.9 `tags`/`aliases`/`cssclasses`, unparsable frontmatter, and broken links. Treat a blank `tags:` as YAML null, not an empty list (`tags: []`); distinguish null values, scalar forms, singular legacy keys, invalid YAML, and template placeholders because they need different decisions. Keep findings separate from binary installation and obtain scope approval before normalizing notes.
 
 ## Applying templates
 

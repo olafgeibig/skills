@@ -49,9 +49,9 @@ So either make the gate uniform — the same restate-the-target parameter (`conf
 
 ## Turning the gate off
 
-`--no-confirm-destructive` is a server-wide flag, not a per-vault setting, and it belongs in the MCP server entry's **`args`** list. Do not express it as `TURBOVAULT_NO_CONFIRM_DESTRUCTIVE` in the `env` block: Hermes validates MCP env values as strings, so YAML `1` fails the spawn with `Input should be a valid string` and a quoted `"1"` reaches Clap with the quotes attached (`invalid value '"1"'`). Either way the server never starts, and because a server that failed three times is *parked*, the tools stay gone until the owning gateway restarts — the config being correct is not enough. The value is read when the MCP subprocess spawns, so a running session keeps the old behaviour until Hermes restarts: a tool call that still refuses after the config write is expected, not a failed write. Confirm with the restart and the `registered N tool(s)` log line, not by calling the tool.
+`--no-confirm-destructive` is a server-wide flag belonging in the MCP server entry's **`args`** list — never in `env` as `TURBOVAULT_NO_CONFIRM_DESTRUCTIVE` (non-string `env` values fail spawn validation and park the server; see `references/troubleshooting.md` §A failed spawn is parked, not retried). Because Hermes leaves MCP elicitation `requestedSchema` fields empty, `references/wf-turbovault-config.md` treats `--no-confirm-destructive` as the baseline Hermes workaround once the user understands the limits above.
 
-Ask before flipping it. The user granting destructive rights is not the same as the user accepting that moves cannot be undone or that Obsidian edits have no snapshot; state both.
+Because the flag is read when the MCP subprocess spawns, a running session keeps the old behavior until the owning service restarts; verify via the `registered N tool(s)` log line before testing calls. Outside an authorized config setup/audit, ask before flipping `--no-confirm-destructive`, and state clearly that moves cannot be undone in one step and external edits have no snapshot.
 
 ## Working discipline once it is off
 

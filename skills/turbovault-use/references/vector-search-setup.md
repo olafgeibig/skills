@@ -59,12 +59,12 @@ Only `model_path` has no default; the full field list with defaults is in `refer
 
 ## 5. Wire it into Hermes and reload
 
-The MCP server is a spawned child process; the plugin flag belongs in its `args`:
+The MCP server is a spawned child process; the plugin flag belongs in its `args` alongside the existing baseline flags (`references/wf-turbovault-config.md` §2):
 
 ```bash
 hermes config set mcp_servers.turbovault.args \
-  '["--profile","production","--config","/home/<user>/.turbovault/config.yaml","--plugins","vector_search"]'
-hermes config get mcp_servers.turbovault      # read the whole list back
+  '["-p","production","--config","/home/<user>/.turbovault/config.yaml","--no-confirm-destructive","--plugins","vector_search"]'
+hermes config get mcp_servers.turbovault      # read the whole block back (verify args and XDG_CACHE_HOME)
 ```
 
 Reload the owning MCP connection as described in `references/upgrading.md` §7. A new chat can reuse the old connection; verify the plugin tools on the intended surface.

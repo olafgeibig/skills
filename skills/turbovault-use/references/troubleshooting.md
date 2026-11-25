@@ -1,6 +1,6 @@
 # TurboVault Troubleshooting
 
-Read this when TurboVault **exists but misbehaves** — a tool missing from the session, a spawn that fails or is parked, stale UI, reconnect churn, a server the session cannot reach. When the wiring has to be *changed* (first setup, a new vault, profile isolation, an upgrade), that is `references/vault-configuration.md`; when the vault's *content* is the problem, it is neither file.
+Read this when TurboVault **exists but misbehaves** — a tool missing from the session, a spawn that fails or is parked, stale UI, reconnect churn, a server the session cannot reach. For configuration audits, post-update config checks, and default-vault diagnosis/repair, follow `references/wf-turbovault-config.md`; for YAML schema and cache layout, see `references/vault-configuration.md`. When the vault's *content* is the problem, it is none of these files.
 
 ## Runtime availability versus session exposure
 
@@ -19,7 +19,7 @@ The usual reason a spawn never gets off the ground is the `env` block: Hermes va
 
 ## A tool the skill names is missing
 
-`tools/list` is the whole contract: a tool that is not listed cannot be called in that session, even though the server has it. TurboVault 4.0 leaves 22 advanced tools unlisted by default (`inspect_frontmatter`, `query_frontmatter_sql`, `audit_log`, `export`, `compare_notes`, `find_duplicates`, `find_stale_notes`, `suggest_links`, `note_quality`, `analyze_grounding`, `rollback_*`, `move_file`, `diff_notes`, `fanout`, …). Enable them with `tool_visibility.show_advanced_tools: true` in `~/.turbovault/config.yaml` (or `--show-advanced-tools`). Apply the change to the owning MCP connection using the client-specific steps in `references/upgrading.md` §7, then verify with Tool Search and `list_vaults`. Do not conclude the server is old or broken before checking that setting.
+`tools/list` is the whole contract: a tool that is not listed cannot be called in that session, even though the server has it. TurboVault leaves 22 advanced tools unlisted by default (`inspect_frontmatter`, `query_frontmatter_sql`, `audit_log`, `export`, `compare_notes`, `find_duplicates`, `find_stale_notes`, `suggest_links`, `note_quality`, `analyze_grounding`, `rollback_*`, `move_file`, `diff_notes`, …). Enable them with `tool_visibility.show_advanced_tools: true` in the active `--config` YAML (or `--show-advanced-tools`), while keeping `fanout` and `list_orphan_fanouts` under `tool_visibility.disabled` for `write_backend: direct`. Apply the change to the owning MCP connection using `references/upgrading.md` §7, then verify with Tool Search and `list_vaults`. Do not conclude the server is old or broken before checking `tool_visibility`.
 
 ## Reaching the server when the session has no TurboVault tools (mcporter bridge)
 
@@ -45,19 +45,17 @@ mcporter call turbovault.edit_note   vault=<vault> path="projects/x/note.md" \
 - Keep the destructive gate on: do **not** add `--no-confirm-destructive` just because it is convenient for a bridge session.
 - Verify the reachable vault set first (`mcporter call turbovault.list_vaults`) and compare it with the profile's YAML — a bridge that resolves to another profile's config is exactly the access-boundary leak the per-profile config exists to prevent.
 
-## No active vault
+## No active vault or unexpected default
 
-If tools exist but operations report no active vault:
+If tools exist but fail with no active vault, or target an unexpected vault:
 
-1. list registered vaults;
-2. select the intended vault explicitly;
-3. verify with `get_vault_context`.
-
-Do not guess among multiple vaults.
+1. Call `list_vaults` to see registered names, paths, `is_default` flags, and `active_vault`.
+2. Pass the intended `vault` argument on scoped tool calls, or call `set_active_vault(name)` when an explicit session pointer is needed, then confirm with `get_vault_context`.
+3. Do not guess among multiple vaults. To trace where a default originates or change a persisted `is_default`, follow `references/wf-turbovault-config.md` §4–5.
 
 ## Empty vault registry after a restart or model switch
 
-An empty `list_vaults` response or an unknown vault name does not establish a reset. Compare the owning process, its launch config and its registry/cache with the intended profile. Keep inspection read-only. If registration is authorized and the intended absolute path is confirmed, register it and confirm the mapping with `list_vaults`; prefer scoped calls over changing the shared active vault.
+An empty `list_vaults` response or an unknown vault name does not establish a reset. Run `references/wf-turbovault-config.md` §1 to compare the owning process, its `--config` launch argument, and its `XDG_CACHE_HOME` / CWD cache before mutating anything. If runtime registration is authorized and the intended absolute path is confirmed, use `add_vault` and confirm with `list_vaults`.
 
 ## Reconnect churn and subprocesses
 

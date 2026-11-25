@@ -2,12 +2,12 @@
 
 ## Choose the right search
 
-- `search` is full-text search and also carries the 3.x `advanced_search` filters (`tags`, `frontmatter_filters`, `exclude_paths`, `related_to`).
+- `search` covers full-text search plus metadata/graph filters (`tags`, `frontmatter_filters`, `exclude_paths`, `related_to`).
 - `find_similar` finds conceptually similar content.
 - `search` with `frontmatter_filters` filters metadata fields.
 - `query_frontmatter_sql` supports structured reports.
 - `get_notes_info` retrieves selected frontmatter fields for one or more notes; with `include_tags` its `tags` is an object (`frontmatter_tags`, `inline_tags`, `all_tags`).
-- Obsidian Bases (`query_base`), canvases (`read_canvas`/`write_canvas`), and periodic notes (`get_periodic_note`) exist on 4.0; use them only when the vault actually has `.base`/`.canvas` files or daily-note settings.
+- Obsidian Bases (`query_base`), canvases (`read_canvas`/`write_canvas`), and periodic notes (`get_periodic_note`) are available; use them only when the vault actually has `.base`/`.canvas` files or daily-note settings.
 
 For broad discovery, pass `response_format: concise` to `search` (compact rows: `path`, `title`, `snippet`, `score`, `tags`, `backlink_count`, without `preview`, `outgoing_links`, `word_count`) or to `explain_vault`/`get_vault_context`.
 
