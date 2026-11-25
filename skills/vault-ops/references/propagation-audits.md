@@ -8,7 +8,7 @@ Run a propagation audit when:
 
 - a value that exists in more than one place changes — a time, date, price, weight, dimension, address, limit, or ID;
 - a status moves (open → done, "to book" → "booked") and lists, tasks, or tables may still show the old state;
-- a note is renamed or moved and plain-text references may survive outside the link graph — the mechanical side is covered by the `turbovault-use` skill (`renames-and-refactors.md`); this reference covers the content side.
+- a note is renamed or moved and plain-text references may survive outside the link graph — the mechanical side is covered by the `turbovault-use` skill (`editing-and-mutations.md`); this reference covers the content side.
 
 Not triggered for literal edits with no restated copies (one file, exact text) — execute those directly.
 
@@ -54,4 +54,4 @@ Many mentions in one file suggest a live reference; one or two spread across fil
 ## Related
 
 - `./references/wf-interpretive-edits.md` — audit → diff → confirm → write for interpretive requests.
-- The `turbovault-use` skill — search mechanics; rename and link corrections (`renames-and-refactors.md`).
+- The `turbovault-use` skill — search mechanics; rename and link corrections (`editing-and-mutations.md`).

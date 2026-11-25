@@ -1,112 +1,96 @@
-# TurboVault Configuration Guide
+# TurboVault Configuration Reference
 
-`turbovault-use` requires an available TurboVault MCP server. This guide is where the wiring is made and repaired; it is not where the vault is operated.
+Declarative reference for TurboVault 4.x configuration, startup/cache mechanics, multi-vault registration, write backends, and tool visibility.
 
-## When to read this
+- For step-by-step setup, config audits, post-update checks, or default diagnosis/repair, follow `references/wf-turbovault-config.md`.
+- For binary upgrades and isolated upgrade testing, follow `references/wf-upgrading.md`.
+- For runtime failures (parked spawns, `env` typing, missing session tools, `mcporter`), follow `references/troubleshooting.md`.
 
-Read it when **TurboVault** is the problem, never when a **vault** is:
+## 1. Config file schema (`config.yaml`)
 
-| The question | Where |
-|---|---|
-| "How do I audit, configure, post-update check, or fix a default vault?" | `references/wf-turbovault-config.md` |
-| "It is missing, unreachable, or a tool vanished" | §Detect TurboVault below, then `references/troubleshooting.md` for the symptom |
-| "What is the YAML schema, cache layout, or isolated-test gate?" | this file |
-| "Something misbehaves although it is there" — parked spawn, stale UI, reconnect churn | `references/troubleshooting.md`, not here |
-| "How do I edit, move, query, delete?" | the tool reference for that task; none of these files |
-
-The always-on checks stay in `SKILL.md` §Establish Availability (`list_vaults` first; an empty registry does not explain the cause, and a missing tool does not prove the server is down). Read this guide when those checks report something wrong that has to be fixed.
-
-## Detect TurboVault
-
-We use a two-stage check:
-
-1. Stage 1 (informational): check that the TurboVault CLI is installed.
-   - Run: `turbovault --version`
-   - If missing: tell the user to install it (https://github.com/Epistates/turbovault)
-
-2. Stage 2 (decisive): check that the TurboVault MCP server is available (this is what the agent actually uses).
-   - Call `list_vaults`
-   - If it succeeds (even with an empty list): TurboVault MCP is available.
-   - If it fails: stop and instruct the user to enable/configure TurboVault MCP.
-
-## Register an existing vault
-
-When the user provides an existing vault path that is not registered:
-
-1. Call `list_vaults` and read `data.vaults` plus `data.active_vault`.
-2. Call `add_vault(name, path)` for the existing directory. Registration does not require a newly created directory and does not switch `active_vault`.
-3. Prefer passing `vault: name` on subsequent scoped calls. Call `set_active_vault(name)` only when the user intentionally wants to switch the global active pointer for tools without a `vault` argument.
-4. Verify with `get_vault_context(vault=name)` (or `get_vault_context` after `set_active_vault`); confirm the vault name, registered path, and ready state together.
-
-Do not assume `add_vault` also selects the vault. Do not claim success from the registration response alone.
-
-## Pre-write orientation
-
-Before the first write in a session — and again after a long pause (>30 min) in a long session — confirm orientation, not just availability:
-
-1. Call `list_vaults` and `get_vault_context`.
-2. Sanity-check `current_stats.total_notes` against the content you intend to touch: a count far from the expected magnitude means the wrong vault is targeted — stop and ask, or pass the intended `vault` argument explicitly when unambiguous.
-3. In multi-vault setups, prefer the `vault` argument on each scoped call; when a tool lacks it or an explicit session selection is desired, call `set_active_vault(name)` and re-confirm with `list_vaults` and `get_vault_context`. Match the registered absolute path to the intended directory. Counts are only a plausibility check, not proof of identity.
-
-Example: a write request clearly aimed at the large vault, but `get_vault_context` reports ~50 notes — wrong vault active; switch explicitly before writing.
-
-## Upgrade and isolated-test gates
-
-1. Inventory the installed binary, running MCP connection, configuration source, registered paths, selected vault, and write backends separately; they can refer to different processes or configurations.
-2. Stage the candidate binary and configuration outside production. Verify the release checksum and candidate `--version`; this establishes the candidate artifact, not the version of an already-running server.
-3. Use a disposable vault or an explicitly authorized copy. Through the exact MCP connection intended for the test, call `list_vaults` and `get_vault_context` to confirm the disposable target's registered absolute path; pass its `vault` name on every scoped write. A scratch configuration or separate CLI process does not establish the target of session-bound tools.
-4. Inspect the candidate's exposed tools and schemas before planning test calls. Do not infer a public MCP tool from an internal function or a tool mentioned in another release.
-5. Test reads, guarded edits, moves, link handling, and deletion only after target verification. Use collision-checked fixture names and retain pre-write content/hashes for every touched existing file. If a write lands in an unexpected vault, stop the test; inspect actual changes before deciding on restoration. Do not assume deleting the filenames restores pre-existing content or removes sync history.
-6. Keep Direct as the default and Git/fan-out disabled unless the standing per-vault authorization gate is met. Test non-Git and externally synchronized vault compatibility on copies, not by enabling Git on the originals.
-7. Treat metadata normalization as a separate scoped change. Audit notes and templates against the candidate parser; report findings without silently rewriting vault content during a binary upgrade.
-8. Before authorized replacement, preserve the installed binary and production configuration in a durable rollback location, not an auto-pruned scratch directory. After the controlled restart, verify the new running connection's version, registrations, paths, default selection, and backend settings before further writes.
-9. Report staged artifacts, installed artifacts, running process state, and verified tests separately. A checksum or smoke test is not a completed migration; an expected missing-file result after deletion is cleanup evidence, not a reason to retry the same read indefinitely.
-
-## Discover vaults from Obsidian configuration
-
-When the user has not provided a path, discover local Obsidian vaults through `obsidian.json` where appropriate. Common locations:
-
-- macOS: `/Users/<username>/Library/Application Support/obsidian/obsidian.json`
-- Windows: `%APPDATA%\\obsidian\\obsidian.json`
-- Linux: `~/.config/obsidian/obsidian.json`
-- Flatpak: `~/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json`
-
-Register only the vaults needed for the task. If none are discoverable, ask for the vault path. Pass the `vault` argument on scoped calls or verify with `get_vault_context` after any intentional `set_active_vault`.
-
-## Vault registry and config file
-
-The registry is not one global list. Registration combines these sources (configured entries take precedence over cached entries with the same name; this is not a guarantee of execution order):
-
-1. vaults declared in the file passed with `--config` — the only source of a `vaults:` list: without the flag, `~/.turbovault/config.yaml` is opened for its `tool_visibility` section alone, so no vault declaration and no per-vault setting is read, and the registry comes from the project cache;
-2. vaults restored from the per-project cache `$XDG_CACHE_HOME/turbovault/projects/<hash>/vaults.yaml` (default `~/.cache/turbovault/projects/<hash>/vaults.yaml`);
-3. `--vault <path>`, registered as `default` if that name is free.
-
-**A listed advanced-tool set proves the file was found, never that its `vaults:` were applied.** The `config` echo of `list_vaults(name: …)` is the proof for that half: compare it field by field with the YAML — `is_default`, `reconcile_external_changes`, `max_file_size`, `allowed_operations`. A stale cache entry produces a plausible-looking echo in which every declared value is missing (`is_default: false`, `reconcile_external_changes: null`) while `tool_visibility` and the tool count look healthy. When values are missing: put `--config <path>` into the launch entry, rename the project cache directory aside — renamed, not deleted, it is the evidence — then restart and re-read the echo.
-
-Treat the configured `is_default`, runtime default flags, and active selection as separate observations. Do not promise active selection from the YAML alone: startup with restored cache state can select a different vault. Because the cache is keyed by the server's **working directory**, two Hermes processes (dashboard, gateway) can report different vault lists on the same machine. Declare intended entries explicitly, then verify the complete live registry and active selection after startup; cached names absent from the config may also be restored. Test both a clean cache and a disposable copy of the relevant existing cache under the intended working directory before claiming restart behavior. Keep all probe cache writes isolated from production.
-
-**Isolate the cache per profile — including single-profile installations.** The YAML alone does not exclude entries from a shared cache, and `security.allowed_vault_roots` only limits runtime `add_vault`. Giving every profile its own cache root prevents CWD-keyed drift across gateway, dashboard, CLI, and additional profiles. Prove the result by comparing `list_vaults` with the YAML rather than by reading either alone.
-
-Two levers separate the cache, and the cheaper one is the cache root rather than the working directory:
-
-1. **`XDG_CACHE_HOME` in the server entry's `env`** — the cache lands below it (`<root>/turbovault/projects/<hash>/`), so each profile keeps its own directory while the client spawns from any working directory. The value is a path string, so it avoids the non-string env validation failure.
-2. **A launcher that `cd`s into the profile directory before `exec`** — changes the cache key instead of the root; needed only when `XDG_CACHE_HOME` cannot be set.
-
-Prove either lever before restarting anything: run the binary with the intended environment and working directory, then read its startup log. A separated cache prints `Project cache initialized: <id> | Cache dir: <path>`, then `No cached vaults found for this project`, then one `Registering configured vault '<name>'` line per entry in the YAML. Any `Restored vault from cache: '<name>'` line is a leak, and a restored `active_vault` overrides the `is_default` flag from the config. Restart the owning service afterwards and confirm the new registry with `list_vaults`.
+TurboVault reads `--config <PATH>` (`TURBOVAULT_CONFIG`), or automatically falls back to `~/.turbovault/config.yaml` when it exists. Always pass an explicit `--config <PATH>` in client launch `args` so each profile is bound to one known file instead of sharing `~/.turbovault/config.yaml`.
 
 ```yaml
 vaults:
-  - name: main
-    path: /home/user/vaults/main
-    is_default: true          # required per entry — omitting it stops startup
-    write_backend: direct     # direct (default) or git
+  - name: main                     # FIRST entry becomes active_vault on a clean cache (see §2)
+    path: /abs/path/to/vault       # ~ and $VAR are expanded from config/--vault
+    is_default: true               # REQUIRED boolean on every entry (omitting stops startup), but does NOT choose active_vault
+    write_backend: direct          # direct (default) or git
     reconcile_external_changes: true
+    # optional per-vault overrides:
+    # max_file_size: 10485760      # bytes (default 10 MiB)
+    # allowed_extensions: [.md, .txt, .canvas, .base]
+    # excluded_paths: [.trash]     # added to server defaults (.obsidian, .git, .DS_Store, node_modules); .turbovault is separately hard-protected
+    # allowed_operations: all      # read | write | delete | move | all (string or list)
+    # git:                         # only when write_backend: git
+    #   branch: main
+    #   merge_strategy: merge-commit   # merge-commit | fast-forward
+    #   include_ignored: true
+    #   require_commit_message: false
+    #   author: { name: "...", email: "..." }
 
 tool_visibility:
-  show_advanced_tools: true   # or the 22 advanced tools are unlisted
+  show_advanced_tools: true        # false hides 22 advanced tools from tools/list (still callable by name)
   disabled:
     - fanout
     - list_orphan_fanouts
+
+security:
+  # allowed_vault_roots: [~/Vaults]   # CLI/env: --allowed-vault-roots / TURBOVAULT_ALLOWED_VAULT_ROOTS
+  allow_unauthenticated_network: false
 ```
 
-`allowed_operations` (`read`, `write`, `delete`, `move`, `all`) makes a vault read-only; `security.allowed_vault_roots` limits where runtime `add_vault` may register a vault. An unknown key under `security` stops startup; an unknown key in a `vaults` entry is ignored. For the step-by-step audit, post-update check, and default diagnosis/repair procedure, run `references/wf-turbovault-config.md`.
+Schema quirks verified against TurboVault 4.x source (`turbovault-core/src/config.rs`, `multi_vault.rs`, `cli.rs`):
+
+- **`is_default` is mandatory on every `vaults:` entry, yet does not control `active_vault`:** `VaultConfig.is_default: bool` has no serde default, so omitting it fails startup. However, `ObsidianMcpServer` starts vault-agnostic (`MultiVaultManager::empty()`) and registers configured vaults via `add_vault` in list order, where only the **first** vault added sets `default_vault`. Put the desired default vault **first** under `vaults:` (and keep `is_default: true` on it / `false` on others for clarity and forward compatibility).
+- **Distinguish `list_vaults` fields:** Top-level `data.vaults[].is_default` reflects the **active vault pointer**, not the YAML key; the YAML value lives at `data.vaults[].config.is_default`.
+- **Silent vs. loud unknown keys:** Unknown keys inside `vaults:` entries are silently ignored (legacy pre-4.0 keys like `enable_caching`, `cache_ttl`, `template_dirs`, `watch_for_changes` are dead/ignored; `watch_for_changes` deserializes only as a serde alias for `reconcile_external_changes`). Unknown keys under `security:` fail startup.
+- **Profiles (`-p` / `--profile`):** `development` (debug), `production` (info — recommended baseline), `read-only` (warn, refuses all mutating tools), `high-performance` (warn), `minimal` (error, disables external-edit reconciliation), `multi-vault`, `collaboration`.
+
+## 2. Startup order, project cache & search index
+
+TurboVault stores both its per-project vault registry cache and per-vault search indexes under `$XDG_CACHE_HOME/turbovault/` (default `~/.cache/turbovault/`):
+
+- **Project registry cache:** `$XDG_CACHE_HOME/turbovault/projects/<project-id>/` (`vaults.yaml` + metadata). The project ID is hashed from the nearest ancestor of the server's working directory containing `.git`, `.obsidian`, `Cargo.toml`, `package.json`, or `.project` — falling back to the working directory itself (`cache.rs`).
+- **Search index:** `$XDG_CACHE_HOME/turbovault/search/<vault-hash>/` (set `TURBOVAULT_SEARCH_INDEX=memory` for in-memory only).
+- **When the project cache is written:** Pure startup from `--config` does **not** write `vaults.yaml`; the cache is written when runtime `add_vault` or `set_active_vault` runs (which then persists *all* currently registered vaults, including YAML ones, plus `active_vault`).
+
+Actual startup order (`crates/turbovault/src/cli.rs`):
+
+1. **Cache recovery runs first:** Restores cached vaults (re-checked against `allowed_vault_roots` and path confinement — paths under hidden home directories are silently skipped with a warning) and restores cached `active_vault`.
+2. **Configured vaults (`--config` or `~/.turbovault/config.yaml`) run second:**
+   - If a vault `name` is **not** in the cache, it is registered with all YAML settings (the first registered vault becomes `active_vault` if cache did not set one).
+   - If the same `name` is already in the cache with a **different** `path`, the YAML entry replaces the cached one.
+   - **Critical trap:** If the same `name` and **same `path`** already exist in the cache, TurboVault executes `continue` and **skips the YAML entry completely**. Stale cached settings (`reconcile_external_changes`, `allowed_operations`, `max_file_size`, `write_backend`, `config.is_default`) and the cached `active_vault` stay active and mask edits made to the YAML!
+3. **`--vault <PATH>` runs third:** Registered as `default` only if that name is free.
+
+### Consequences & cache isolation
+
+- **Verify applied per-vault settings via `data.vaults[].config` (or `list_vaults(name: "<vault>")`):** Seeing the expected `tools/list` count proves `tool_visibility` was read, **not** that every `vaults:` field took effect. Compare `config` fields against the YAML; if a cached `(name, path)` masks YAML edits, rename the project cache directory aside (for evidence, rather than blind deletion), restart the server, and re-verify.
+- **Isolate `XDG_CACHE_HOME` per profile — even on single-profile hosts:** Set `XDG_CACHE_HOME` to a profile-local cache path string in the client's MCP `env`. This prevents project-root-keyed cache drift across gateway, dashboard, CLI, and future profiles.
+- **Prove isolation from startup logs:** A clean isolated startup logs `Project cache initialized: <id> | Cache dir: <path>`, then `No cached vaults found for this project`, then `Registering configured vault '<name>'` for each YAML entry. Any unexpected `Restored vault from cache` line indicates a cache leak.
+
+## 3. Registering existing vaults & Obsidian discovery
+
+When adding an existing vault at runtime:
+
+1. Inspect `list_vaults` (`data.vaults` and `data.active_vault`).
+2. Call `add_vault(name, path)` (`create: false` default). Runtime paths expand `~` only (not `$VAR`). Registration is confined — filesystem roots, home directories, hidden/app-data directories under home, and system directories are refused; `security.allowed_vault_roots` / `--allowed-vault-roots` narrows it further (and is required on network transports).
+3. Registration does **not** switch `active_vault` (unless it is the very first vault). Prefer passing `vault: "<name>"` on scoped calls; call `set_active_vault(name)` only when a global pointer switch is intentional (remembering it persists the project cache).
+4. Verify with `get_vault_context(vault: "<name>")` — confirm name, registered path, and ready state.
+
+If the user has not supplied a vault path, local Obsidian registrations live in `obsidian.json`:
+
+- macOS: `~/Library/Application Support/obsidian/obsidian.json`
+- Linux: `~/.config/obsidian/obsidian.json` (Flatpak: `~/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json`)
+- Windows: `%APPDATA%\obsidian\obsidian.json`
+
+Register only the vaults needed for the task; ask if none are discoverable.
+
+## 4. Write backend & tool visibility policy
+
+- **Default backend is `direct`.** Atomic temp-file renames with `expected_hash` guards and `.turbovault/audit/` snapshots. Works alongside Obsidian Sync, iCloud, Dropbox, or Syncthing.
+- **Git backend (`write_backend: git`) is opt-in per vault:** Requires an initialized Git repo (`git init`), refuses uncommitted changes on touched files, makes every write/batch one commit, and disables `audit_log`/`rollback_note`. Enable it **only** with explicit user authorization for that named vault, after confirming no competing sync layer writes to the same directory and after testing on a copy.
+- **Tool visibility (`tool_visibility`):**
+  - `show_advanced_tools: false` (server default) hides 22 advanced tools from `tools/list`, **but leaves them callable by name** — hiding is not access control.
+  - Use `disabled` (or `--disabled-tools` / `allowed`) to enforce real blocks. Keep `fanout` and `list_orphan_fanouts` in `disabled` on Direct-backend servers.

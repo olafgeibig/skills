@@ -8,22 +8,19 @@ logic lives in the `turbovault-use` skill.
 
 Four things are installation-specific and belong in the copy, not in the skill:
 
-  CONFIG        the TurboVault config file this installation actually runs (it is
-                not always `~/.turbovault/config.yaml`; a machine that starts the
-                server with `--config ~/.turbovault/<name>.yaml` needs that path
-                here)
-  HERMES_HOME   the profile root. `~/.hermes/profiles/<name>` is wrong wherever
-                the default profile *is* `~/.hermes` — there a scheduled run
-                without this pins itself to a directory that never existed
+  CONFIG        the TurboVault config file this installation actually runs
+                (often `~/.turbovault/<profile>.yaml` rather than the default
+                `~/.turbovault/config.yaml`)
+  HERMES_HOME   the profile root (`~/.hermes` for the default profile, or
+                `~/.hermes/profiles/<name>` for a named profile)
   STATE_ROOT    the drift state directory, kept under this profile so scheduled
                 runs share the baseline with manual ones
-  SKILL_SCRIPTS the skill's `scripts/` directory. A skill registered through
-                `skills.external_dirs` never appears under `$HERMES_HOME/skills`
-                and a repo outside `~/work/skills` is not found either, so the
-                shim would die with `cannot locate …/scripts` on every run
+  SKILL_SCRIPTS the skill's `scripts/` directory, set via
+                `TURBOVAULT_DRIFT_SKILL_SCRIPTS` when the skill lives outside
+                `$HERMES_HOME/skills`
 
-Everything else is discovered at runtime, so moving the skill repository does
-not silently break the job: the shim fails loudly instead of reporting "clean".
+Everything else is discovered at runtime, so moving the skill repository fails
+loudly instead of silently reporting "clean".
 """
 
 from __future__ import annotations
@@ -37,10 +34,11 @@ SKILL_NAME = "turbovault-use"
 SKILL_SCRIPT = "vault-drift-all.py"
 
 # --- adjust per installation -------------------------------------------------
-CONFIG = Path(os.environ.get("TURBOVAULT_CONFIG")
-              or (Path.home() / ".turbovault" / "config.yaml"))
-HERMES_HOME = Path(os.environ.get("HERMES_HOME")
-                   or (Path.home() / ".hermes" / "profiles" / "default"))
+CONFIG = Path(
+    os.environ.get("TURBOVAULT_CONFIG")
+    or (Path.home() / ".turbovault" / "config.yaml")
+)
+HERMES_HOME = Path(os.environ.get("HERMES_HOME") or (Path.home() / ".hermes"))
 STATE_ROOT = HERMES_HOME / "state" / "vault-drift"
 # -----------------------------------------------------------------------------
 
@@ -50,7 +48,7 @@ def candidate_dirs():
     explicit = os.environ.get("TURBOVAULT_DRIFT_SKILL_SCRIPTS")
     if explicit:
         yield Path(explicit).expanduser()
-    for root in (HERMES_HOME / "skills", Path.home() / "work" / "skills"):
+    for root in (HERMES_HOME / "skills",):
         if not root.is_dir():
             continue
         direct = root / SKILL_NAME / "scripts"
@@ -71,17 +69,28 @@ def find_skill_script() -> Path | None:
 def main() -> int:
     script = find_skill_script()
     if script is None:
-        print(f"cannot locate {SKILL_NAME}/scripts/{SKILL_SCRIPT}; "
-              "set TURBOVAULT_DRIFT_SKILL_SCRIPTS to its directory", file=sys.stderr)
+        print(
+            f"cannot locate {SKILL_NAME}/scripts/{SKILL_SCRIPT}; "
+            "set TURBOVAULT_DRIFT_SKILL_SCRIPTS to its directory",
+            file=sys.stderr,
+        )
         return 1
     if not CONFIG.exists():
-        print(f"TurboVault config not found: {CONFIG} — edit CONFIG in this shim "
-              "to the file this installation starts the server with", file=sys.stderr)
+        print(
+            f"TurboVault config not found: {CONFIG} — edit CONFIG in this shim "
+            "to the file this installation starts the server with",
+            file=sys.stderr,
+        )
         return 1
-    return subprocess.call([
-        sys.executable, str(script), str(CONFIG),
-        "--state-root", str(STATE_ROOT),
-    ])
+    return subprocess.call(
+        [
+            sys.executable,
+            str(script),
+            str(CONFIG),
+            "--state-root",
+            str(STATE_ROOT),
+        ]
+    )
 
 
 if __name__ == "__main__":

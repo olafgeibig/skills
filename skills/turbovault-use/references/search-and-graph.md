@@ -1,95 +1,79 @@
-# Search and Graph Operations
+# Search, Metadata, Graph, and Structured Reads
 
-## Choose the right search
+Covers every read-only discovery, query, analysis, and structured-format tool in TurboVault 4.x. For the opt-in semantic plugin see `references/vector-search.md`; for mutations see `references/editing-and-mutations.md`.
 
-- `search` covers full-text search plus metadata/graph filters (`tags`, `frontmatter_filters`, `exclude_paths`, `related_to`).
-- `find_similar` finds conceptually similar content.
-- `search` with `frontmatter_filters` filters metadata fields.
-- `query_frontmatter_sql` supports structured reports.
-- `get_notes_info` retrieves selected frontmatter fields for one or more notes; with `include_tags` its `tags` is an object (`frontmatter_tags`, `inline_tags`, `all_tags`).
-- Obsidian Bases (`query_base`), canvases (`read_canvas`/`write_canvas`), and periodic notes (`get_periodic_note`) are available; use them only when the vault actually has `.base`/`.canvas` files or daily-note settings.
+## Choose the right discovery tool
 
-For broad discovery, pass `response_format: concise` to `search` (compact rows: `path`, `title`, `snippet`, `score`, `tags`, `backlink_count`, without `preview`, `outgoing_links`, `word_count`) or to `explain_vault`/`get_vault_context`.
+| Need | Tool | Notes |
+|---|---|---|
+| Full-text / filtered search | `search` | Tantivy BM25 (`query`, `tags`, `frontmatter_filters`, `exclude_paths`, `related_to`). Omit `query` (or pass `"*"`) for filter-only listing; default `limit` is 10, so raise `limit` or page via `next_offset` for full coverage. |
+| Single frontmatter condition | `query_metadata` | Simple condition (`status: "draft"`, `tags: contains("work")`, `priority > 3`); returns each match's frontmatter. |
+| Multi-condition / aggregate / exact enumeration | `query_frontmatter_sql` (advanced) | GlueSQL over `files`, `tags`, `links`. Run `inspect_frontmatter` first to see exact column names and types. |
+| Batch existence, frontmatter keys & tags | `get_notes_info` | Missing frontmatter keys return `null`. With `include_tags: true`, `tags` is an object `{frontmatter_tags, inline_tags, all_tags}`, not a flat list. |
+| Lexical similarity (built-in TF-IDF) | `find_similar` | Takes either `query` (topic) or `path` (look-alike notes). Separate from the opt-in `vector_search` plugin. |
+| Near-duplicates / pair comparison / link ideas | `find_duplicates`, `compare_notes`, `suggest_links` (advanced) | `compare_notes` returns both content similarity and `link_strength`. |
+| Vault orientation & health | `get_vault_context`, `explain_vault`, `vault_health(depth)` | `explain_vault` summarizes counts, folders, hubs, and dead ends in one call. |
+| Content & Obsidian 1.9+ validation | `validate_vault` | Checks unparsable frontmatter, pre-1.9 scalar/singular `tags`/`aliases`/`cssclasses`, and broken links (unreleased post-4.1.0 builds also list skipped non-UTF-8 / unparsable files). |
 
-Do not send `field:value` expressions such as `type: analysis` to full-text search. Use frontmatter search or SQL.
+- **Concise mode:** Pass `response_format: "concise"` to `search`, `explain_vault`, or `get_vault_context` during broad discovery to omit verbose fields (`preview`, `outgoing_links`, `word_count`, folder trees, tool catalogs).
+- **Paging:** List tools default to 50 items (10 for `search`, `find_similar`, `graph_report(kind="hubs")`) and return `meta.pagination` (`total`, `returned`, `truncated`, `next_offset`). Any vault-wide count or audit must loop on `next_offset`.
+- **Retrieval is not enumeration:** Do not send `field:value` expressions to full-text `search` (`query` uses Tantivy syntax like `title:word`, not arbitrary frontmatter keys). For complete enumerations, query `files` with `query_frontmatter_sql` and reconcile against `get_vault_context` totals.
 
-**Retrieval is not enumeration.** When the answer must be complete — every note of a type, a naming survey, a rollout view — use `query_frontmatter_sql` (`SELECT path FROM files WHERE …`) and reconcile the row count against a known total (e.g. `get_vault_context` type counts) before claiming coverage. With `search` + `frontmatter_filters`, omit `query` entirely for filter-only listing: a `"*"` query beside the filters returns a small arbitrary subset instead of every match.
+## Frontmatter SQL (`query_frontmatter_sql`)
 
-Full-text and semantic searches can cover the entire active vault. Constrain results with path filters where supported or verify every result path before using it.
-
-List results page at 50 by default (`limit`/`offset` and `meta.pagination.next_offset`); a vault-wide count needs the loop, not the first page.
-
-## Vector Search plugin
-
-The optional `vector_search` plugin is separate from the built-in TF-IDF `find_similar`; its tools use the `vector_search_` prefix. It requires a local Potion/Model2Vec-compatible model directory; TurboVault does not download the model. The plugin maintains a local index and has one engine per server process, bound to the vault active when first built. Switching the active vault afterwards can make its tools return `unavailable`. Do not assume it supports a dynamic multi-vault process.
-
-`vector_search_reindex` drops and rebuilds the plugin index; it does not rewrite notes, but it can be expensive. Use it only when changing models or intentionally recovering an untrusted index.
-
-## Tasks
-
-`query_tasks` parses markdown checkboxes across the vault — the only tool that reads Tasks-plugin emoji (📅 due, ⏳ scheduled, 🛫 start, ✅ done, 🔺⏫🔼🔽⏬ priority) and Dataview fields (`[due:: 2026-10-20]`). Filters: `status` (`todo`, `done`, `in_progress`, `cancelled`, `other`), `due_before`/`due_after`, `scheduled_before`/`scheduled_after`, `tag`, `path`, `priority` (`highest`, `high`, `medium`, `normal`, `low`, `lowest`), `text`. Each result carries `path`, `line`, `status`, `status_char`, `text`, `priority`, `due`/`scheduled`/`done`, `tags`; results sort by due date, then priority, then note and line.
-
-The parser reads the checkbox character only: `[ ]` → `todo`, `[x]`/`[X]` → `done`, `[/]` → `in_progress`, `[-]` → `cancelled`. A `[?]` checkbox is not parsed at all — those tasks stay invisible to `query_tasks` and need the regex fallback in `vault-ops` task management. Do not rebuild any of this with regex over `search` output.
-
-## SQL limits
-
-TurboVault's frontmatter query interface is not unrestricted SQLite. Prefer simple queries and inspect the available schema first.
-
-Reliable pattern:
+Read-only GlueSQL over three auto-populated tables: `files` (schemaless: `path` + all frontmatter keys), `tags (path, tag)`, and `links (source, target, link_type, is_valid)`. Capped at 1,000 rows and 10 seconds per query.
 
 ```sql
-SELECT path, type, description
+SELECT path, type, status
 FROM files
 WHERE type = 'moc'
 ORDER BY path
 LIMIT 50
 ```
 
-Do not assume multi-table `json_each()` joins or `LIKE` against array-valued metadata will work. Prefer dedicated graph and metadata tools.
+Known GlueSQL and TurboVault limits:
 
-**Optional columns are NULL on notes that lack the key, and NULL breaks `LIKE`.** The `files` table spans every note in the vault, so a frontmatter key only some notes carry (a custom field mid-rollout) yields `value: operator doesn't exist: Null LIKE Str(...)` and aborts the whole query. Wrap the column: `WHERE coalesce(scope, '') LIKE '%x%'` (same for `lower()`). `WHERE <col> IS NOT NULL` works and lists exactly the notes that already carry an optional key — useful as a rollout/progress view.
+- **No SQLite extensions:** Do not assume `json_each()` or complex SQLite functions work. Quote frontmatter keys containing dashes or spaces in double quotes.
+- **NULL breaks `LIKE` and string functions:** Optional frontmatter keys are `NULL` on notes without them, causing `Null LIKE Str(...)` to abort the query. Guard with `coalesce(col, '') LIKE '%x%'` (same for `lower()`). `WHERE col IS NOT NULL` works cleanly.
+- **`LIKE` fails on list-valued columns:** `coalesce` does not coerce lists to strings. For array-valued fields, filter candidates with `search(frontmatter_filters: [{key, value}])` and inspect the notes directly, or query the unnested `tags` table for tags.
+- **`CASE` alias in `ORDER BY` can be ignored:** Repeat the `CASE` expression directly in `ORDER BY` instead of sorting by its `SELECT` alias, and verify ranking order when it matters.
+- **`links` table omits unresolvable targets:** `populate_links` loads resolved graph edges only (`all_links()`), not `unresolved_links`, so broken links do not appear in `SELECT ... FROM links`. Use `graph_report(kind: "broken_links")` for dangling links and a raw-text search for plain-text mentions.
+- **`links.link_type` is syntactic, not field-typed:** It records `WikiLink`, `MarkdownLink`, or `HeadingRef` — never which frontmatter property held the link. Wikilinks inside list-valued frontmatter fields *do* create graph edges; to filter by frontmatter field, start from `get_links` and inspect each candidate's frontmatter.
 
-**`LIKE` is not supported on list-valued columns** in 4.0.2 (`List(...) LIKE Str(...)`). `coalesce` does not convert lists to strings. Use `search(frontmatter_filters=[{key, value}])` to find substring candidates; then inspect the actual frontmatter list and verify exact membership. For complete results, page and reconcile against the intended scope; enumerate notes and inspect metadata directly if the search cap prevents coverage.
+## YAML-invalid frontmatter
 
-**In 4.0.2, a `CASE` alias can be silently ignored in `ORDER BY`.** `SELECT path, status, (CASE status WHEN 'blocked' THEN 2 WHEN 'open' THEN 1 ELSE 0 END) AS w FROM files … ORDER BY w DESC, updated DESC` returns rows ordered by `updated DESC` alone — the alias contributes nothing, no error is raised, and the result looks plausible. Repeat the expression in `ORDER BY` (verified: the same query with the `CASE` written out sorts the blocked row to the top), and when a ranking matters, run the query once without the secondary key to confirm the first key is doing the work.
+An unquoted `: ` inside a YAML scalar invalidates the entire frontmatter block. Obsidian may still render it, but TurboVault treats its fields as missing (`NULL` in SQL, `null` in `get_notes_info`, while `has_frontmatter` remains `true`) and `update_frontmatter` fails with a YAML mapping error. Use `validate_vault` to locate unparsable frontmatter, fix the YAML quoting, and confirm visibility via `query_frontmatter_sql` or `get_notes_info`.
 
-## Graph tools
+## Graph tools and link resolution
 
 | Goal | Tool |
 |---|---|
-| Notes linking to a target | `get_links` |
-| Links leaving a note | `get_links(direction="outgoing")` |
-| Nearby graph context | `get_related_notes` |
-| Broken targets | `graph_report(kind="broken_links")` |
-| Notes with inbound but no outbound links | `graph_report(kind="dead_ends")` |
-| Disconnected groups | `graph_report(kind="isolated_clusters")` |
-| Circular chains | `graph_report(kind="cycles")` |
-| Central notes | `graph_report(kind="hubs")`, `graph_report(kind="centrality")` |
-| Similarity suggestions | `find_similar`, `search(related_to=...)`, `suggest_links` |
+| Inbound links (notes + canvases) | `get_links(path)` (`direction` defaults to `"incoming"`) |
+| Outbound resolved links | `get_links(path, direction: "outgoing")` |
+| Multi-hop neighborhood | `get_related_notes(path, max_hops)` |
+| Graph diagnostics | `graph_report(kind)` — `hubs`, `centrality`, `dead_ends`, `isolated_clusters`, `cycles`, `broken_links` |
 
-Start routine navigation with forward links, backlinks, or one-hop related notes. Use centrality, cluster, cycle, and similarity operations for audits or explicit analysis. Cost-bearing inference tools should not replace deterministic graph traversal.
+- **Link resolution in 4.x:** `LinkGraph` resolves links case-insensitively by bare file stem first, then alias, then path suffix (ignoring `.md` and `#fragment`); 4.1.0+ also resolves relative `./` and `../` links from the source note's folder first and normalizes case/Unicode differences on macOS/Windows. When multiple notes share a basename, TurboVault prefers the shortest path — use vault-relative path wikilinks (`[[folder/note|Alias]]`) whenever disambiguation is required.
+- **Hub flattening:** In hub-heavy vaults, `get_related_notes` with `max_hops >= 2` quickly fans out through index/MoC hubs; treat hop distance as navigation, not relevance.
+- **Escaped pipes in tables:** `[[target\|alias]]` is valid OFM table escaping; do not split on raw `|` when parsing links externally.
+- **Reconciliation freshness:** TurboVault reconciles external edits before derived reads when `reconcile_external_changes: true` (subject to a short debounce and mtime/size detection — tools that preserve mtime without changing size can hide edits). Do not assume `read_note` success proves graph freshness; verify with `get_links` in both directions if results disagree.
 
-**The link table does not record which field a link came from.** `links.link_type` holds only `WikiLink`, `MarkdownLink` and `HeadingRef` — never `sources`, `cases` or `dossier` — so a typed expansion ("follow only `sources:`", "only this case's children") cannot be expressed as one query. List-valued frontmatter wikilinks *do* create edges, though: a note naming another only under `cases:` or `sources:` shows up in that target's `get_links`. Reverse expansion by field therefore works as `get_links(direction="incoming")` plus reading each candidate's frontmatter; forward expansion by field is read the note, then traverse or read its targets. A hub-heavy vault flattens hop distance — `get_related_notes` over two hops returns the whole project through the dossier and MoC notes — so treat hop count as navigation, never as a relevance signal.
+## Tasks, Canvases, Bases, Periodic Notes, and Validation
 
-## Bare-name vs path wikilinks
+- **`query_tasks`:** Parses Markdown checkboxes across the vault, including Tasks plugin emoji (`📅`, `⏳`, `🛫`, `✅`, priority icons) and Dataview inline fields (`[due:: YYYY-MM-DD]`).
+  - `status` is a **JSON array** of strings (e.g. `status: ["todo"]` — passing a bare string returns invalid-params `-32602`): valid items are `todo` (`[ ]`), `done` (`[x]`/`[X]`), `in_progress` (`[/]`), `cancelled` (`[-]`), `other` (custom checkbox characters; note that unparsed non-standard forms may require regex fallback). Never pass `"open"`. `priority` is likewise an array (`["highest", "high", "medium", "normal", "low", "lowest"]`).
+  - Supports `due_before`/`due_after`, `scheduled_before`/`scheduled_after`, `tag`, `path` (note or folder), `priority`, `text`, and paging. Prefer `query_tasks` over full-text search for task queries.
+- **Canvases (`read_canvas`, `write_canvas`):** JSON Canvas 1.0. `read_canvas` returns nodes, edges, linked notes, and a `hash` (only when all nodes fit without paging) for `write_canvas(expected_hash)`.
+- **Bases (`query_base`):** Evaluates an Obsidian `.base` file's filters, formulas, sort, grouping, and limit for a chosen `view`. Unsupported Bases functions are refused by name.
+- **Periodic notes (`get_periodic_note`):** Finds or creates (`create: true`) `daily`, `weekly`, `monthly`, `quarterly`, or `yearly` notes using the vault's Daily Notes / Periodic Notes plugin settings.
+- **`validate_vault` vs. `vault_health`:**
+  - `validate_vault` accepts a single note `path` or omits `path` for the whole vault — passing a directory path fails with an I/O error.
+  - Distinguish `passed: true` from zero warnings, and report `validate_vault` separately from `vault_health` / `graph_report(kind: "broken_links")`: zero validation errors does not prove zero broken links.
+  - Triage warnings against the actual note text before editing; preserve valid Markdown (such as `[label](https://...)`) if a validator reports a false positive.
+- **OKF tools (`okf_validate`, `generate_index`, `append_log_entry` — advanced):** Follow Open Knowledge Format (`index.md`, folder `log.md`). Use them only in OKF vaults so they do not collide with vaults using other index conventions.
 
-Obsidian resolves `[[other-note]]` (bare name) fine, but TurboVault graph tools may not see the edge: `get_links`/`get_links(direction="outgoing")` can miss a bare link where the path form `[[area/dir/note|Alias]]` is seen. Use the path form wherever the edge must count (MoC ↔ note, cross-area references); a resolvable wikilink in a `topics:` list can create an edge (verified for both bare and path links on 4.0.2); a plain string does not. Detection: after creating or linking a note, run `get_links(direction="outgoing")` on the source — if the target is absent, convert to path form and re-check.
+## Verification after discovery
 
-**Unicode-equivalent filenames:** if a visible target exists but its edge is missing or reported broken, compare the actual filename's Unicode code points before changing the source filename. macOS filenames may use decomposed characters (NFD) while a typed wikilink uses composed characters (NFC); visually identical strings can fail graph resolution. Obtain the exact vault-relative filename from discovery (or a read-only filesystem listing when needed), preserve its Unicode spelling in a path-form wikilink, and edit only that link through TurboVault. Re-read the note, confirm the target appears in `get_links(direction="outgoing")`, and re-run `graph_report(kind="broken_links")`; do not rename a source document merely to fix a navigation edge.
-
-**Index lag:** after a mass conversion, per-note queries update at once while aggregate counters (`vault_health()` totals) still show old values — verify per note, not by aggregate.
-
-**Mass conversion recipe:** (1) dry-run inventory classifying bare links as same-dir / unique-basename / ambiguous / unresolved; (2) back up; (3) apply with the same resolution logic, skipping fenced code blocks and frontmatter; (4) cleanup (strip stray `.md` suffixes, restore frontmatter from the backup); (5) verify per note. Conversion only makes edges graph-visible — it does not lower broken-link counts. Work the link classes in order: (1) bare→path, (2) missing `wiki/` prefix in wiki files, (3) case mismatch, (4) relative path without folder prefix, (5) dead frontmatter `topics` targets — rewrite to the correct bare name, not a path, (6) genuine missing targets and doc placeholders — leave them and report. **Parser trap:** in tables `\|` is a correct escaped pipe — a naive split at the first `|` reports the link as broken; split on `\\?\|` and strip the trailing `\`.
-
-## Overview and validation
-
-`explain_vault` answers "what is in this vault and how is it wired" in one call (counts, folders, hubs, structure) — cheaper than assembling it from health and graph calls, and `response_format: concise` trims it further. `vault_health(depth="full")` stays the scored view; `validate_vault` is the content check (frontmatter that does not parse, pre-1.9 `tags`/`aliases`/`cssclasses`, broken links) and belongs before a bulk pass and after a server upgrade.
-
-## Verification
-
-After search:
-
-- confirm candidate paths fall inside the intended scope;
-- read selected notes before drawing conclusions;
-- distinguish indexed text from frontmatter and graph relationships;
-- report truncation or result limits rather than implying complete coverage.
+- Confirm every returned path belongs to the intended vault and scope.
+- Read candidate notes before drawing conclusions from snippets or frontmatter alone.
+- Report pagination truncation (`meta.pagination.truncated`) explicitly rather than implying complete coverage.

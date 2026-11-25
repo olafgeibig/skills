@@ -1,127 +1,47 @@
 # Vector Search (`vector_search` plugin)
 
-Semantic retrieval on top of the lexical tools: dense vectors (Model2Vec static embeddings)
-fused with BM25 by Reciprocal Rank Fusion. It answers "which note is *about* this", including
-wording a note never uses — and it is an **opt-in, compiled-in plugin**, never a runtime
-install: a binary built without the `vector-search` Cargo feature has no dependency, no tool
-and no code path for it. Treat it as absent in any session where `vector_search_status` is not
-in the tool list rather than concluding the vault or the server is broken.
+Complete reference and setup guide for TurboVault's opt-in `vector_search` plugin: dense Model2Vec static embeddings fused with BM25 via Reciprocal Rank Fusion (RRF).
 
-## Check what the binary can do before believing a note
+This plugin is **compiled-in and off by default**. A binary built without `--features vector-search` has no code path for it, and even a full release binary keeps it disabled until `--plugins vector_search` is passed. It is separate from the built-in TF-IDF `find_similar` tool and does not replace `search` (Tantivy BM25). Treat it as absent whenever `vector_search_status` is not in `tools/list`.
 
-Three probes, cheapest first:
+## 1. Check binary capability first
 
 ```bash
 turbovault --version
-turbovault --help | grep -- --plugins          # flag exists → the feature set includes plugins
-strings "$(command -v turbovault)" | grep -c vector_search   # >0 → plugin compiled into this binary
+turbovault --help | grep -- --plugins
+strings "$(command -v turbovault)" | grep -c vector_search
 ```
 
-Treat `--help` and binary strings as capability hints, not proof of a working plugin: the flag establishes plugin support, and an embedded name does not establish activation or successful model loading. Check the actual server invocation, then verify the exposed tool schemas, `vector_search_status`, and a real search after approved enablement. Avoid repeated broad Tool Search queries once the catalogue has established that these tools are not exposed; inspect launch arguments and tool visibility instead.
+`--help` and embedded strings are capability hints only — not proof of activation or a loaded model. Bare `cargo install turbovault` omits the plugin; published release archives include it.
 
-`cargo install turbovault` alone is stdio-only without the plugin; the published release archives carry every feature. A note or README claiming vector search "is available" describes the project, not the installed binary.
+## 2. Choose and fetch a local model
 
-## Enable it
+The engine is built `local-only` and cannot download models at runtime. `model_path` has no default and must point to an absolute local directory containing at least `tokenizer.json`, `model.safetensors`, and `config.json` (or a `0_StaticEmbedding/` subfolder). Dimensions come from the model's `config.json` (`hidden_dim`), not README assumptions.
 
-1. Name the plugin — a full-featured binary behaves like a bare one until then:
-
-   ```bash
-   --plugins vector_search        # env: TURBOVAULT_PLUGINS
-   ```
-
-2. Three tools appear namespaced: `vector_search_search` (`query`, `limit` ≤ 100, `hybrid`
-   default true), `vector_search_reindex`, `vector_search_status`.
-3. In Hermes the server is started from `mcp_servers.turbovault.args`. Add the flag with
-   `hermes config set mcp_servers.turbovault.args` while preserving the other arguments.
-   Verify the launch arguments and reload the owning connection per `references/vector-search-setup.md` §5.
-
-## Model: a local directory, never a download
-
-The engine is built `local-only`, so it cannot reach the network even if a model id is passed.
-`model_path` must point at a directory on disk holding a Model2Vec/Potion model:
-
-```
-<model-dir>/
-  tokenizer.json
-  model.safetensors
-  config.json
-```
-
-`model_path` has no default and the crate cannot download one. Fetch the three files straight
-from the Hub (`https://huggingface.co/<id>/resolve/main/<file>`) and use an absolute path; the
-directory needs no Python tooling at run time.
-
-Any [Model2Vec](https://huggingface.co/models?library=model2vec) model qualifies — the format
-is a static-embedding distillation of a sentence-transformer, so the loader is identical.
-Dimensions come from each model's own `config.json` (`hidden_dim`); the plugin README's flat
-"256-dim" is wrong for part of the family, so read the config rather than repeating the doc.
-
-| Model | Dim | Weights | Dir | German |
+| Model | Dim | Weights | Dir | Languages |
 |---|---|---|---|---|
-| `minishlab/potion-base-2M` | 64 | 7.6 MB | 16 MB | no |
-| `minishlab/potion-base-4M` | 128 | 15 MB | 31 MB | no |
-| `minishlab/potion-base-8M` | 256 | 30 MB | 30 MB | no |
-| `minishlab/potion-base-32M` | 512 | 129 MB | 260 MB | no |
-| `minishlab/potion-retrieval-32M` | 512 | 129 MB | 260 MB | no (retrieval-tuned) |
-| `minishlab/potion-multilingual-128M` | 256 | 512 MB | 1.05 GB | yes (101 languages) |
-| `minishlab/potion-science-8M` / `-32M` | 256 | — | — | science corpora |
+| `minishlab/potion-base-8M` | 256 | 30 MB | 30 MB | English |
+| `minishlab/potion-base-32M` | 512 | 129 MB | 260 MB | English |
+| `minishlab/potion-retrieval-32M` | 512 | 129 MB | 260 MB | English (retrieval-tuned) |
+| `minishlab/potion-multilingual-128M` | 256 | 512 MB | 1.05 GB | 101 languages (incl. German) |
 
-Two cheap checks before promising a model works: `curl -s https://huggingface.co/api/models/<id>`
-for the file list (a repo shipping `embeddings.safetensors` or a bare torch checkpoint instead
-of `model.safetensors` needs conversion; the loader also accepts the sentence-transformers
-layout with a `0_StaticEmbedding/` subfolder), and
-`curl -sL https://huggingface.co/<id>/raw/main/config.json` for the dimension.
+Any Model2Vec-compatible model works (including custom distillations via `pip install model2vec[distillation]`). Encoding is CPU-cheap lookup-table pooling; no GPU or external model server is required.
 
-Any Model2Vec-compatible model works, including one distilled from a German sentence
-Transformer with the `model2vec` Python package (`pip install model2vec[distillation]`); a
-distilled 8–32M table keeps the RAM of the small Potion models while fixing the language gap.
-Embeddings are static lookup-table means, so encoding is CPU-cheap, needs no model server and
-a GPU is irrelevant. Report "not configured" as a configuration gap with the missing
-`model_path`, never as a broken feature.
+Verify file layout and `hidden_dim` before downloading (`curl -s https://huggingface.co/api/models/<id>` and `config.json`), then fetch the model files locally:
 
-## Configure it
-
-Write `<vault>/.turbovault/plugins/vector_search/config.json` — omitted fields keep defaults:
-
-```json
-{"model_path": "/abs/path/to/potion-multilingual-128M",
- "chunk_max_chars": 800, "chunk_overlap_chars": 100, "lexical_weight": 0.4}
+```bash
+MODEL=minishlab/potion-multilingual-128M
+DEST=~/.local/share/turbovault-models/potion-multilingual-128M
+mkdir -p "$DEST"
+for f in config.json model.safetensors tokenizer.json tokenizer_config.json \
+         special_tokens_map.json modules.json vocab.txt; do
+  curl -fsSL "https://huggingface.co/$MODEL/resolve/main/$f" -o "$DEST/$f"
+done
 ```
 
-| Field | Default | Meaning |
-|---|---|---|
-| `chunk_max_chars` / `chunk_overlap_chars` | 800 / 100 | Chunking of long notes |
-| `lexical_weight` | 0.4 | BM25 share in the RRF fusion |
-| `rrf_k` | 60 | Reciprocal Rank Fusion constant |
-| `search_overfetch_factor` | 5 | Candidates pulled per side before fusing |
-| `min_similarity` | 0.2 | Minimum cosine similarity for a dense hit |
-| `ann_max_nb_connection` / `ann_ef_construction` / `ann_ef_search` | 16 / 200 / 64 | HNSW degree, build quality, query recall |
+### Optional: shrink a multilingual model by vocabulary pruning
 
-`vector_search_status` resolves and returns this configuration without loading the model —
-call it first when diagnosing, instead of reading the JSON and guessing which defaults apply.
-
-## Assess a model or setup transferred from another machine
-
-1. Establish the destination's live memory budget, server invocation and intended registered vault before adapting another machine's instructions. Keep the comparison read-only until downloads, configuration changes and restarts are approved.
-2. Identify the exact model artifact and its provenance. A locally named vocabulary-pruned derivative is not interchangeable with its upstream model: inspect its tokenizer vocabulary and `hidden_dim` separately; a token-count suffix does not establish embedding dimensions.
-3. For corpus-pruned models, assess vocabulary coverage on the destination corpus **and representative queries**, including both languages and domain terminology. Source-machine retrieval examples demonstrate only that source workload; do not transfer its quality or memory measurements as destination guarantees.
-4. Choose the smallest suitable language-compatible candidate first when memory pressure is the constraint; do not make loading the full upstream model a prerequisite. Prefer an available, provenance-checked small artifact. If an imported guide depends on a pruning helper, resolve it from the attachment, linked skill or source machine before considering new tooling; a missing helper is not evidence that custom pruning code is needed. Treat an untested derivative as a candidate, not a validated recipe.
-5. Reindex after any model or tokenizer change, even when dimensions stay equal: equal-length vectors can still represent incompatible embedding spaces. Verify representative German and English queries with hybrid search, and compare lexical retrieval so vocabulary loss is visible.
-
-### Run a bounded, single-vault pilot
-
-1. Confirm the named vault and the exact MCP process serving it. Reuse its existing instance where appropriate; do not add another instance merely because the pilot targets one vault. Leave other profiles unchanged unless their modification is explicitly requested.
-2. Explain the resource boundaries separately: the index stores that vault's note/chunk vectors; the model maps tokens to vectors; vocabulary pruning removes token entries, not notes. A corpus-pruned vocabulary can miss future query terms even when all current notes were indexed, so test queries as well as corpus coverage. Separate indexes do not themselves imply either separate or shared model loads.
-3. Budget a model load for each process that actually initializes an engine. Sharing the model files on disk is not proof of sharing the loaded model; conversely, a running MCP process or a status call alone does not establish that a model has loaded. Treat another machine's RSS as a planning estimate, not a local measurement or an exact multiplier; RSS can include shared pages.
-4. Record baseline process memory and system memory pressure, then measure again after the first real search/reindex and after indexing completes. Capture indexing time and note/chunk counts through the intended connection. Keep downloads and model preparation local; do not upload corpus text for pruning or evaluation.
-5. Compare lexical and hybrid results on the same small, representative query set, noting useful additional hits, missed expected notes and latency. Report measured memory alongside retrieval benefit; expand only if the pilot earns its cost. Do not present configuration or a successful status call as a completed retrieval evaluation.
-
-## Shrink a multilingual model: prune the vocabulary
-
-The multilingual model stores most of its weights in the token embedding table. Inspect the vocabulary size and `hidden_dim` of the exact artifact; corpus token coverage depends on the workload.
-`scripts/prune-model2vec-vocab.py` keeps every token the corpus uses, pads to a target with the
-highest-scoring Latin-script tokens and slices the embedding table. Pure Python (tokenizers,
-safetensors, numpy — no torch):
+When RSS is the binding constraint on a bilingual/Latin-script vault, prune before the first index build using `scripts/prune-model2vec-vocab.py` (pure Python: `tokenizers`, `safetensors`, `numpy`; no PyTorch):
 
 ```bash
 python3 -m venv m2v && m2v/bin/pip install tokenizers safetensors numpy
@@ -131,56 +51,64 @@ m2v/bin/python scripts/prune-model2vec-vocab.py \
   --target 45000 --corpus '~/vaults/<name>/**/*.md'
 ```
 
-Pruning can remove tokens needed by other scripts or future queries. Include representative text and queries in each target language and compare retrieval against the unpruned model or lexical baseline. Switching `model_path` requires `vector_search_reindex` because the token IDs can change.
+- Pruning removes token entries (not notes) and can drop non-Latin scripts or unseen future query terms. Include representative texts and queries in every target language, and compare against lexical/unpruned baselines.
+- Switching `model_path` or tokenizer requires `vector_search_reindex` even if `hidden_dim` is unchanged, because token IDs and embedding spaces differ.
 
-## Index
+## 3. Configure per vault and wire into Hermes
 
-- Persisted under `.turbovault/plugins/vector_search/` — one JSON file per note plus `meta.json`
-  (model, dims, chunk-id high-water mark). It lives inside the vault but never appears as
-  notes, because TurboVault always excludes its own `.turbovault/` from the note tools.
-- Incremental and chunk-hash based: an unchanged note short-circuits before chunking, an
-  unchanged chunk reuses its stored vector. Re-embedding a long note after a paragraph edit is
-  cheap by design.
-- `vector_search_reindex` drops every chunk and the reconcile cursor and rebuilds — the call
-  after changing the model, or when the snapshot is no longer trusted.
-- Because the state directory is outside the note tools, writing `config.json` there is a
-  legitimate **filesystem** write (`write_file`/`terminal`), not a bypass of the guarded write
-  path. This is the one exception to "all vault writes go through TurboVault": `.turbovault/`
-  is server state, not notes. The audit trail, plugin storage and the vector index all sit there.
+Write `<vault>/.turbovault/plugins/vector_search/config.json` via filesystem tools (`write_file` — `.turbovault/` is server state outside TurboVault's note tools):
 
-## Tools
+```json
+{
+  "model_path": "/abs/path/to/model-dir",
+  "chunk_max_chars": 800,
+  "chunk_overlap_chars": 100,
+  "lexical_weight": 0.4
+}
+```
 
-| Tool | Arguments | Behaviour |
+Use an absolute path in `model_path` (do not rely on `~` expansion). Optional tuning defaults: `chunk_max_chars` (800), `chunk_overlap_chars` (100), `lexical_weight` (0.4), `rrf_k` (60), `search_overfetch_factor` (5), `min_similarity` (0.2), `ann_max_nb_connection` (16), `ann_ef_construction` (200), `ann_ef_search` (64).
+
+Enable the plugin in Hermes `mcp_servers.turbovault.args` alongside the baseline flags (`references/wf-turbovault-config.md` §2):
+
+```bash
+hermes config set mcp_servers.turbovault.args \
+  '["-p","production","--config","/abs/path/to/turbovault.yaml","--plugins","vector_search"]'
+hermes config get mcp_servers.turbovault
+```
+
+Diff running process args (`ps -eo pid,ppid,etime,args | grep '[t]urbovault'`) before reloading the owning connection (`references/wf-upgrading.md` §6), because a reload replaces the entire `args` list and affects only the reloaded service.
+
+## 4. Tools and index behavior
+
+| Tool | Arguments | Behavior |
 |---|---|---|
-| `vector_search_search` | `query`, `limit` (10, max 100), `hybrid` (true) | Reconciles first, then searches; `hybrid: false` for dense-only |
-| `vector_search_reindex` | — | Full re-embed after dropping every chunk and the cursor |
-| `vector_search_status` | — | Model, dimensions, indexed note/chunk counts, resolved config |
+| `vector_search_status` | — | Resolves and reports config (`model_path`, `dims`, note/chunk counts) **without** loading the model. Call this first when diagnosing. |
+| `vector_search_search` | `query`, `limit` (default 10, max 100), `hybrid` (default `true`) | Reconciles incrementally, then runs hybrid RRF (or dense-only with `hybrid: false`). Returns one best-chunk hit per note. |
+| `vector_search_reindex` | — | Drops all snapshots and cursor, then re-embeds every note. Use only after model changes or an untrusted index. |
 
-## Pitfalls
+- Index state lives under `<vault>/.turbovault/plugins/vector_search/` (one JSON snapshot per note plus `meta.json`).
+- Incremental indexing hashes notes and chunks: unchanged notes short-circuit, unchanged chunks reuse stored vectors.
 
-- **One engine per process, bound to the vault that was active when it was first built.** A
-  later vault switch returns `unavailable` instead of silently searching another vault's index.
-  `is_default: true` in the config does not decide it either: the per-project cache
-  (`~/.cache/turbovault/projects/<hash>`) restores its own active vault, so a probe with a
-  temporary `--config` can silently index the real vault. In a multi-vault setup the fix is
-  process/vault ordering, not a retry.
-- **Storage keys max out at 200 bytes.** A note whose vault-relative path is ~185+ bytes makes
-  `vector_search_reindex` fail outright with `storage key is <n> bytes; the maximum is 200`,
-  and the incremental reconcile only skips it with a WARN. Shorten long clipping titles before
-  the first reindex (rename through `move_note`, check `get_links` for inbound links first).
-- **`reindex` drops every snapshot before it re-walks**, so an abort leaves a partial index.
-  Finish it with another `reindex`, or let the next search reconcile incrementally.
-- Non-UTF-8 files (macOS `._name.md`) are skipped; a 1,000-note vault indexes 999.
-- Scores are RRF values (`weight / (k + rank)`, max ≈ 0.0164 with `rrf_k` 60), not cosine
-  similarities — do not read them as confidence. One hit per note (best chunk) is returned.
-- Deletions become skipped tombstones in the HNSW graph, with a rebuild once they pass a quarter
-  of it; below 4096 vectors search is an exact linear scan, so absence of an HNSW graph on a
-  small vault is not a defect.
-- It does not replace `search` (Tantivy BM25) or `find_similar` (TF-IDF). Describe it as the
-  dense side fused on top, and keep the lexical tools in the recommendation.
+## 5. Verification, bounded single-vault pilot, and transferred setups
 
-## See also
+Verify enablement in three steps:
 
-- `references/upgrading.md`, `references/vault-configuration.md` — server config and plugin
-  enablement outside Hermes
-- `references/audit-and-drift.md` — what TurboVault did *not* record
+1. `vector_search_status` → `configured: true`, expected `model_path` and `dims`. (`configured: false` is a missing-config gap, not a broken server.)
+2. `vector_search_search(query: "<vault-language query>", limit: 5)` → confirm at least one relevant hit has `dense_rank` set with `lexical_rank: null` (proves the dense side contributes).
+3. After a normal note write, confirm `vector_search_status` reflects the updated count incrementally.
+
+When evaluating a pilot or adapting a model/setup from another machine:
+
+- Confirm the destination machine's memory budget, exact MCP process, and single target vault before downloading or editing config. Leave other profiles untouched.
+- Budget one loaded model per process that actually initializes an engine (`vector_search_status` alone does not load the model; sharing files on disk does not imply shared RAM). Treat source-machine RSS and query quality as estimates, never local guarantees.
+- Measure baseline RSS, cold-search / post-reindex RSS, indexing time, and lexical vs. hybrid quality on representative queries in every vault language; keep all corpus text local. Do not report config or status success as a completed retrieval evaluation.
+
+## 6. Pitfalls & rollback
+
+- **One engine per server process, bound to whichever vault was active on first build:** Switching `active_vault` afterwards returns `unavailable`. Do not enable `--plugins vector_search` on dynamic multi-vault servers. Because project-cache recovery can override `is_default`, isolate `XDG_CACHE_HOME` during probes (`references/vault-configuration.md` §2).
+- **200-byte storage key limit:** Vault-relative paths longer than ~185 bytes make `vector_search_reindex` fail (`storage key is <n> bytes; the maximum is 200`), while incremental reconcile skips them with a warning. Shorten overly long filenames via `move_note` before reindexing.
+- **Aborted `reindex` leaves a partial index:** Recover by re-running `vector_search_reindex` or letting the next search reconcile incrementally.
+- **Non-UTF-8 files (e.g. macOS `._*`) are skipped** during indexing.
+- **Scores are RRF values** (`weight / (k + rank)`, max ≈ 0.0164 at `rrf_k = 60`), not cosine similarities; below 4,096 vectors search uses exact linear scan (no HNSW graph is expected).
+- **Rollback:** Remove `--plugins vector_search` from `args` and reload. The three tools disappear while `config.json` and the persisted index remain untouched on disk; `search` and `find_similar` are unaffected.
