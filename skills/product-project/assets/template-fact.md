@@ -33,7 +33,12 @@ topics:
 
 ## Fakten
 
-<!-- Atomare, belegte Aussagen mit Quellenbezug in ## Quellen (Englisch: ## Citations). -->
+<!-- Themen-/Konzept-zentriert (keine 1:1 Quellen-Zusammenfassung). Atomare, belegte Aussagen mit Quellenbezug in ## Quellen (Englisch: ## Citations). -->
+
+## Verwandte Fakten
+
+<!-- Englisch: ## Related (optional, aber empfohlen für horizontale Navigation im Wissensgraphen: Links zu verwandten kb/fact- und masterdata/-Notizen). -->
+- [[Verwandter Fakt oder Stammdaten]] — kurzer Bezug
 
 ## Quellen
 

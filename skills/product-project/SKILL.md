@@ -1,7 +1,7 @@
 ---
 name: product-project
 description: "Use when running a product-project: KB, cases & product."
-version: "0.2.0"
+version: "0.2.1"
 author: Olaf Geibig
 license: MIT
 metadata:
@@ -66,7 +66,7 @@ All managed notes carry `description`, `type`, `updated`, `tags` (`project/<x>`)
 
 | Folder | `type:` | Filename pattern | Additional properties | Allowed `status:` |
 |---|---|---|---|---|
-| `knowledge/raw/` | `document`, `transcript` | `YYYY-MM-DD <Title>.md` | `created`, scalar `source`, opt `sha256` | `raw` |
+| `knowledge/raw/` | `document`, `transcript` | `YYYY-MM-DD <Title>.md` | `created`, scalar `source`, opt `sha256` | `raw`, `incomplete` |
 | `knowledge/distilled/` | `extract`, `research`, `analysis` | `YYYY-MM-DD <Title>.md` *(or `<Title>.md`)* | `as_of`, opt `superseded_by` | `current`, `superseded` |
 | `knowledge/kb/` | `fact` | `<Title>.md` | `scope` (`domain` \| `solution`), `as_of`, `reviewed_on`, opt `superseded_by` | `draft`, `reviewed`, `stale`, `disputed`, `superseded` |
 | `knowledge/masterdata/` | `masterdata` | `<Title>.md` | `class` (`people` \| `system` \| `schedule` \| `glossary`) | *(omit `status:`)* |
@@ -96,7 +96,7 @@ requirement  1 ──── n  concept  n ──── 1  evaluation  1 ──�
 ## Hard Rules
 
 1. **Calibrated review gate:** Substantive agent edits to `fact` notes set `status: draft` and clear `reviewed_on:`; only user approval sets `reviewed` + `reviewed_on:`. **Exception:** pure additive citation confirmation (appending to `## Citations` / `## Quellen` + bumping `as_of:` with zero body change) preserves `reviewed` and `reviewed_on:`. `evaluation` → `decided` and `spec`/`artifact` → `reviewed` require human check.
-2. **Current-state body & conflict handling:** `fact`, `concept`, and `spec` hold current state only; log `kb/` changes in `KB Log <X>.md`. Never silently overwrite a `reviewed` fact on contradiction — set `status: disputed` with a conflict callout and surface to the user.
+2. **Topic-first current-state body & conflict handling:** Cut `kb/fact` notes by **topic/concept/component** (never 1:1 source summaries), cross-link related `kb/fact` and `masterdata/` notes horizontally, keep `fact`/`concept`/`spec` at current state only, and log `kb/` changes in `KB Log <X>.md`. Never silently overwrite a `reviewed` fact on contradiction — set `status: disputed` with a conflict callout and surface to the user.
 3. **Unified `## Citations` / `## Quellen` provenance:** List sources in body `## Citations` / `## Quellen` via `[[Wikilinks]]` (or `[Title](url)` for external URLs). Large/multi-section raw sources require section, timestamp, or short verbatim quote anchors.
 4. **Primary-evidence verification:** Trace critical facts, figures, dates, and legal/compliance citations back to `raw/` or the authoritative primary source; run Tier-2 grounding checks before `draft → reviewed`. Never apply an Exhaustion Rule (`null` stays `null`, never `false`).
 5. **Originals stay put & brake on note inflation:** Never edit `raw/` originals (except appending a complete newer email thread export) and never move `activities/raw/` on case close. Routine two-line emails earn a single bullet in `cases/<ID>.md` `## Log`, not a separate `activities/` note.
@@ -125,7 +125,7 @@ Every `query_frontmatter_sql` query scopes to `WHERE path LIKE 'projects/<x>/%' 
 
 - **Case completeness & `case_id`:** Check all 5 Case Knowledge folders for missing `case_id`; compare `WHERE case_id = '<ID>'` vs. `get_links(case_path, direction="outgoing")`.
 - **Gates & scalar relations:** Check missing `reviewed_on`, `decided_on`, `superseded_by`, `concept`/`evaluation.requirement`, `spec.concept`/`spec.evaluation`, and enum hygiene (`fact.scope`, `requirement.origin`, `case.case_kind`, `spec.implementation_status`, `masterdata.class`).
-- **`masterdata/` & cascades:** Confirm `masterdata` has no `status` and `query_tasks` returns zero checkboxes; run `get_links(superseded_path, direction="incoming")` for `→ stale` cascades.
+- **`masterdata/`, MoC & cascades:** Confirm `masterdata` has no `status` and `query_tasks` returns zero checkboxes; verify every active `kb/fact` & `masterdata` note is linked from `+<X>.md` and cross-linked horizontally; run `get_links(superseded_path, direction="incoming")` for `→ stale` cascades and `get_links(raw_path, direction="incoming")` to spot unprocessed `raw/` notes.
 - **Graph & archive:** `graph_report(kind="broken_links")`, `graph_report(kind="isolated_clusters")`, and zero incoming links into `archive/`.
 
 ## Pitfalls

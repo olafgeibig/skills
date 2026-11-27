@@ -18,12 +18,12 @@ Use this reference for two-tier epistemic verification (Knowledge Grounding and 
 
 ### 2. Core Epistemic Rules (Mandatory in Both Modes & Tiers)
 
-- **Atomic decomposition:** Break the target note into atomic verifiable items $C_1 \dots C_n$ (factual claims for `grounding`; requirements or acceptance criteria for `constraints`).
+- **Atomic, explicit decomposition:** Break the target note into atomic, **explicitly stated**, externally verifiable items $C_1 \dots C_n$ (exclude implicit assumptions or formatting constraints). Assess each item **independently** — never bundle multiple claims into a single verdict.
 - **TurboVault-only retrieval:** Read via TurboVault (`exclude_paths: ["archive/"]` on `search`; `AND path NOT LIKE 'projects/<x>/archive/%'` on SQL; `get_links(path, direction="outgoing")` for citations).
 - **Strict tri-state verdict per item:**
-  - `true`: explicit, unambiguous textual proof + `[[Note]]` + section/timestamp + short verbatim quote.
-  - `false`: explicit contradiction or scope mismatch + `[[Note]]` + section/timestamp + short verbatim quote.
-  - `null`: no conclusive evidence found in the read notes.
+  - `true`: explicit, unambiguous textual proof matching the exact **scope, subject, and meaning** + `[[Note]]` + section/timestamp + short verbatim quote.
+  - `false`: explicit contradiction **or scope mismatch** (related-but-different fact that does not satisfy the exact scope, e.g., attributing a single-model result to all models of that size) + `[[Note]]` + section/timestamp + short verbatim quote.
+  - `null`: no conclusive evidence found in the read notes — **evidence MUST stay `null`** (never attach decorative citations to an unverified claim).
 - **Hard ban on the Exhaustion Rule:** Never convert `null` to `false` solely because a search returned no hit; in an incomplete vault, absence of evidence is a gap (`null`), not a refutation.
 - **Stagnation Stop ($N = 3$):** After 3 search steps that change zero verdicts, stop searching, do not guess, and report the remaining `null` gaps to the user.
 - **Primary-Evidence Rule:** Critical figures, dates, existence claims, and compliance/legal citations must be traced back to `raw/` or the authoritative primary text — never copied blindly from curated prose.
@@ -137,7 +137,11 @@ Use this reference for two-tier epistemic verification (Knowledge Grounding and 
 - **Check 8 — Archive isolation:**
   Query `SELECT path FROM files WHERE path LIKE 'projects/<x>/archive/%'`. For each archived path, call `get_links(path, direction="incoming")` and verify zero links originate outside `projects/<x>/archive/`.
 
-- **Check 9 — Graph & age signals:**
+- **Check 9 — MoC index completeness, horizontal `kb/fact` linkage & unprocessed `raw/` (advisory):**
+  - Compare active `knowledge/kb/` `fact` and `knowledge/masterdata/` files against `get_links("projects/<x>/+<X>.md", direction="outgoing")` to surface unindexed KB notes.
+  - Once `knowledge/kb/` holds ≥2 facts, check `get_links(fact_path, direction="outgoing")` to ensure each `fact` carries at least one horizontal link to another `knowledge/kb/` or `knowledge/masterdata/` note (preventing vertical source-summary silos).
+  - Advisory: For `knowledge/raw/` files with `status = 'raw'`, call `get_links(raw_path, direction="incoming")` — zero links from `knowledge/distilled/` or `knowledge/kb/` identifies unprocessed raw sources without mutating raw frontmatter.
+- **Check 10 — Graph & age signals:**
   Run `graph_report(kind="broken_links")` and `graph_report(kind="isolated_clusters")` (filtered to `projects/<x>/`), plus `find_stale_notes` as an advisory age signal.
 
 ### 2. Semantic Pass (Tier-2 Verifier Subagent / Agent Audit)

@@ -15,9 +15,9 @@ Quick captures, pasted links, or unprocessed drops land in `inbox/` without requ
 | Case original (email, transcript, case-specific report) | `activities/raw/` (`YYYY-MM-DD <Title>.md`, no `<CASE-ID>` prefix) | Originals stay in place permanently; never moved on close |
 | Short oral case alignment / brief case decision (no raw file) | `activities/` (`<CASE-ID> YYYY-MM-DD <Title>.md`, `type: note`) | Or single bullet in `cases/<ID>.md` `## Log` if trivial (brake on note inflation) |
 | Project-wide baseline doc obtained during a case (standard, handbook, architecture doc) | `knowledge/raw/` (directly on arrival, no `case_id`) | Avoids later file moves; link it from the case |
-| Large, unstructured, or multi-use timeless source (paper, long spec, transcript) | `knowledge/raw/` → `knowledge/distilled/` (`extract \| research \| analysis`) → `knowledge/kb/` | Preserves raw text, enforces passage anchors, enables `superseded` cascades |
-| Short, already-structured timeless primary source | `knowledge/raw/` → `knowledge/kb/` (direct) | Skips boilerplate `distilled/` wrapper; cites `knowledge/raw/` note directly |
-| Timeless domain/solution research conducted during a case (e.g., compliance rule) | Directly into `knowledge/distilled/` (`research`) → `knowledge/kb/` (`fact`) | Link from the case rather than isolating timeless knowledge inside a finite case |
+| Very large or unstructured timeless source where only selective aspects are needed, or feeding multiple topics (long transcript, contract, dense paper) | `knowledge/raw/` → `knowledge/distilled/` (`extract \| research \| analysis`) → `knowledge/kb/` | Use `distilled/` only when an intermediate extract or cross-source `analysis` adds real value — never duplicate 1:1 into `kb/` |
+| Structured timeless primary source (most articles, specs, short papers, companion repos) | `knowledge/raw/` → `knowledge/kb/` (direct, topic-first) | **Default path:** compile directly into thematic `kb/fact` notes without a redundant `distilled/` wrapper |
+| Timeless domain/solution research conducted during a case (e.g., compliance rule) | Directly into `knowledge/kb/` (`fact`, or `knowledge/distilled/` `research` if multi-source/large) | Link from the case rather than isolating timeless knowledge inside a finite case |
 | New bounded work item | `cases/<CASE-ID> <Title>.md` | Open `simple` or `complex` case (`references/case-workflow.md`) |
 
 ## 2. Managing `knowledge/masterdata/`
@@ -31,9 +31,14 @@ Quick captures, pasted links, or unprocessed drops land in `inbox/` without requ
 - Use `assets/template-document.md` (`type: document` or `type: transcript`, `status: raw`).
 - Name with a date prefix: `YYYY-MM-DD <Short Title>.md`.
 - Record `created`, scalar `source` (relative path, URL, or prose — never a wikilink), and `sha256` when known.
-- Keep body verbatim; **never edit a raw note after ingest** (exception: appending a complete newer email thread export if applicable).
+- Keep body verbatim; **never edit a raw note after ingest** (exception: appending a complete newer email thread export if applicable). Do **not** add processing flags to raw frontmatter — discover unprocessed raw sources via `get_links(raw_path, direction="incoming")`.
+- **Truncated / paywall source guard:** Never compile `kb/fact` notes from truncated extracts or paywall-clipped summaries. If full text could not be captured, set `status: incomplete` at ingest, add a top warning, and ask the user for the full source.
 
-## 4. Step 2 — Distill (`knowledge/distilled/`)
+## 4. Step 2 — Distill (`knowledge/distilled/`, Only When Needed)
+
+Skip `knowledge/distilled/` by default whenever a raw source can be compiled directly into topic-oriented `knowledge/kb/` notes without losing traceability. Create a `knowledge/distilled/` note **only** for:
+- Very large or unstructured primary sources (long transcripts, contracts, dense papers) where selective extraction or a dated `as_of` snapshot feeds multiple topics; or
+- Cross-source syntheses and comparisons (`type: analysis`).
 
 - Use `assets/template-distilled.md`:
   - `type: extract` — structured extraction from a meeting transcript, document, or interview.
@@ -66,7 +71,12 @@ ORDER BY path
 
 plus `mcp__turbovault__search(query=..., exclude_paths=["archive/"], frontmatter_filters=[{"key": "type", "value": "fact"}])`.
 
-Decompose distilled insights into atomic verifiable claims and reconcile each against existing `fact` notes:
+Decompose source insights into atomic, explicit, verifiable claims and map them onto **topic/concept/component** `fact` notes (never 1:1 source-summary facts):
+
+- **Topic-first & page threshold:** Create a new `fact` note only for a central domain concept, mechanism, or solution component (or a topic recurring across ≥2 sources) — never for passing mentions. Default on overlap is **enriching an existing topic `fact`**.
+- **Canonicalize aliases & bundle companion sources:** Check for synonyms/aliases across existing `fact` notes before creating a new file so different terms for the same mechanism aggregate into one canonical note. Compile companion sources for the same work (e.g., paper + reference GitHub repo) together into the same thematic `fact` notes.
+
+Reconcile each atomic claim against existing `fact` notes:
 
 1. **Confirm (Satisfied, body unchanged):** Append source to `## Citations` / `## Quellen`, bump `as_of:`, **keep `status: reviewed` and `reviewed_on:` untouched**, and log one line in `KB Log <X>.md`.
 2. **Expand / Refine:** Rewrite body in place to current state only, update `## Citations` / `## Quellen` and `as_of:`, reset `status: draft` and clear `reviewed_on:`, and log in `KB Log <X>.md`.
@@ -78,6 +88,8 @@ Decompose distilled insights into atomic verifiable claims and reconcile each ag
    > - **Resolution needed:** Which claim reflects current truth?
    ```
 4. **New (Unknown):** Create from `assets/template-fact.md` (`scope: domain | solution`, `status: draft`, `## Citations` / `## Quellen`), link from `+<X>.md`, and log in `KB Log <X>.md`.
+
+**Post-compile horizontal enrichment pass:** A compile is not done until new or updated `kb/fact` notes link **horizontally** to related `kb/fact` and `knowledge/masterdata/` notes (inline or under `## Related` / `## Verwandte Fakten`). When adding a new topic `fact`, add concise see-also cross-links in 2–3 closely related existing `kb/fact` notes where meaningful (keeping `reviewed` untouched if only a see-also link is added, or batching with substantive edits).
 
 ## 6. Step 4 — Pre-Review Grounding Check & Human Approval
 
