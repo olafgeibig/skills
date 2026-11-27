@@ -30,6 +30,11 @@ topics:
 
 <!-- Gegenüberstellung der betrachteten Konzepte (mit Wikilinks [[<CASE-ID> CON-a ...]]). -->
 
+<!-- Optional (on-demand / per AGENTS.md): ## Verification
+| Anforderung | CON-a Urteil | Beleg |
+|---|---|---|
+| R1 ... | true / false / null | [[Quelle]] — "..." | -->
+
 ## Ergebnis
 
 <!-- Gewähltes Konzept (oder Begründung für Ablehnung aller Ansätze), Teilnehmer und Datum. -->
@@ -37,3 +42,9 @@ topics:
 ## Begründung
 
 <!-- Entscheidungsgründe, Trade-offs und bewusst in Kauf genommene Risiken. -->
+
+## Quellen
+
+<!-- Englisch: ## Citations. -->
+- [[<CASE-ID> REQ Titel]]
+- [[<CASE-ID> CON-a Titel]]

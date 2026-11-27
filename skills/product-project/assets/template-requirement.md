@@ -35,3 +35,8 @@ topics:
 - **Konzepte:** <!-- [[<CASE-ID> CON-a ...]], [[<CASE-ID> CON-b ...]] -->
 - **Evaluation:** <!-- [[<CASE-ID> EVA ...]] -->
 - **Spec:** <!-- [[<CASE-ID> SPEC ...]] -->
+
+## Quellen
+
+<!-- Englisch: ## Citations. -->
+- [[<CASE-ID> YYYY-MM-DD Aktivität oder Rohquelle]] — <Abschnitt / Anker>

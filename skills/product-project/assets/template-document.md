@@ -15,6 +15,6 @@ topics:
 
 # <YYYY-MM-DD Titel>
 
-<!-- type: document | transcript. Unveränderlicher Rohtext nach Ingest.
-     In knowledge/raw/: case_id leer lassen / weglassen.
-     In activities/raw/: case_id: "<CASE-ID>" setzen. -->
+<!-- type: document | transcript. Unveränderlicher Rohtext nach Ingest (Ausnahme: Anhängen eines vollständigen neueren E-Mail-Verlaufs).
+     In knowledge/raw/: Dateiname YYYY-MM-DD <Titel>.md; case_id leer lassen / weglassen.
+     In activities/raw/: Dateiname YYYY-MM-DD <Titel>.md (OHNE <CASE-ID>-Präfix), case_id: "<CASE-ID>" setzen; bleibt beim Case-Abschluss dauerhaft an Ort und Stelle, damit KB-Zitate nie brechen. -->

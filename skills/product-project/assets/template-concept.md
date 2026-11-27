@@ -31,3 +31,8 @@ topics:
 ## Offene Punkte
 
 <!-- Ungeklärte Fragen, Risiken oder notwendige Spikes. -->
+
+## Quellen
+
+<!-- Englisch: ## Citations. -->
+- [[KB-Fakt oder Aktivität]] — <Abschnitt / Anker>

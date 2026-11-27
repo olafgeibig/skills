@@ -1,12 +1,10 @@
 ---
 description: Destillation / Aktivität — <kurze Einordnung>
-type: meeting
+type: extract
 status: current
 as_of: YYYY-MM-DD
 updated: YYYY-MM-DD
 case_id: ""
-sources:
-  - "[[YYYY-MM-DD Rohquelle]]"
 superseded_by: ""
 tags:
   - project/<x>
@@ -16,8 +14,10 @@ topics:
 
 # <Titel>
 
-<!-- knowledge/distilled/: type: meeting | research | analysis (ohne case_id; mit as_of = Stand-Datum der Quelle).
-     activities/: type: meeting | correspondence | note | analysis (mit case_id: "<CASE-ID>", Dateiname YYYY-MM-DD <Titel>.md; as_of optional/weglassen). -->
+<!-- Case: [[<CASE-ID> <Case-Titel>]] -->
+<!-- knowledge/distilled/: type: extract | research | analysis (ohne case_id; as_of = Stand-Datum der Quelle; Case:-Kommentarzeile oben entfernen).
+     activities/: type: extract | research | analysis | note (mit case_id: "<CASE-ID>", Dateiname <CASE-ID> YYYY-MM-DD <Titel>.md, Case:-Zeile oben aktiv einkommentieren; as_of optional/weglassen).
+     Grounding-Regel: Jede substanzielle Aussage muss auf eine Quelle in ## Quellen verweisen; bei großen Rohquellen Abschnitt/Zeitstempel/Zitat angeben. -->
 
 ## Kurzfassung
 
@@ -25,12 +25,19 @@ topics:
 
 ## Inhalt
 
-<!-- Fakten, Aussagen und Interpretationen sauber trennen; ungeprüfte Aussagen markieren. -->
+<!-- Verifizierte Fakten sauber von Annahmen und Interpretationen trennen; kein unbelegtes Weltwissen ergänzen. -->
 
 ## Entscheidungen
 
-<!-- Nur was hier entschieden oder festgehalten wurde. -->
+<!-- Optional: Nur was hier konkret entschieden oder festgehalten wurde. -->
 
 ## Aufgaben
 
-<!-- Konkrete offene Aufgaben aus dieser Quelle (falls vorhanden). -->
+<!-- Optional: Konkrete offene Aufgaben aus dieser Quelle (falls vorhanden). -->
+
+<!-- *Verified YYYY-MM-DD (verifier subagent): X/X claims grounded against Citations.* -->
+
+## Quellen
+
+<!-- Englisch: ## Citations. -->
+- [[YYYY-MM-DD Rohquelle]] — §/<Abschnitt>, "<kurzes wörtliches Zitat>"

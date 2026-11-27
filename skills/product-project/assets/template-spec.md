@@ -17,8 +17,8 @@ topics:
 
 # <CASE-ID> SPEC <Titel>
 
-<!-- status (Dokument): draft | reviewed | active | stale.
-     implementation_status (Team-Umsetzung, optional): planned | in-progress | implemented.
+<!-- status (Dokument): draft | reviewed | active | stale (Tier-2 Grounding Check vor draft → reviewed).
+     implementation_status (Team-Umsetzung, optional): planned | in-progress | implemented (erst bei implemented erfolgt State-Delta-Compile nach knowledge/kb/).
      ticket (optional): Jira-Key oder URL. -->
 
 ## Kurzfassung
@@ -32,3 +32,11 @@ topics:
 ## Abnahmekriterien
 
 <!-- Messbare Kriterien, wann die Umsetzung als abgeschlossen gilt. -->
+
+<!-- *Verified YYYY-MM-DD (verifier subagent): X/X claims grounded against Citations.* -->
+
+## Quellen
+
+<!-- Englisch: ## Citations. -->
+- [[<CASE-ID> EVA Titel]]
+- [[<CASE-ID> CON-a Titel]]

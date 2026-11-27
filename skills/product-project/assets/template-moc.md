@@ -29,6 +29,10 @@ topics:
 
 <!-- Kuratierte Links zu wichtigen Solution-Fakten -->
 
+### Stammdaten (`type: masterdata`)
+
+<!-- Englisch: ### Master Data (`type: masterdata`) — Kuratierte Links zu knowledge/masterdata/ (vom User gepflegte Lookup-Daten) -->
+
 ## Cases
 
 ### Aktive Cases

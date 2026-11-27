@@ -5,8 +5,6 @@ case_id: "<CASE-ID>"
 status: draft
 updated: YYYY-MM-DD
 reviewed_on: ""
-sources:
-  - "[[YYYY-MM-DD Aktivität oder Quelle]]"
 superseded_by: ""
 tags:
   - project/<x>
@@ -17,9 +15,8 @@ topics:
 # <Titel>
 
 <!-- Arbeitsergebnis eines Cases (z. B. Risikobewertung, Memo, Antwortentwurf).
-     Dateiname trägt <CASE-ID>-Präfix, H1-Titel im Body NICHT.
-     Keine internen Wikilinks im Body — das Dokument muss direkt als PDF oder per Copy-Paste in eine E-Mail nutzbar sein. Quellen gehören in frontmatter sources:.
-     status: draft | reviewed | final | superseded. -->
+     Dateiname trägt <CASE-ID>-Präfix (<CASE-ID> <Titel>.md), H1-Titel im Body NICHT.
+     status: draft | reviewed | final | superseded (Tier-2 Grounding Check vor draft → reviewed). -->
 
 ## Kurzfassung
 
@@ -27,4 +24,11 @@ topics:
 
 ## Inhalt
 
-<!-- Eigentliches Arbeitsergebnis (self-contained, ohne interne Wikilinks). -->
+<!-- Eigentliches Arbeitsergebnis. -->
+
+<!-- *Verified YYYY-MM-DD (verifier subagent): X/X claims grounded against Citations.* -->
+
+## Quellen
+
+<!-- Englisch: ## Citations. Einheitliche Quellenliste per [[Wikilink]] oder [Titel](URL). -->
+- [[<CASE-ID> YYYY-MM-DD Aktivität oder Rohquelle]] — <Abschnitt / Anker>
