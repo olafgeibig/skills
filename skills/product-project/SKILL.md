@@ -1,7 +1,7 @@
 ---
 name: product-project
 description: "Use when running a product-project: KB, cases & product."
-version: "0.2.1"
+version: "0.3.1"
 author: Olaf Geibig
 license: MIT
 metadata:
@@ -101,7 +101,7 @@ requirement  1 ──── n  concept  n ──── 1  evaluation  1 ──�
 4. **Primary-evidence verification:** Trace critical facts, figures, dates, and legal/compliance citations back to `raw/` or the authoritative primary source; run Tier-2 grounding checks before `draft → reviewed`. Never apply an Exhaustion Rule (`null` stays `null`, never `false`).
 5. **Originals stay put & brake on note inflation:** Never edit `raw/` originals (except appending a complete newer email thread export) and never move `activities/raw/` on case close. Routine two-line emails earn a single bullet in `cases/<ID>.md` `## Log`, not a separate `activities/` note.
 6. **Master data belong to the user:** Cite `knowledge/masterdata/` by `[[Wikilink]]`; never copy lookup values into prose or overwrite them unasked. Keep zero checkboxes and no history in `masterdata/`.
-7. **Hand-maintained case log + completeness check:** Never auto-overwrite `## Log`; verify via scoped SQL (`WHERE case_id = '<ID>'`) vs. `get_links(case_path, direction="outgoing")`.
+7. **Hand-maintained case log + completeness check:** Never auto-overwrite `## Log`; verify via scoped SQL (`WHERE case_id = '<ID>'`) vs. `get_links(case_path, direction="outgoing")`. Keep an assessment or coordination case `simple` unless its work requires the product chain; a leftover legacy requirement is not evidence that the case is unfinished or must become `complex`. Remove an approved redundant requirement only after preserving unique constraints and repairing incoming links.
 8. **One fact, one place & scalar product relations:** Never duplicate chosen/rejected state on `concept` (read `evaluation.chosen`); never use YAML wikilink arrays for `product/` relations.
 9. **Universal evaluation & realized-state KB feedback:** Even single-concept complex cases go through `evaluation`. Update `scope: solution` facts only for realized state (`spec.implementation_status: implemented` or verified current behavior), never unimplemented planned specs.
 10. **Archive isolation:** Pass `exclude_paths: ["archive/"]` to TurboVault `search` AND `AND path NOT LIKE 'projects/<x>/archive/%'` in every SQL query. Zero active notes may link into `archive/`.
@@ -110,7 +110,7 @@ requirement  1 ──── n  concept  n ──── 1  evaluation  1 ──�
 
 | Task | Reference |
 |---|---|
-| Set up, adopt, integrate, or onboard Project Knowledge (`grill-me`) | `references/init-project.md` |
+| Set up, adopt, assess version migration, integrate, or onboard Project Knowledge (`grill-me`) | `references/init-project.md` |
 | Triage `inbox/`, manage `masterdata/`, distill `raw → distilled`, 4-way Delta-Compile | `references/ingest-and-compile.md` |
 | Run `simple`/`complex` cases, `activities/`, `artifacts/`, `Promote to KB`, and close | `references/case-workflow.md` |
 | Work `REQ → CON → EVA → SPEC`, revisions, and implemented-state feedback | `references/product-chain.md` |
@@ -130,6 +130,7 @@ Every `query_frontmatter_sql` query scopes to `WHERE path LIKE 'projects/<x>/%' 
 
 ## Pitfalls
 
+- Treat migration assessment as read-only: distinguish mandatory schema changes, unresolved evidence, and optional content improvements; do not infer the project's original skill version from legacy formatting alone. Use the migration procedure in `references/init-project.md` before proposing moves or deletions.
 - Do not put case meetings or investigations in `knowledge/distilled/` — route them to `activities/` with `case_id:`.
 - Do not add frontmatter source arrays or invent unlisted activity types — use the matrix types and body `## Citations` / `## Quellen` only.
 - Do not move `done` cases or `activities/raw/` originals on close, and do not use `- [ ]` checkboxes for Acceptance Criteria (`1.`, `2.` instead).
